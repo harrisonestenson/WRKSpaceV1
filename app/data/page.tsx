@@ -1349,15 +1349,15 @@ export default function DataDashboard() {
               {/* Summary */}
               <div className="mt-4 p-4 bg-muted/20 rounded-lg">
                 <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
+                    <div>
                     <p className="text-sm text-muted-foreground">Total Logged</p>
                     <p className="text-xl font-bold">{totalLoggedHours.toFixed(1)}h</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Billable</p>
                     <p className="text-xl font-bold text-green-600">{totalBillableHours.toFixed(1)}h</p>
+                    </div>
                   </div>
-                </div>
                 </div>
               </CardContent>
             </Card>
@@ -1397,8 +1397,8 @@ export default function DataDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
-                  <TableHead>Total Hours</TableHead>
-                  <TableHead>Billable Hours</TableHead>
+                        <TableHead>Total Hours</TableHead>
+                        <TableHead>Billable Hours</TableHead>
                   <TableHead>Unaccounted</TableHead>
                   <TableHead>Alert Level</TableHead>
                       </TableRow>
@@ -1481,7 +1481,7 @@ export default function DataDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
+                            <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Target className="h-6 w-6" />
               {isTeamView ? "Team Goal History" : "Goal History"}
@@ -1491,8 +1491,8 @@ export default function DataDashboard() {
                 ? "Track team performance and collective goals" 
                 : "Track your personal goals and performance"
               }
-            </p>
-          </div>
+                              </p>
+                            </div>
           <Button variant="outline" onClick={() => setActiveSection(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -1506,7 +1506,7 @@ export default function DataDashboard() {
               <h3 className="text-lg font-semibold">Filter Goals</h3>
               
               {/* Date Range Filter */}
-              <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Date Range:</span>
                 <Select value={goalDateRange} onValueChange={setGoalDateRange}>
@@ -1953,8 +1953,8 @@ export default function DataDashboard() {
                            <div className="mt-2 text-xs text-center">
                              <div className="font-medium">{trend.week}</div>
                              <div className="text-muted-foreground">{trend.billableHours}h</div>
-                           </div>
-                         </div>
+                              </div>
+                            </div>
                        ))}
                      </div>
                      <div className="mt-4 text-center text-sm text-muted-foreground">
@@ -2214,7 +2214,7 @@ export default function DataDashboard() {
                               <TableCell className="font-medium">{user.name}</TableCell>
                               <TableCell>{user.billableHours}/{user.totalHours}h</TableCell>
                               <TableCell>{user.utilization}%</TableCell>
-                              <TableCell>
+                          <TableCell>
                                 <Badge 
                                   variant={user.status === "green" ? "default" : user.status === "yellow" ? "secondary" : "destructive"}
                                   className={user.status === "green" ? "bg-green-100 text-green-800" : 
@@ -2223,44 +2223,44 @@ export default function DataDashboard() {
                                 >
                                   {user.status === "green" ? "Good" : user.status === "yellow" ? "Fair" : "Poor"}
                                 </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5" />
                       Team Billable Efficiency
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                     <div className="space-y-4">
                       <div className="text-center">
                         <div className="text-3xl font-bold text-green-600">8.1</div>
                         <div className="text-sm text-muted-foreground">Average hours per $1k salary</div>
                       </div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
                             <TableHead>Name</TableHead>
                             <TableHead>Efficiency</TableHead>
                             <TableHead>Ranking</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                                                      {teamData.efficiency.map((user: any, index: number) => (
                             <TableRow key={index}>
                               <TableCell className="font-medium">{user.name}</TableCell>
                               <TableCell>{user.efficiency}</TableCell>
                               <TableCell>#{user.ranking}</TableCell>
-                              <TableCell>
+                          <TableCell>
                                 <Badge 
                                   variant={user.status === "green" ? "default" : user.status === "yellow" ? "secondary" : "destructive"}
                                   className={user.status === "green" ? "bg-green-100 text-green-800" : 
@@ -2268,15 +2268,15 @@ export default function DataDashboard() {
                                            "bg-red-100 text-red-800"}
                                 >
                                   {user.status === "green" ? "High" : user.status === "yellow" ? "Average" : "Low"}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                              </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
               </div>
 
               <Card>
@@ -2622,7 +2622,7 @@ export default function DataDashboard() {
       {/* Billable Hour Comparison Dialog */}
       <Dialog open={isBillableComparisonOpen} onOpenChange={setIsBillableComparisonOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+            <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart className="h-6 w-6" />
               Team Billable Hour Comparison
@@ -2630,7 +2630,7 @@ export default function DataDashboard() {
             <DialogDescription>
               Compare billable hours across all team members for different time periods
             </DialogDescription>
-          </DialogHeader>
+            </DialogHeader>
           
           {/* Period Selector */}
           <div className="flex items-center gap-4 mb-6">
@@ -2648,7 +2648,7 @@ export default function DataDashboard() {
           </div>
 
           {/* Comparison Table */}
-          <div className="space-y-4">
+            <div className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -2698,9 +2698,9 @@ export default function DataDashboard() {
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">
                       {Math.max(...mockBillableComparison[billableComparisonPeriod as keyof typeof mockBillableComparison].map((m: any) => m.billableHours))}h
-                    </div>
+              </div>
                     <div className="text-sm text-muted-foreground">Highest Billable Hours</div>
-                  </div>
+            </div>
                 </CardContent>
               </Card>
               <Card>
@@ -2724,9 +2724,9 @@ export default function DataDashboard() {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   )
 }

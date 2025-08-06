@@ -36,6 +36,15 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Flame,
+  Trophy,
+  Zap,
+  AlertTriangle,
+  Edit,
+  Trash2,
+  EyeOff,
+  Play,
+  Pause,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -57,6 +66,87 @@ const mockGoalTypes = [
   { id: "billable", name: "Billable Hours", description: "Client billable work" },
   { id: "time-management", name: "Time Management", description: "Efficiency goals" },
   { id: "culture", name: "Culture", description: "Team contribution" },
+]
+
+// Streak configuration data
+const streakCategories = [
+  { id: "time-management", name: "Time Management", description: "Track time-related behaviors" },
+  { id: "task-management", name: "Task / Work Management", description: "Track work output and goals" },
+  { id: "goal-alignment", name: "Goal Alignment", description: "Track alignment with company goals" },
+  { id: "engagement-culture", name: "Engagement / Culture", description: "Track team engagement" },
+]
+
+const streakTemplates = [
+  {
+    id: "start-work-early",
+    name: "Start Work Before 9AM",
+    category: "time-management",
+    frequency: "daily",
+    rule: {
+      type: "time-logged-before",
+      value: "9:00 AM",
+      description: "User logs time before 9:00 AM"
+    },
+    resetCondition: "missed-entry",
+    visibility: true,
+    active: true
+  },
+  {
+    id: "meet-billable-target",
+    name: "Meet Billable Hours Target",
+    category: "task-management",
+    frequency: "weekly",
+    rule: {
+      type: "billable-hours-target",
+      value: "35",
+      description: "Hit expected weekly hours set by admin"
+    },
+    resetCondition: "missed-threshold",
+    visibility: true,
+    active: true
+  },
+  {
+    id: "maintain-cvs-above-90",
+    name: "Maintain CVS Above 90%",
+    category: "task-management",
+    frequency: "weekly",
+    rule: {
+      type: "cvs-threshold",
+      value: "90",
+      description: "CVS ≥ 90% for the week"
+    },
+    resetCondition: "missed-threshold",
+    visibility: true,
+    active: true
+  },
+  {
+    id: "log-time-every-weekday",
+    name: "Log Time Every Weekday",
+    category: "time-management",
+    frequency: "weekly",
+    rule: {
+      type: "daily-logging",
+      value: "5",
+      description: "No days without logs"
+    },
+    resetCondition: "missed-entry",
+    visibility: true,
+    active: true
+  },
+  {
+    id: "average-8-hours-daily",
+    name: "Average 8 Hours Logged Daily",
+    category: "time-management",
+    frequency: "weekly",
+    rule: {
+      type: "weekly-average-hours",
+      value: "8",
+      description: "Weekly daily average ≥ 8 hours"
+    },
+    resetCondition: "missed-threshold",
+    visibility: true,
+    active: true
+  }
 ]
 
 export default function OnboardingPage() {
@@ -105,6 +195,24 @@ export default function OnboardingPage() {
     { name: "David Kim", team: "Litigation Team", expectedBillableHours: 1550, expectedNonBillablePoints: 130, personalTarget: "6.5 hours/day" },
     { name: "Emma Wilson", team: "Corporate Team", expectedBillableHours: 1450, expectedNonBillablePoints: 110, personalTarget: "6 hours/day" },
   ])
+
+  // Streaks configuration state
+  const [streaksConfig, setStreaksConfig] = useState(streakTemplates)
+  const [showStreakEditor, setShowStreakEditor] = useState(false)
+  const [editingStreak, setEditingStreak] = useState<any>(null)
+  const [newStreak, setNewStreak] = useState({
+    name: "",
+    category: "time-management",
+    frequency: "daily",
+    rule: {
+      type: "time-logged-before",
+      value: "",
+      description: ""
+    },
+    resetCondition: "missed-entry",
+    visibility: true,
+    active: true
+  })
   
   // Team member-specific state
   const [personalGoals, setPersonalGoals] = useState({
@@ -115,7 +223,7 @@ export default function OnboardingPage() {
   const [teamGoals, setTeamGoals] = useState([])
   
   // Calculate total steps based on role
-  const totalSteps = userRole === "admin" ? 6 : 6
+  const totalSteps = userRole === "admin" ? 7 : 6
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -793,6 +901,203 @@ export default function OnboardingPage() {
         }
         
       case 6:
+        if (userRole === "admin") {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Flame className="h-8 w-8 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Configure Streaks & Gamification</h3>
+                  <p className="text-muted-foreground">Set up performance tracking and engagement incentives</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Streaks Overview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Flame className="h-5 w-5" />
+                      Streaks Configuration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Streaks help motivate team members by tracking consistent behaviors. Configure daily and weekly streaks to encourage performance, time management, and goal alignment.
+                      </p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Daily Streaks</h4>
+                          <p className="text-xs text-muted-foreground">Track daily behaviors like early start times, time logging, etc.</p>
+                        </div>
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Weekly Streaks</h4>
+                          <p className="text-xs text-muted-foreground">Track weekly goals like billable hours, CVS targets, etc.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pre-configured Streaks */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5" />
+                      Pre-configured Streaks
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        We've set up some common streaks to get you started. You can customize these or add new ones.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        {streaksConfig.map((streak, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${streak.active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                              <div>
+                                <div className="font-medium">{streak.name}</div>
+                                <div className="text-sm text-muted-foreground">{streak.rule.description}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {streak.frequency}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingStreak(streak)
+                                  setShowStreakEditor(true)
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setEditingStreak(null)
+                          setShowStreakEditor(true)
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add New Streak
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Streak Categories */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5" />
+                      Streak Categories
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {streakCategories.map((category) => (
+                        <div key={category.id} className="p-3 border rounded-lg">
+                          <div className="font-medium text-sm">{category.name}</div>
+                          <div className="text-xs text-muted-foreground">{category.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )
+        } else {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <Flame className="h-8 w-8 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Streaks & Consistency</h3>
+                  <p className="text-muted-foreground">Track your performance streaks and build consistency</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Flame className="h-4 w-4" />
+                      Daily Streaks
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Track daily behaviors like early start times, consistent time logging, and goal completion
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Trophy className="h-4 w-4" />
+                      Weekly Streaks
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Monitor weekly goals like billable hours targets, CVS scores, and team contributions
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      Performance Insights
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Get insights into your most productive times and consistency patterns
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Break Alerts
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when streaks are at risk and receive tips to maintain consistency
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )
+        }
+        
+      case 7:
         if (userRole === "admin") {
           return (
             <div className="space-y-6">

@@ -49,6 +49,21 @@ export default function LawFirmDashboard() {
   const [selectedCases, setSelectedCases] = useState<string[]>([])
   const [workDescription, setWorkDescription] = useState("")
 
+  // Non-billable timer states
+  const [isNonBillableTimerRunning, setIsNonBillableTimerRunning] = useState(false)
+  const [nonBillableTimerSeconds, setNonBillableTimerSeconds] = useState(0)
+  const [selectedNonBillableTask, setSelectedNonBillableTask] = useState("")
+  const [nonBillableDescription, setNonBillableDescription] = useState("")
+
+  // Non-billable tasks data
+  const nonBillableTasks = [
+    { id: "pnc-investigation", name: "PNC Investigation", points: 0.7, description: "Potential new client investigation and research" },
+    { id: "community-involvement", name: "Community Involvement/Event Planning", points: 0.5, description: "Community events, planning, and involvement" },
+    { id: "firm-involvement", name: "Firm Involvement (Seminar/Advancement)", points: 0.6, description: "Firm seminars, training, and advancement activities" },
+    { id: "internal-admin", name: "Internal Administrative Functions", points: 0.3, description: "Internal administrative tasks and functions" },
+    { id: "publication-scholarly", name: "Publication/Scholarly Articles", points: 0.8, description: "Writing and publishing scholarly articles" },
+  ]
+
   // Clock in/out states
   const [isClockedIn, setIsClockedIn] = useState(false)
   const [clockInTime, setClockInTime] = useState<string>("")
@@ -59,6 +74,13 @@ export default function LawFirmDashboard() {
   const [manualEndTime, setManualEndTime] = useState("")
   const [manualSelectedCases, setManualSelectedCases] = useState<string[]>([])
   const [manualDescription, setManualDescription] = useState("")
+
+  // Non-billable manual entry states
+  const [nonBillableManualDate, setNonBillableManualDate] = useState(new Date().toISOString().split("T")[0])
+  const [nonBillableManualStartTime, setNonBillableManualStartTime] = useState("")
+  const [nonBillableManualEndTime, setNonBillableManualEndTime] = useState("")
+  const [nonBillableManualSelectedTask, setNonBillableManualSelectedTask] = useState("")
+  const [nonBillableManualDescription, setNonBillableManualDescription] = useState("")
 
   // Modal states
   const [isManageOpen, setIsManageOpen] = useState(false)
@@ -82,6 +104,19 @@ export default function LawFirmDashboard() {
       if (interval) clearInterval(interval)
     }
   }, [isTimerRunning])
+
+  // Non-billable timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    if (isNonBillableTimerRunning) {
+      interval = setInterval(() => {
+        setNonBillableTimerSeconds((seconds) => seconds + 1)
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [isNonBillableTimerRunning])
 
   // Format time helper
   const formatTime = (seconds: number) => {
@@ -132,6 +167,47 @@ export default function LawFirmDashboard() {
     } else {
       setSelectedCases((prev) => prev.filter((id) => id !== caseId))
     }
+  }
+
+  // Non-billable timer functions
+  const startNonBillableTimer = () => {
+    setIsNonBillableTimerRunning(true)
+  }
+
+  const pauseNonBillableTimer = () => {
+    setIsNonBillableTimerRunning(false)
+  }
+
+  const stopNonBillableTimer = () => {
+    setIsNonBillableTimerRunning(false)
+    if (!selectedNonBillableTask || !nonBillableDescription.trim() || nonBillableTimerSeconds === 0) {
+      alert("Please select a non-billable task and provide a description before stopping the timer.")
+      return
+    }
+
+    const selectedTask = nonBillableTasks.find(task => task.id === selectedNonBillableTask)
+    const pointsPerHour = selectedTask?.points || 0.5
+
+    // Here you would typically save the time entry
+    const timeEntry = {
+      date: new Date().toISOString().split("T")[0],
+      task: selectedNonBillableTask,
+      taskName: selectedTask?.name || "",
+      description: nonBillableDescription,
+      duration: formatTime(nonBillableTimerSeconds),
+      totalSeconds: nonBillableTimerSeconds,
+      type: "non-billable",
+      points: (nonBillableTimerSeconds / 3600) * pointsPerHour,
+      pointsPerHour: pointsPerHour,
+    }
+
+    console.log("Non-billable time entry submitted:", timeEntry)
+    alert("Non-billable time entry submitted successfully!")
+
+    // Reset timer
+    setNonBillableTimerSeconds(0)
+    setSelectedNonBillableTask("")
+    setNonBillableDescription("")
   }
 
   // Clock in/out functions
@@ -186,6 +262,43 @@ export default function LawFirmDashboard() {
     setManualDescription("")
     setManualStartTime("")
     setManualEndTime("")
+  }
+
+  // Non-billable manual entry submit
+  const submitNonBillableManualEntry = () => {
+    if (!nonBillableManualSelectedTask || !nonBillableManualDescription.trim() || !nonBillableManualStartTime || !nonBillableManualEndTime) {
+      alert("Please select a non-billable task, fill in all time fields, and enter a description")
+      return
+    }
+
+    const startDateTime = new Date(`${nonBillableManualDate}T${nonBillableManualStartTime}`)
+    const endDateTime = new Date(`${nonBillableManualDate}T${nonBillableManualEndTime}`)
+    const duration = Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000)
+
+    const selectedTask = nonBillableTasks.find(task => task.id === nonBillableManualSelectedTask)
+    const pointsPerHour = selectedTask?.points || 0.5
+
+    const manualTimeEntry = {
+      date: nonBillableManualDate,
+      task: nonBillableManualSelectedTask,
+      taskName: selectedTask?.name || "",
+      description: nonBillableManualDescription,
+      startTime: nonBillableManualStartTime,
+      endTime: nonBillableManualEndTime,
+      duration: formatTime(duration),
+      type: "non-billable",
+      points: (duration / 3600) * pointsPerHour,
+      pointsPerHour: pointsPerHour,
+    }
+
+    console.log("Non-billable manual time entry submitted:", manualTimeEntry)
+    alert("Non-billable manual time entry submitted successfully!")
+
+    // Reset form
+    setNonBillableManualSelectedTask("")
+    setNonBillableManualDescription("")
+    setNonBillableManualStartTime("")
+    setNonBillableManualEndTime("")
   }
 
   const CircularProgress = ({
@@ -424,9 +537,10 @@ export default function LawFirmDashboard() {
       {/* Main Content */}
       <main className="container mx-auto px-4 pb-4">
         <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)]">
-          {/* Stopwatch Section - 60% of screen */}
-          <div className="col-span-7">
-            <Card className="h-full flex flex-col">
+          {/* Timer Section - 60% of screen */}
+          <div className="col-span-7 space-y-4">
+            {/* Billable Hours Timer */}
+            <Card className="h-1/2 flex flex-col">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Clock className="h-5 w-5" />
@@ -468,7 +582,7 @@ export default function LawFirmDashboard() {
                     <p className="text-xs text-muted-foreground mb-2">
                       Check all cases you worked on during this time period
                     </p>
-                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                    <div className="border rounded-lg p-3 max-h-32 overflow-y-auto space-y-2">
                       {mockCases.map((case_) => (
                         <div key={case_.id} className="flex items-start space-x-2">
                           <Checkbox
@@ -498,7 +612,91 @@ export default function LawFirmDashboard() {
                       placeholder="Describe the work performed across the selected cases..."
                       value={workDescription}
                       onChange={(e) => setWorkDescription(e.target.value)}
-                      rows={3}
+                      rows={2}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Non-Billable Hours Timer */}
+            <Card className="h-1/2 flex flex-col">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Target className="h-5 w-5" />
+                  Non-Billable Hours Timer
+                  {selectedNonBillableTask && (
+                    <Badge variant="outline" className="text-xs">
+                      {nonBillableTasks.find(task => task.id === selectedNonBillableTask)?.points || 0.5} pts/hr
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col space-y-4">
+                {/* Large Timer Display */}
+                <div className="text-center">
+                  <div className="text-6xl font-mono font-bold text-orange-600 mb-3">{formatTime(nonBillableTimerSeconds)}</div>
+                  <div className="flex items-center justify-center gap-3">
+                    {!isNonBillableTimerRunning ? (
+                      <Button onClick={startNonBillableTimer} className="px-6 bg-orange-600 hover:bg-orange-700">
+                        <Play className="h-4 w-4 mr-2" />
+                        Start
+                      </Button>
+                    ) : (
+                      <Button onClick={pauseNonBillableTimer} variant="secondary" className="px-6">
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </Button>
+                    )}
+                    <Button onClick={stopNonBillableTimer} variant="destructive" className="px-6">
+                      <Square className="h-4 w-4 mr-2" />
+                      Stop & Submit
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Non-Billable Task Selection */}
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm font-medium">Select Non-Billable Task *</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Choose the type of non-billable work you performed
+                    </p>
+                    <Select value={selectedNonBillableTask} onValueChange={setSelectedNonBillableTask}>
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="Select a non-billable task..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nonBillableTasks.map((task) => (
+                          <SelectItem key={task.id} value={task.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{task.name}</span>
+                              <Badge variant="outline" className="text-xs ml-2">
+                                {task.points} pts/hr
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedNonBillableTask && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {nonBillableTasks.find(task => task.id === selectedNonBillableTask)?.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="non-billable-description" className="text-sm font-medium">
+                      Work Description *
+                    </Label>
+                    <Textarea
+                      id="non-billable-description"
+                      placeholder="Describe the non-billable work you performed..."
+                      value={nonBillableDescription}
+                      onChange={(e) => setNonBillableDescription(e.target.value)}
+                      rows={2}
                       className="text-sm"
                     />
                   </div>
@@ -509,10 +707,10 @@ export default function LawFirmDashboard() {
 
           {/* Right Side - Manual Log and Progress */}
           <div className="col-span-5 space-y-4">
-            {/* Manual Log Section */}
-            <Card className="h-1/2">
+            {/* Billable Manual Log Section */}
+            <Card className="h-1/3">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Manual Time Entry</CardTitle>
+                <CardTitle className="text-base">Billable Manual Time Entry</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -621,8 +819,96 @@ export default function LawFirmDashboard() {
               </CardContent>
             </Card>
 
+            {/* Non-Billable Manual Log Section */}
+            <Card className="h-1/3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Non-Billable Manual Time Entry</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="non-billable-manual-date" className="text-xs">
+                      Date
+                    </Label>
+                    <Input
+                      id="non-billable-manual-date"
+                      type="date"
+                      value={nonBillableManualDate}
+                      onChange={(e) => setNonBillableManualDate(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Non-Billable Task *</Label>
+                    <Select value={nonBillableManualSelectedTask} onValueChange={setNonBillableManualSelectedTask}>
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="Select task..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nonBillableTasks.map((task) => (
+                          <SelectItem key={task.id} value={task.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{task.name}</span>
+                              <Badge variant="outline" className="text-xs ml-2">
+                                {task.points} pts/hr
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="non-billable-manual-start" className="text-xs">
+                      Start Time
+                    </Label>
+                    <Input
+                      id="non-billable-manual-start"
+                      type="time"
+                      value={nonBillableManualStartTime}
+                      onChange={(e) => setNonBillableManualStartTime(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="non-billable-manual-end" className="text-xs">
+                      End Time
+                    </Label>
+                    <Input
+                      id="non-billable-manual-end"
+                      type="time"
+                      value={nonBillableManualEndTime}
+                      onChange={(e) => setNonBillableManualEndTime(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="non-billable-manual-description" className="text-xs">
+                    Description
+                  </Label>
+                  <Textarea
+                    id="non-billable-manual-description"
+                    placeholder="Non-billable work description..."
+                    value={nonBillableManualDescription}
+                    onChange={(e) => setNonBillableManualDescription(e.target.value)}
+                    rows={2}
+                    className="text-sm"
+                  />
+                </div>
+
+                <Button onClick={submitNonBillableManualEntry} className="w-full" size="sm">
+                  Submit Non-Billable Entry
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Daily Pledge Section */}
-            <Card className="h-1/2">
+            <Card className="h-1/3">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">Daily Pledge</CardTitle>
