@@ -11,16 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User } from "lucide-react"
-import { Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff } from "lucide-react"
+
+import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon } from "lucide-react"
 
 import Link from "next/link"
 
@@ -39,6 +31,8 @@ const currentUser = {
   personalGoal: { current: 250, target: 320, period: "this month" },
   teamGoal: { current: 78, target: 100, period: "weekly target" },
 }
+
+
 
 
 
@@ -82,8 +76,7 @@ export default function LawFirmDashboard() {
   const [nonBillableManualSelectedTask, setNonBillableManualSelectedTask] = useState("")
   const [nonBillableManualDescription, setNonBillableManualDescription] = useState("")
 
-  // Modal states
-  const [isManageOpen, setIsManageOpen] = useState(false)
+
 
   // User role state
   const [userRole, setUserRole] = useState<"admin" | "member">("member")
@@ -410,85 +403,12 @@ export default function LawFirmDashboard() {
                 </Link>
 
                 {userRole === "admin" && (
-                  <Dialog open={isManageOpen} onOpenChange={setIsManageOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                        <Settings className="h-4 w-4" />
-                        Manage
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl">
-                      <DialogHeader>
-                        <DialogTitle>Management Dashboard</DialogTitle>
-                        <DialogDescription>Manage users, teams, cases, and system settings</DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
-                          <Card>
-                            <CardHeader className="pb-3">
-                              <CardTitle className="text-base">User Management</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <Users className="h-4 w-4 mr-2" />
-                                Manage Team Members
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <UserPlus className="h-4 w-4 mr-2" />
-                                Add New User
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <Shield className="h-4 w-4 mr-2" />
-                                Role Permissions
-                              </Button>
-                            </CardContent>
-                          </Card>
-
-                          <Card>
-                            <CardHeader className="pb-3">
-                              <CardTitle className="text-base">Case Management</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <FileText className="h-4 w-4 mr-2" />
-                                Manage Cases
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add New Case
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full justify-start bg-transparent">
-                                <Archive className="h-4 w-4 mr-2" />
-                                Archive Cases
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        </div>
-
-                        <Card>
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base">System Settings</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-3 gap-3">
-                              <Button variant="outline" size="sm" className="justify-start bg-transparent">
-                                <Clock className="h-4 w-4 mr-2" />
-                                Time Settings
-                              </Button>
-                              <Button variant="outline" size="sm" className="justify-start bg-transparent">
-                                <Bell className="h-4 w-4 mr-2" />
-                                Notifications
-                              </Button>
-                              <Button variant="outline" size="sm" className="justify-start bg-transparent">
-                                <Download className="h-4 w-4 mr-2" />
-                                Export Data
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <Link href="/manage">
+                    <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+                      <Settings className="h-4 w-4" />
+                      Manage
+                    </Button>
+                  </Link>
                 )}
               </div>
             </div>
