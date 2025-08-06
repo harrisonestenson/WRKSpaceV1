@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -134,12 +135,9 @@ const frequencies = [
   { value: "quarterly", label: "Quarterly" },
 ]
 
-interface GoalsDashboardProps {
-  searchParams?: { role?: "admin" | "member" }
-}
-
-export default function GoalsDashboard({ searchParams }: GoalsDashboardProps) {
-  const userRole = (searchParams?.role as "admin" | "member") || "member"
+export default function GoalsDashboard() {
+  const searchParams = useSearchParams()
+  const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
   // Remove these modal states
   // const [isPersonalGoalModalOpen, setIsPersonalGoalModalOpen] = useState(false)
   // const [isTeamGoalModalOpen, setIsTeamGoalModalOpen] = useState(false)

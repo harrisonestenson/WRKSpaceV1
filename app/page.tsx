@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
   DialogContent,
@@ -17,8 +19,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X } from "lucide-react"
+import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User } from "lucide-react"
 import { Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff } from "lucide-react"
+
 import Link from "next/link"
 
 // Mock data
@@ -36,6 +39,8 @@ const currentUser = {
   personalGoal: { current: 250, target: 320, period: "this month" },
   teamGoal: { current: 78, target: 100, period: "weekly target" },
 }
+
+
 
 export default function LawFirmDashboard() {
   // Timer states
@@ -56,11 +61,14 @@ export default function LawFirmDashboard() {
   const [manualDescription, setManualDescription] = useState("")
 
   // Modal states
-  const [isMetricsOpen, setIsMetricsOpen] = useState(false)
   const [isManageOpen, setIsManageOpen] = useState(false)
 
   // User role state
   const [userRole, setUserRole] = useState<"admin" | "member">("member")
+  
+  // Daily pledge state
+  const [dailyPledge, setDailyPledge] = useState("I pledge to log at least 7 billable hours today and maintain high quality work standards.")
+  const [isEditingPledge, setIsEditingPledge] = useState(false)
 
   // Timer effect
   useEffect(() => {
@@ -274,26 +282,19 @@ export default function LawFirmDashboard() {
                   </Button>
                 </Link>
 
-                <Dialog open={isMetricsOpen} onOpenChange={setIsMetricsOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                      <BarChart3 className="h-4 w-4" />
-                      Metrics
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl">
-                    <DialogHeader>
-                      <DialogTitle>Performance Metrics</DialogTitle>
-                      <DialogDescription>Analyze your productivity and performance trends</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="text-center py-8">
-                        <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">Performance metrics will be displayed here</p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Link href={`/metrics?role=${userRole}`}>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+                    <BarChart3 className="h-4 w-4" />
+                    Metrics
+                  </Button>
+                </Link>
+
+                <Link href={`/onboarding?role=${userRole}`}>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
+                    <User className="h-4 w-4" />
+                    Onboarding
+                  </Button>
+                </Link>
 
                 {userRole === "admin" && (
                   <Dialog open={isManageOpen} onOpenChange={setIsManageOpen}>
@@ -620,25 +621,75 @@ export default function LawFirmDashboard() {
               </CardContent>
             </Card>
 
-            {/* Progress Section */}
+            {/* Daily Pledge Section */}
             <Card className="h-1/2">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Goal Progress</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Daily Pledge</CardTitle>
+                  {userRole === "admin" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingPledge(!isEditingPledge)}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="flex justify-around items-center h-full">
-                  <CircularProgress
-                    value={currentUser.personalGoal.current}
-                    max={currentUser.personalGoal.target}
-                    label="Personal"
-                    sublabel={currentUser.personalGoal.period}
-                  />
-                  <CircularProgress
-                    value={currentUser.teamGoal.current}
-                    max={currentUser.teamGoal.target}
-                    label="Team"
-                    sublabel={currentUser.teamGoal.period}
-                  />
+                <div className="h-full flex flex-col">
+                  {isEditingPledge && userRole === "admin" ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={dailyPledge}
+                        onChange={(e) => setDailyPledge(e.target.value)}
+                        placeholder="Enter the daily pledge for the team..."
+                        className="flex-1 min-h-[120px] resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={() => setIsEditingPledge(false)}
+                          className="flex-1"
+                        >
+                          Save Pledge
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setIsEditingPledge(false)}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col justify-center">
+                      <div className="text-center space-y-4">
+                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mx-auto w-12 h-12 flex items-center justify-center">
+                          <Target className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            Today's Pledge
+                          </p>
+                          <p className="text-sm leading-relaxed text-center">
+                            {dailyPledge}
+                          </p>
+                        </div>
+                        {userRole === "member" && (
+                          <div className="pt-2">
+                            <Badge variant="outline" className="text-xs">
+                              Set by Admin
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
