@@ -125,7 +125,7 @@ export default function ManageDashboard() {
         </div>
         
         <Tabs defaultValue="team-members" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="team-members" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Team Members
@@ -133,6 +133,10 @@ export default function ManageDashboard() {
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Teams
+            </TabsTrigger>
+            <TabsTrigger value="invitations" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Invitations
             </TabsTrigger>
             <TabsTrigger value="goals" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
@@ -644,6 +648,115 @@ export default function ManageDashboard() {
             </Dialog>
           </TabsContent>
 
+          {/* Invitations Tab */}
+          <TabsContent value="invitations" className="space-y-6 mt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-semibold">📧 Team Invitations</h3>
+                <p className="text-muted-foreground">Generate and manage invitation links for team members</p>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Team Overview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Team Members from Onboarding</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Generate invitation links for team members added during onboarding
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {mockTeams.map((team) => (
+                      <div key={team.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold">{team.name}</h4>
+                            <p className="text-sm text-muted-foreground">{team.members} members</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              // Generate invitation link for this team
+                              const invitationLink = `${window.location.origin}/join/${team.name.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substr(2, 9)}`
+                              navigator.clipboard.writeText(invitationLink)
+                              alert('Invitation link copied to clipboard!')
+                            }}
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            Generate Team Link
+                          </Button>
+                        </div>
+                        
+                        {/* Mock team members - in real app, this would come from onboarding data */}
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-muted-foreground">Pending Invitations:</div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Sarah Johnson</span>
+                              <Button size="sm" variant="ghost">
+                                <Mail className="h-3 w-3 mr-1" />
+                                Send Link
+                              </Button>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Mike Chen</span>
+                              <Button size="sm" variant="ghost">
+                                <Mail className="h-3 w-3 mr-1" />
+                                Send Link
+                              </Button>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Lisa Rodriguez</span>
+                              <Button size="sm" variant="ghost">
+                                <Mail className="h-3 w-3 mr-1" />
+                                Send Link
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Invitation Instructions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>How to Use Invitation Links</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="text-sm font-medium">Generate Team Link</p>
+                        <p className="text-xs text-muted-foreground">Creates a unique link for the entire team</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="text-sm font-medium">Send Individual Links</p>
+                        <p className="text-xs text-muted-foreground">Send personalized links to specific team members</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div>
+                        <p className="text-sm font-medium">Track Invitations</p>
+                        <p className="text-xs text-muted-foreground">Monitor who has joined and who is still pending</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           {/* Goals Tab */}
           <TabsContent value="goals" className="space-y-6 mt-6">
             <div className="flex items-center justify-between">
@@ -687,6 +800,7 @@ export default function ManageDashboard() {
                           <SelectItem value="Time Management">Time Management</SelectItem>
                           <SelectItem value="Culture">Culture</SelectItem>
                           <SelectItem value="Training">Training</SelectItem>
+                          <SelectItem value="Company-Wide">Company-Wide</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -723,6 +837,7 @@ export default function ManageDashboard() {
                         <SelectContent>
                           <SelectItem value="All Teams">All Teams</SelectItem>
                           <SelectItem value="All Users">All Users</SelectItem>
+                          <SelectItem value="Company-Wide">Company-Wide</SelectItem>
                           <SelectItem value="Divorce Team">Divorce Team</SelectItem>
                           <SelectItem value="Corporate Team">Corporate Team</SelectItem>
                           <SelectItem value="Real Estate Team">Real Estate Team</SelectItem>

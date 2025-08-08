@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import {
   ArrowLeft,
   Clock,
@@ -43,269 +44,84 @@ import {
   Users,
   TrendingDown,
   BarChart,
+  RefreshCw,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 
-// Mock data for the dashboard
+// Empty data - will be populated from database
 const mockMetricsData = {
   // Personal metrics for team members
   personal: {
-    timeTrends: [
-      { week: "Week 1", billableHours: 32, goal: 35 },
-      { week: "Week 2", billableHours: 38, goal: 35 },
-      { week: "Week 3", billableHours: 29, goal: 35 },
-      { week: "Week 4", billableHours: 41, goal: 35 },
-    ],
-    dailyBreakdown: [
-      { day: "Mon", billable: 7.5, nonBillable: 1.5, breaks: 1.0, total: 10.0 },
-      { day: "Tue", billable: 8.0, nonBillable: 1.0, breaks: 1.0, total: 10.0 },
-      { day: "Wed", billable: 6.5, nonBillable: 2.0, breaks: 1.5, total: 10.0 },
-      { day: "Thu", billable: 8.5, nonBillable: 0.5, breaks: 1.0, total: 10.0 },
-      { day: "Fri", billable: 7.0, nonBillable: 1.5, breaks: 1.5, total: 10.0 },
-    ],
+    timeTrends: [],
+    dailyBreakdown: [],
     streaks: {
-      currentStreak: 12,
-      longestStreak: 18,
-      daysMissed: 3,
-      mostProductiveTime: "9-12 AM",
+      currentStreak: 0,
+      longestStreak: 0,
+      daysMissed: 0,
+      mostProductiveTime: "",
     },
     goalPerformance: {
-      met: 65,
-      missed: 20,
-      partial: 15,
-      recentGoals: [
-        { title: "Log 35 billable hours", status: "met", type: "Billable" },
-        { title: "Complete 3 case reviews", status: "met", type: "Work Output" },
-        { title: "Attend team meeting", status: "partial", type: "Culture" },
-        { title: "Update client files", status: "missed", type: "Work Output" },
-        { title: "Research new case law", status: "met", type: "Work Output" },
-      ]
+      met: 0,
+      missed: 0,
+      partial: 0,
+      recentGoals: []
     }
   },
   // Team metrics for admin
   team: {
-    timeTrends: [
-      { week: "Week 1", billableHours: 145, goal: 150 },
-      { week: "Week 2", billableHours: 162, goal: 150 },
-      { week: "Week 3", billableHours: 138, goal: 150 },
-      { week: "Week 4", billableHours: 175, goal: 150 },
-    ],
-    utilization: [
-      { name: "Sarah Johnson", billableHours: 32, totalHours: 40, utilization: 80, status: "yellow" },
-      { name: "Mike Chen", billableHours: 35, totalHours: 40, utilization: 87.5, status: "green" },
-      { name: "Lisa Rodriguez", billableHours: 28, totalHours: 40, utilization: 70, status: "red" },
-      { name: "David Kim", billableHours: 36, totalHours: 40, utilization: 90, status: "green" },
-      { name: "Emma Wilson", billableHours: 30, totalHours: 40, utilization: 75, status: "yellow" },
-    ],
-    efficiency: [
-      { name: "Sarah Johnson", efficiency: 8.2, ranking: 3, status: "green" },
-      { name: "Mike Chen", efficiency: 9.1, ranking: 1, status: "green" },
-      { name: "Lisa Rodriguez", efficiency: 6.8, ranking: 5, status: "red" },
-      { name: "David Kim", efficiency: 8.9, ranking: 2, status: "green" },
-      { name: "Emma Wilson", efficiency: 7.5, ranking: 4, status: "yellow" },
-    ],
-    goalContribution: [
-      { goal: "300 Team Billable Hours", target: 300, progress: 275, members: [
-        { name: "Sarah Johnson", contributed: 32, percentage: 11.6, personalTarget: 35, status: "on-track" },
-        { name: "Mike Chen", contributed: 35, percentage: 12.7, personalTarget: 35, status: "exceeded" },
-        { name: "Lisa Rodriguez", contributed: 28, percentage: 10.2, personalTarget: 35, status: "behind" },
-        { name: "David Kim", contributed: 36, percentage: 13.1, personalTarget: 35, status: "exceeded" },
-        { name: "Emma Wilson", contributed: 30, percentage: 10.9, personalTarget: 35, status: "behind" },
-      ]}
-    ],
-    streaks: [
-      { name: "Mike Chen", streak: 18, status: "active" },
-      { name: "David Kim", streak: 15, status: "active" },
-      { name: "Sarah Johnson", streak: 12, status: "active" },
-      { name: "Emma Wilson", streak: 8, status: "active" },
-      { name: "Lisa Rodriguez", streak: 3, status: "broken" },
-    ],
+    timeTrends: [],
+    utilization: [],
+    efficiency: [],
+    goalContribution: [],
+    streaks: [],
     goalPerformance: {
-      met: 70,
-      missed: 15,
-      partial: 15,
-      byType: [
-        { type: "Billable", met: 75, missed: 15, partial: 10 },
-        { type: "Time Management", met: 65, missed: 20, partial: 15 },
-        { type: "Culture", met: 80, missed: 10, partial: 10 },
-      ]
+      met: 0,
+      missed: 0,
+      partial: 0,
+      byType: []
     },
-    heatmap: [
-      { name: "Sarah Johnson", monday: 8, tuesday: 7, wednesday: 6, thursday: 9, friday: 7 },
-      { name: "Mike Chen", monday: 9, tuesday: 8, wednesday: 8, thursday: 9, friday: 8 },
-      { name: "Lisa Rodriguez", monday: 6, tuesday: 7, wednesday: 5, thursday: 6, friday: 7 },
-      { name: "David Kim", monday: 9, tuesday: 9, wednesday: 8, thursday: 9, friday: 8 },
-      { name: "Emma Wilson", monday: 7, tuesday: 8, wednesday: 6, thursday: 7, friday: 8 },
-    ]
+    heatmap: []
   }
 }
 
-const mockTimeEntries = [
-  {
-    id: 1,
-    date: "2024-01-15",
-    clockIn: "09:00",
-    clockOut: "17:30",
-    totalHours: 8.5,
-    billableHours: 7.5,
-    caseName: "Johnson vs. Smith",
-    notes: "Client consultation and document review. Met with client to discuss settlement options and reviewed preliminary documents. Prepared response to opposing counsel's motion.",
-    status: "complete",
-  },
-  {
-    id: 2,
-    date: "2024-01-14",
-    clockIn: "08:45",
-    clockOut: "16:15",
-    totalHours: 7.5,
-    billableHours: 6.0,
-    caseName: "Johnson vs. Smith",
-    notes: "Court preparation and research. Conducted legal research on recent case law and prepared court documents for upcoming hearing.",
-    status: "unaccounted",
-  },
-  {
-    id: 3,
-    date: "2024-01-13",
-    clockIn: "09:15",
-    clockOut: "18:00",
-    totalHours: 8.75,
-    billableHours: 8.25,
-    caseName: "ABC Corp Merger",
-    notes: "Contract negotiations and due diligence review. Participated in merger negotiations and reviewed financial documents.",
-    status: "complete",
-  },
-  {
-    id: 4,
-    date: "2024-01-12",
-    clockIn: "08:30",
-    clockOut: "17:45",
-    totalHours: 9.25,
-    billableHours: 7.75,
-    caseName: "State vs. Williams",
-    notes: "Case research and client meeting. Conducted extensive legal research and met with client to discuss defense strategy.",
-    status: "unaccounted",
-  },
-  {
-    id: 5,
-    date: "2024-01-11",
-    clockIn: "09:00",
-    clockOut: "17:00",
-    totalHours: 8.0,
-    billableHours: 7.0,
-    caseName: "Property Purchase - Oak St",
-    notes: "Title search and contract review. Reviewed property title documents and prepared purchase agreement.",
-    status: "complete",
-  },
-  {
-    id: 6,
-    date: "2024-01-10",
-    clockIn: "08:00",
-    clockOut: "16:30",
-    totalHours: 8.5,
-    billableHours: 7.0,
-    caseName: "Estate Planning - Rodriguez",
-    notes: "Estate planning consultation and document preparation. Met with client to discuss estate planning needs and prepared initial documents.",
-    status: "complete",
-  },
-]
+// This will be converted to state inside the component
 
-// Mock team data for admin view
-const mockTeamMembers = [
-  {
-    id: "all",
-    name: "All Users",
-    role: "Team",
-    avatar: "👥"
-  },
-  {
-    id: "admin",
-    name: "Admin (You)",
-    role: "Administrator",
-    avatar: "👨‍💼"
-  },
-  {
-    id: "user1",
-    name: "Sarah Johnson",
-    role: "Senior Associate",
-    avatar: "👩‍💼"
-  },
-  {
-    id: "user2", 
-    name: "Michael Chen",
-    role: "Associate",
-    avatar: "👨‍💼"
-  },
-  {
-    id: "user3",
-    name: "Emily Rodriguez",
-    role: "Junior Associate", 
-    avatar: "👩‍💼"
-  },
-  {
-    id: "user4",
-    name: "David Williams",
-    role: "Partner",
-    avatar: "👨‍💼"
-  }
-]
+// Live session tracking
+interface LiveSession {
+  id: string
+  clockInTime: Date
+  currentTime: Date
+  duration: number // in seconds
+  status: 'active' | 'completed'
+}
 
-// Mock team-wide data
+// Empty data - will be populated from database
+const mockTeamMembers: any[] = []
+
+// Empty team-wide data
 const mockTeamData = {
-  averageClockIn: "08:45",
-  averageClockOut: "17:30", 
-  averageDailyBillable: 7.2,
-  totalTeamHours: 156.5,
-  totalTeamBillable: 134.2,
-  teamGoalCompletion: 78,
-  teamCases: [
-    { caseName: "Johnson vs. Smith", totalHours: 45.5, billableHours: 42.0, percentage: 29 },
-    { caseName: "ABC Corp Merger", totalHours: 38.0, billableHours: 35.5, percentage: 24 },
-    { caseName: "State vs. Williams", totalHours: 32.0, billableHours: 28.5, percentage: 20 },
-    { caseName: "Property Purchase - Oak St", totalHours: 25.0, billableHours: 22.0, percentage: 16 },
-    { caseName: "Estate Planning - Rodriguez", totalHours: 16.0, billableHours: 6.2, percentage: 11 }
-  ]
+  averageClockIn: "",
+  averageClockOut: "", 
+  averageDailyBillable: 0,
+  totalTeamHours: 0,
+  totalTeamBillable: 0,
+  teamGoalCompletion: 0,
+  teamCases: []
 }
 
-// Mock billable hour comparison data
+// Empty billable hour comparison data
 const mockBillableComparison = {
-  daily: [
-    { name: "Sarah Johnson", billableHours: 7.5, totalHours: 9.0, utilization: 83.3 },
-    { name: "Mike Chen", billableHours: 8.0, totalHours: 9.5, utilization: 84.2 },
-    { name: "Lisa Rodriguez", billableHours: 6.5, totalHours: 8.5, utilization: 76.5 },
-    { name: "David Kim", billableHours: 8.5, totalHours: 9.0, utilization: 94.4 },
-    { name: "Emma Wilson", billableHours: 7.0, totalHours: 8.5, utilization: 82.4 },
-  ],
-  weekly: [
-    { name: "Sarah Johnson", billableHours: 32.5, totalHours: 40.0, utilization: 81.3 },
-    { name: "Mike Chen", billableHours: 35.0, totalHours: 42.0, utilization: 83.3 },
-    { name: "Lisa Rodriguez", billableHours: 28.0, totalHours: 38.0, utilization: 73.7 },
-    { name: "David Kim", billableHours: 36.5, totalHours: 40.0, utilization: 91.3 },
-    { name: "Emma Wilson", billableHours: 30.0, totalHours: 38.5, utilization: 77.9 },
-  ],
-  monthly: [
-    { name: "Sarah Johnson", billableHours: 125.0, totalHours: 160.0, utilization: 78.1 },
-    { name: "Mike Chen", billableHours: 140.0, totalHours: 168.0, utilization: 83.3 },
-    { name: "Lisa Rodriguez", billableHours: 112.0, totalHours: 152.0, utilization: 73.7 },
-    { name: "David Kim", billableHours: 146.0, totalHours: 160.0, utilization: 91.3 },
-    { name: "Emma Wilson", billableHours: 120.0, totalHours: 154.0, utilization: 77.9 },
-  ],
+  daily: [],
+  weekly: [],
+  monthly: [],
 }
 
-const mockCaseBreakdown = [
-  { caseName: "Johnson vs. Smith", totalHours: 15.5, billableHours: 13.5, percentage: 87.1 },
-  { caseName: "ABC Corp Merger", totalHours: 8.75, billableHours: 8.25, percentage: 94.3 },
-  { caseName: "State vs. Williams", totalHours: 9.25, billableHours: 7.75, percentage: 83.8 },
-  { caseName: "Property Purchase - Oak St", totalHours: 12.0, billableHours: 10.5, percentage: 87.5 },
-]
+const mockCaseBreakdown: any[] = []
 
-const mockUnaccountedTime = [
-  { date: "2024-01-15", totalHours: 8.5, billableHours: 7.5, unaccounted: 1.0, alert: "low" },
-  { date: "2024-01-14", totalHours: 7.5, billableHours: 6.0, unaccounted: 1.5, alert: "medium" },
-  { date: "2024-01-13", totalHours: 8.75, billableHours: 8.25, unaccounted: 0.5, alert: "low" },
-  { date: "2024-01-12", totalHours: 9.25, billableHours: 7.75, unaccounted: 1.5, alert: "high" },
-]
+const mockUnaccountedTime: any[] = []
 
-const mockGoalHistory = [
+const mockGoalHistory: any[] = [
   {
     id: 1,
     title: "Log 30 billable hours this week",
@@ -573,9 +389,283 @@ export default function DataDashboard() {
   const [selectedUser, setSelectedUser] = useState("all")
   const [adminDateRange, setAdminDateRange] = useState("last30days")
   
+  // Metrics section state
+  const [metricsActiveTab, setMetricsActiveTab] = useState("time-trends")
+  const [isTeamView, setIsTeamView] = useState(false)
+  
+  // Time entries state
+  const [mockTimeEntries, setMockTimeEntries] = useState<any[]>(() => {
+    // Load time entries from localStorage on component mount
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('timeEntries')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          console.log('Loaded time entries from localStorage:', parsed)
+          return parsed
+        } catch (error) {
+          console.error('Error loading time entries from localStorage:', error)
+          return []
+        }
+      }
+    }
+    return []
+  })
+
+  // Helper function to save time entries to localStorage
+  const saveTimeEntries = (entries: any[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('timeEntries', JSON.stringify(entries))
+      console.log('Saved time entries to localStorage:', entries)
+    }
+  }
+
+  // Helper function to clear all time entries (for testing)
+  const clearTimeEntries = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('timeEntries')
+      setMockTimeEntries([])
+      console.log('Cleared all time entries')
+    }
+  }
+  
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
   const [billableComparisonPeriod, setBillableComparisonPeriod] = useState("weekly")
+  
+  // Live session state
+  const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
+  
+  // Live timer states
+  const [liveBillableTimer, setLiveBillableTimer] = useState<{
+    startTime: Date
+    selectedCases: string[]
+    workDescription: string
+    duration: number
+  } | null>(null)
+  
+  const [liveNonBillableTimer, setLiveNonBillableTimer] = useState<{
+    startTime: Date
+    selectedTask: string
+    description: string
+    duration: number
+  } | null>(null)
+  
+  // Update live session and timer times every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Update live session
+      if (liveSession && liveSession.status === 'active') {
+        setLiveSession(prev => {
+          if (!prev) return null
+          const now = new Date()
+          const duration = Math.floor((now.getTime() - prev.clockInTime.getTime()) / 1000)
+          return {
+            ...prev,
+            currentTime: now,
+            duration
+          }
+        })
+      }
+      
+      // Update live billable timer
+      if (liveBillableTimer) {
+        setLiveBillableTimer(prev => {
+          if (!prev) return null
+          const now = new Date()
+          const duration = Math.floor((now.getTime() - prev.startTime.getTime()) / 1000)
+          return {
+            ...prev,
+            duration
+          }
+        })
+      }
+      
+      // Update live non-billable timer
+      if (liveNonBillableTimer) {
+        setLiveNonBillableTimer(prev => {
+          if (!prev) return null
+          const now = new Date()
+          const duration = Math.floor((now.getTime() - prev.startTime.getTime()) / 1000)
+          return {
+            ...prev,
+            duration
+          }
+        })
+      }
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [liveSession, liveBillableTimer, liveNonBillableTimer])
+  
+  // Initialize live session from localStorage on component mount
+  useEffect(() => {
+    console.log('Checking for saved clock session...')
+    const savedClockState = localStorage.getItem('clockSession')
+    if (savedClockState) {
+      try {
+        const clockData = JSON.parse(savedClockState)
+        const clockInTime = new Date(clockData.clockInTime)
+        const now = new Date()
+        const elapsedMs = now.getTime() - clockInTime.getTime()
+        
+        console.log('Found saved session:', clockData)
+        console.log('Clock in time:', clockInTime)
+        console.log('Elapsed time (ms):', elapsedMs)
+        
+        // Only restore if the session is from today and less than 24 hours
+        const isToday = clockInTime.toDateString() === now.toDateString()
+        const isLessThan24Hours = elapsedMs < 24 * 60 * 60 * 1000
+        
+        console.log('Is today:', isToday)
+        console.log('Is less than 24 hours:', isLessThan24Hours)
+        
+        if (isToday && isLessThan24Hours) {
+          // Restore live session
+          console.log('Restoring live session...')
+          startLiveSession(clockInTime)
+        } else {
+          // Clear stale session
+          console.log('Clearing stale session...')
+          localStorage.removeItem('clockSession')
+        }
+      } catch (error) {
+        console.error('Error restoring clock session:', error)
+        localStorage.removeItem('clockSession')
+      }
+    } else {
+      console.log('No saved clock session found')
+    }
+  }, [])
+
+  // Poll for session ended flag
+  useEffect(() => {
+    const checkSessionEnded = () => {
+      const sessionEnded = localStorage.getItem('sessionEnded')
+      if (sessionEnded && liveSession) {
+        console.log('Session ended flag detected, ending live session...')
+        localStorage.removeItem('sessionEnded')
+        endLiveSession()
+      }
+    }
+
+    const interval = setInterval(checkSessionEnded, 500) // Check every 500ms
+    return () => clearInterval(interval)
+  }, [liveSession])
+
+  // Test localStorage on mount
+  useEffect(() => {
+    console.log('Testing localStorage...')
+    const testEntry = {
+      id: 'test-entry',
+      date: new Date().toISOString().split('T')[0],
+      clockIn: '12:00 PM',
+      clockOut: '01:00 PM',
+      totalHours: 1.0,
+      billableHours: 0,
+      notes: 'Test entry',
+      status: 'completed',
+      isOfficeSession: true
+    }
+    
+    const existingEntries = localStorage.getItem('timeEntries')
+    const entries = existingEntries ? JSON.parse(existingEntries) : []
+    console.log('Current entries in localStorage:', entries)
+    
+    // Add test entry if none exist
+    if (entries.length === 0) {
+      entries.unshift(testEntry)
+      localStorage.setItem('timeEntries', JSON.stringify(entries))
+      console.log('Added test entry to localStorage')
+      setMockTimeEntries(entries)
+    }
+  }, [])
+  
+  // Listen for clock in/out events from main dashboard
+  useEffect(() => {
+    const handleStartLiveSession = (event: CustomEvent) => {
+      console.log('Received startLiveSession event:', event.detail)
+      console.log('Event detail clockInTime:', event.detail.clockInTime)
+      console.log('Event type:', event.type)
+      console.log('Event target:', event.target)
+      startLiveSession(event.detail.clockInTime)
+    }
+    
+    const handleEndLiveSession = () => {
+      console.log('Received endLiveSession event')
+      console.log('Current liveSession state:', liveSession)
+      endLiveSession()
+    }
+    
+    const handleAddWorkHours = (event: CustomEvent) => {
+      console.log('Received addWorkHours event:', event.detail)
+      addWorkHoursToToday(event.detail.billableHours, event.detail.description)
+    }
+    
+    const handleStartLiveTimer = (event: CustomEvent) => {
+      console.log('Received startLiveTimer event:', event.detail)
+      if (event.detail.type === 'billable') {
+        setLiveBillableTimer({
+          startTime: event.detail.startTime,
+          selectedCases: event.detail.selectedCases,
+          workDescription: event.detail.workDescription,
+          duration: 0
+        })
+      } else if (event.detail.type === 'non-billable') {
+        setLiveNonBillableTimer({
+          startTime: event.detail.startTime,
+          selectedTask: event.detail.selectedTask,
+          description: event.detail.description,
+          duration: 0
+        })
+      }
+    }
+    
+    const handlePauseLiveTimer = (event: CustomEvent) => {
+      console.log('Received pauseLiveTimer event:', event.detail)
+      if (event.detail.type === 'billable') {
+        setLiveBillableTimer(null)
+      } else if (event.detail.type === 'non-billable') {
+        setLiveNonBillableTimer(null)
+      }
+    }
+    
+    const handleStopLiveTimer = (event: CustomEvent) => {
+      console.log('Received stopLiveTimer event:', event.detail)
+      if (event.detail.type === 'billable') {
+        setLiveBillableTimer(null)
+      } else if (event.detail.type === 'non-billable') {
+        setLiveNonBillableTimer(null)
+      }
+    }
+    
+    console.log('Setting up event listeners for live session and timers')
+    console.log('Data page is ready to receive events')
+    
+    // Add global event listener to debug
+    window.addEventListener('startLiveSession', (event) => {
+      console.log('Global startLiveSession event received:', event)
+    })
+    window.addEventListener('endLiveSession', (event) => {
+      console.log('Global endLiveSession event received:', event)
+    })
+    
+    window.addEventListener('startLiveSession', handleStartLiveSession as EventListener)
+    window.addEventListener('endLiveSession', handleEndLiveSession)
+    window.addEventListener('addWorkHours', handleAddWorkHours as EventListener)
+    window.addEventListener('startLiveTimer', handleStartLiveTimer as EventListener)
+    window.addEventListener('pauseLiveTimer', handlePauseLiveTimer as EventListener)
+    window.addEventListener('stopLiveTimer', handleStopLiveTimer as EventListener)
+    
+    return () => {
+      window.removeEventListener('startLiveSession', handleStartLiveSession as EventListener)
+      window.removeEventListener('endLiveSession', handleEndLiveSession)
+      window.removeEventListener('addWorkHours', handleAddWorkHours as EventListener)
+      window.removeEventListener('startLiveTimer', handleStartLiveTimer as EventListener)
+      window.removeEventListener('pauseLiveTimer', handlePauseLiveTimer as EventListener)
+      window.removeEventListener('stopLiveTimer', handleStopLiveTimer as EventListener)
+    }
+  }, [])
   
 
 
@@ -758,22 +848,153 @@ export default function DataDashboard() {
   }
 
   const handleSaveEdit = () => {
-    // In a real app, this would make an API call
-    console.log(`Saving notes for entry ${editingEntry}: ${editNotes}`)
+    if (editingEntry !== null) {
+      setMockTimeEntries(prev => {
+        const newEntries = prev.map(entry => 
+          entry.id === editingEntry 
+            ? { ...entry, notes: editNotes }
+            : entry
+        )
+        saveTimeEntries(newEntries)
+        return newEntries
+      })
     setEditingEntry(null)
     setEditNotes("")
+      console.log(`Saved notes for entry ${editingEntry}: ${editNotes}`)
+    }
   }
 
   const handleDeleteEntry = (entryId: number) => {
-    // In a real app, this would make an API call
-    console.log(`Deleting entry ${entryId}`)
-    alert(`Entry ${entryId} deleted successfully`)
+    if (confirm('Are you sure you want to delete this time entry?')) {
+      setMockTimeEntries(prev => {
+        const newEntries = prev.filter(entry => entry.id !== entryId)
+        saveTimeEntries(newEntries)
+        return newEntries
+      })
+      console.log(`Deleted entry ${entryId}`)
+    }
   }
 
   const handleExport = (format: "csv" | "pdf") => {
     // In a real app, this would generate and download the file
     console.log(`Exporting time log as ${format.toUpperCase()}`)
     alert(`Exporting time log as ${format.toUpperCase()}...`)
+  }
+  
+  // Function to add work hours to today's entry
+  const addWorkHoursToToday = (billableHours: number, description: string) => {
+    const today = new Date().toISOString().split('T')[0]
+    
+    setMockTimeEntries(prev => {
+    // Find today's entry (prefer office session if it exists)
+      const todayEntry = prev.find(entry => entry.date === today)
+    
+      let newEntries
+    if (todayEntry) {
+      // Update existing entry
+        newEntries = prev.map(entry => 
+          entry.date === today 
+            ? {
+                ...entry,
+                billableHours: entry.billableHours + billableHours,
+                totalHours: entry.totalHours + billableHours,
+                notes: entry.notes + ` | ${description}`
+              }
+            : entry
+        )
+    } else {
+      // Create new entry for today (remote work only)
+      const newEntry = {
+        id: `work-${Date.now()}`,
+        date: today,
+        clockIn: "-",
+        clockOut: "-",
+        totalHours: billableHours,
+        billableHours: billableHours,
+        notes: description,
+        status: "completed",
+        isOfficeSession: false
+      }
+        newEntries = [newEntry, ...prev]
+    }
+      
+      saveTimeEntries(newEntries)
+      return newEntries
+    })
+  }
+  
+  // Live session management
+  const startLiveSession = (clockInTime: Date) => {
+    console.log('Starting live session:', clockInTime)
+    const session: LiveSession = {
+      id: `live-${Date.now()}`,
+      clockInTime,
+      currentTime: clockInTime,
+      duration: 0,
+      status: 'active'
+    }
+    setLiveSession(session)
+    console.log('Live session created:', session)
+    
+    // Save to localStorage for main dashboard sync
+    const sessionData = {
+      clockInTime: clockInTime.toISOString(),
+      sessionId: session.id,
+      timestamp: clockInTime.toISOString()
+    }
+    localStorage.setItem('clockSession', JSON.stringify(sessionData))
+    console.log('Saved clock session to localStorage:', sessionData)
+  }
+  
+  const endLiveSession = () => {
+    console.log('endLiveSession called, liveSession:', liveSession)
+    
+    if (liveSession) {
+      console.log('Ending live session:', liveSession)
+      
+      // Calculate final duration
+      const now = new Date()
+      const finalDuration = Math.floor((now.getTime() - liveSession.clockInTime.getTime()) / 1000)
+      const totalHours = finalDuration / 3600
+      
+      console.log('Final duration (seconds):', finalDuration)
+      console.log('Total hours:', totalHours)
+      
+      // Convert live session to completed time entry
+      const completedEntry = {
+        id: `completed-${Date.now()}`,
+        date: liveSession.clockInTime.toISOString().split('T')[0],
+        clockIn: liveSession.clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        clockOut: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
+        billableHours: 0, // Will be updated with additional work hours
+        notes: "Office session completed",
+        status: "completed",
+        isOfficeSession: true
+      }
+      
+      console.log('Creating completed entry:', completedEntry)
+      
+      // Add to mock time entries (in a real app, this would go to database)
+                setMockTimeEntries(prev => {
+            console.log('Previous entries count:', prev.length)
+            const newEntries = [completedEntry, ...prev]
+            console.log('New entries count:', newEntries.length)
+            saveTimeEntries(newEntries)
+            return newEntries
+          })
+      
+      // Clear the live session
+      setLiveSession(null)
+      
+      // Clear localStorage for main dashboard sync
+      localStorage.removeItem('clockSession')
+      console.log('Cleared clock session from localStorage')
+      
+      console.log('Live session ended, entry added to time log')
+    } else {
+      console.log('No live session to end')
+    }
   }
 
   const renderTimeLogSection = () => (
@@ -789,7 +1010,8 @@ export default function DataDashboard() {
             Track your daily time entries and billable hours
           </p>
             </div>
-            <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3">
+
           <Button variant="outline" onClick={() => handleExport("csv")}>
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
@@ -798,10 +1020,50 @@ export default function DataDashboard() {
                 <Download className="h-4 w-4 mr-2" />
                 Export PDF
               </Button>
+                      <Button 
+              variant={liveSession ? "default" : "outline"} 
+              onClick={() => {
+                if (liveSession) {
+                  console.log('Ending session from data page...')
+                  endLiveSession()
+                  // Notify main dashboard
+                  window.dispatchEvent(new Event('clockOutFromData'))
+                } else {
+                  console.log('Starting session from data page...')
+                  startLiveSession(new Date())
+                  // Notify main dashboard
+                  window.dispatchEvent(new Event('clockInFromData'))
+                }
+              }}
+            >
+            {liveSession ? (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Clock Out
+              </>
+            ) : (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Clock In
+              </>
+            )}
+          </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <>
+              <Button variant="outline" onClick={clearTimeEntries}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => setActiveSection(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
-              </Button>
+          </Button>
             </div>
           </div>
 
@@ -909,18 +1171,179 @@ export default function DataDashboard() {
                       <TableRow>
                         <TableHead className="w-12"></TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Clock In</TableHead>
-                        <TableHead>Clock Out</TableHead>
-                        <TableHead>Total Hours</TableHead>
-                        <TableHead>Billable Hours</TableHead>
+                        <TableHead>Office In</TableHead>
+                        <TableHead>Office Out</TableHead>
+                        <TableHead>Office Hours</TableHead>
+                        <TableHead>Work Hours</TableHead>
                     <TableHead>Notes</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                  {mockTimeEntries.map((entry) => (
+                      {/* Debug info */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="bg-yellow-50 text-xs text-yellow-800">
+                            Debug: Live session state = {liveSession ? 'ACTIVE' : 'NULL'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
+                      {/* Live session row */}
+                      {liveSession && (
+                        <TableRow key="live-session" className="bg-blue-50 hover:bg-blue-100">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                              <span className="text-xs text-blue-600 font-medium">LIVE</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {liveSession.clockInTime.toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {liveSession.clockInTime.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-blue-600 font-medium">
+                              {liveSession.currentTime.toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-blue-600 font-medium">
+                              {Math.floor(liveSession.duration / 3600)}h {Math.floor((liveSession.duration % 3600) / 60)}m
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-muted-foreground">-</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-blue-600 text-sm">
+                              Office session
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                                Active
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
+                      {/* Live billable timer row */}
+                      {liveBillableTimer && (
+                        <TableRow key="live-billable-timer" className="bg-green-50 hover:bg-green-100">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-xs text-green-600 font-medium">TIMER</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {liveBillableTimer.startTime.toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {liveBillableTimer.startTime.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-green-600 font-medium">
+                              {new Date().toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-green-600 font-medium">
+                              {Math.floor(liveBillableTimer.duration / 3600)}h {Math.floor((liveBillableTimer.duration % 3600) / 60)}m
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-green-600 font-medium">
+                              {(liveBillableTimer.duration / 3600).toFixed(2)}h
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-green-600 text-sm">
+                              Billable: {liveBillableTimer.selectedCases.join(", ")}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                Running
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
+                      {/* Live non-billable timer row */}
+                      {liveNonBillableTimer && (
+                        <TableRow key="live-non-billable-timer" className="bg-purple-50 hover:bg-purple-100">
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                              <span className="text-xs text-purple-600 font-medium">TIMER</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {liveNonBillableTimer.startTime.toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            {liveNonBillableTimer.startTime.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-purple-600 font-medium">
+                              {new Date().toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-purple-600 font-medium">
+                              {Math.floor(liveNonBillableTimer.duration / 3600)}h {Math.floor((liveNonBillableTimer.duration % 3600) / 60)}m
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-purple-600 font-medium">
+                              {(liveNonBillableTimer.duration / 3600).toFixed(2)}h
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-purple-600 text-sm">
+                              Non-billable: {liveNonBillableTimer.selectedTask}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                                Running
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
+                      {/* Regular time entries */}
+                      {mockTimeEntries.map((entry) => (
                         <React.Fragment key={entry.id}>
-                          <TableRow className="hover:bg-muted/50">
+                          <TableRow className={`hover:bg-muted/50 ${entry.isOfficeSession ? 'bg-blue-50' : ''} ${entry.isOfficeSession && entry.billableHours > 0 ? 'border-l-4 border-l-green-500' : ''}`}>
                             <TableCell>
                               <Button
                                 variant="ghost"
@@ -935,25 +1358,83 @@ export default function DataDashboard() {
                                 )}
                               </Button>
                             </TableCell>
-                        <TableCell className="font-medium">{entry.date}</TableCell>
-                        <TableCell>{entry.clockIn}</TableCell>
-                        <TableCell>{entry.clockOut}</TableCell>
+                                                    <TableCell className="font-medium">{entry.date}</TableCell>
+                            <TableCell>
+                              {entry.isOfficeSession ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-blue-600">🏢</span>
+                                  {entry.clockIn}
+                                </div>
+                              ) : (
+                                entry.clockIn
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {entry.isOfficeSession ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-blue-600">🏢</span>
+                                  {entry.clockOut}
+                                </div>
+                              ) : (
+                                entry.clockOut
+                              )}
+                            </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
                             <TableCell className="font-medium">{entry.billableHours.toFixed(1)}h</TableCell>
                             <TableCell>
+                              {editingEntry === entry.id ? (
+                                <div className="max-w-xs">
+                                  <Input
+                                    value={editNotes}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditNotes(e.target.value)}
+                                    className="h-8 text-sm"
+                                    placeholder="Enter notes..."
+                                  />
+                                </div>
+                              ) : (
                           <div className="max-w-xs">
                             <p className="text-sm truncate">
                               {entry.notes.length > 50 ? `${entry.notes.substring(0, 50)}...` : entry.notes}
                             </p>
+                            {entry.isOfficeSession && entry.billableHours > 0 && (
+                              <p className="text-xs text-green-600 mt-1">
+                                +{entry.billableHours.toFixed(1)}h additional work
+                              </p>
+                            )}
                             {entry.notes.length > 50 && (
                               <Button variant="link" size="sm" className="h-auto p-0 text-xs">
                                 View
                               </Button>
                             )}
                               </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
+                                {editingEntry === entry.id ? (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
+                                      onClick={handleSaveEdit}
+                                    >
+                                      <CheckCircle className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0 text-gray-600 hover:text-gray-700"
+                                      onClick={() => {
+                                        setEditingEntry(null)
+                                        setEditNotes("")
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -970,6 +1451,8 @@ export default function DataDashboard() {
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
+                                  </>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1134,10 +1617,10 @@ export default function DataDashboard() {
     
     // Add missing properties to team data
     const teamCasesWithIds = mockTeamData.teamCases.map((case_, index) => ({
-      ...case_,
       id: index + 1,
       notes: "Team case",
-      status: "active"
+      status: "active",
+      ...(case_ as any)
     }))
     
     const caseData = isTeamView ? teamCasesWithIds : mockCaseBreakdown

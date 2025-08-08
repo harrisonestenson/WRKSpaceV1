@@ -21,98 +21,47 @@ import {
   Calendar,
   ArrowLeft,
   CheckCircle,
+  Building2,
 } from "lucide-react"
 import Link from "next/link"
 
-// Mock data
-const mockPersonalGoals = [
+// Empty data - will be populated from database
+const mockPersonalGoals: any[] = []
+const mockTeamGoals: any[] = []
+const mockCompanyGoals = [
   {
     id: 1,
-    name: "Monthly Billable Hours",
-    type: "Billable / Work Output",
-    frequency: "Monthly",
-    target: "320 hours",
-    current: 250,
-    max: 320,
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    notes: "Focus on high-priority cases",
-    userId: "current-user",
+    name: "Weekly Billable Hours",
+    type: "company-weekly",
+    frequency: "weekly",
+    target: 50,
+    current: 45,
+    max: 50,
     status: "active",
+    description: "Company-wide weekly billable hours target"
   },
   {
     id: 2,
-    name: "Daily Time Tracking",
-    type: "Time Management",
-    frequency: "Daily",
-    target: "8 hours logged",
-    current: 6,
-    max: 8,
-    startDate: "2024-01-01",
-    endDate: "2024-12-31",
-    notes: "Improve time tracking consistency",
-    userId: "current-user",
+    name: "Monthly Billable Hours", 
+    type: "company-monthly",
+    frequency: "monthly",
+    target: 200,
+    current: 180,
+    max: 200,
     status: "active",
+    description: "Company-wide monthly billable hours target"
   },
   {
     id: 3,
-    name: "Client Communication",
-    type: "Team Contribution / Culture",
-    frequency: "Weekly",
-    target: "Follow up with 10 clients",
-    current: 10,
-    max: 10,
-    startDate: "2024-01-01",
-    endDate: "2024-01-07",
-    notes: "Maintain strong client relationships",
-    userId: "current-user",
-    status: "completed",
-  },
-]
-
-const mockTeamGoals = [
-  {
-    id: 1,
-    name: "Q1 Revenue Target",
-    type: "Billable Hours / Revenue",
-    frequency: "Quarterly",
-    target: "$500,000",
-    current: 375000,
-    max: 500000,
-    startDate: "2024-01-01",
-    endDate: "2024-03-31",
-    notes: "Focus on high-value cases",
-    createdBy: "admin",
+    name: "Annual Billable Hours",
+    type: "company-annual", 
+    frequency: "yearly",
+    target: 2400,
+    current: 2160,
+    max: 2400,
     status: "active",
-  },
-  {
-    id: 2,
-    name: "Case Resolution Rate",
-    type: "Case-Based",
-    frequency: "Monthly",
-    target: "85% resolution",
-    current: 78,
-    max: 85,
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    notes: "Improve case closure efficiency",
-    createdBy: "admin",
-    status: "active",
-  },
-  {
-    id: 3,
-    name: "Team Training Hours",
-    type: "Culture",
-    frequency: "Monthly",
-    target: "40 hours total",
-    current: 40,
-    max: 40,
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    notes: "Professional development focus",
-    createdBy: "admin",
-    status: "completed",
-  },
+    description: "Company-wide annual billable hours target"
+  }
 ]
 
 const personalGoalTypes = [
@@ -126,6 +75,12 @@ const teamGoalTypes = [
   { value: "case", label: "Case-Based", icon: FileText, color: "bg-purple-100 text-purple-800" },
   { value: "time", label: "Time Management", icon: Clock, color: "bg-yellow-100 text-yellow-800" },
   { value: "culture", label: "Culture", icon: Users, color: "bg-green-100 text-green-800" },
+]
+
+const companyGoalTypes = [
+  { value: "company-weekly", label: "Company Weekly Goal", icon: DollarSign, color: "bg-orange-100 text-orange-800" },
+  { value: "company-monthly", label: "Company Monthly Goal", icon: DollarSign, color: "bg-orange-100 text-orange-800" },
+  { value: "company-annual", label: "Company Annual Goal", icon: DollarSign, color: "bg-orange-100 text-orange-800" },
 ]
 
 const frequencies = [
@@ -148,6 +103,7 @@ export default function GoalsDashboard() {
 
   const [personalSortBy, setPersonalSortBy] = useState<string>("all")
   const [teamSortBy, setTeamSortBy] = useState<string>("all")
+  const [companySortBy, setCompanySortBy] = useState<string>("all")
 
   const getGoalTypeInfo = (type: string, isTeamGoal = false) => {
     const types = isTeamGoal ? teamGoalTypes : personalGoalTypes
@@ -168,6 +124,12 @@ export default function GoalsDashboard() {
   const filteredTeamGoals = mockTeamGoals.filter((goal) => {
     if (teamSortBy === "all") return true
     return goal.frequency.toLowerCase() === teamSortBy
+  })
+
+  // Filter and sort company goals
+  const filteredCompanyGoals = mockCompanyGoals.filter((goal) => {
+    if (companySortBy === "all") return true
+    return goal.frequency.toLowerCase() === companySortBy
   })
 
   // Calculate progress for pie charts
@@ -193,8 +155,20 @@ export default function GoalsDashboard() {
     { total: 0, current: 0 },
   )
 
+  const companyProgress = filteredCompanyGoals.reduce(
+    (acc, goal) => {
+      if (goal.max) {
+        acc.total += goal.max
+        acc.current += goal.current
+      }
+      return acc
+    },
+    { total: 0, current: 0 },
+  )
+
   const personalPercentage = personalProgress.total > 0 ? (personalProgress.current / personalProgress.total) * 100 : 0
   const teamPercentage = teamProgress.total > 0 ? (teamProgress.current / teamProgress.total) * 100 : 0
+  const companyPercentage = companyProgress.total > 0 ? (companyProgress.current / companyProgress.total) * 100 : 0
 
   const HaloPieChart = ({
     percentage,
@@ -380,9 +354,9 @@ export default function GoalsDashboard() {
         </div>
       </header>
 
-      {/* Main Content - 50/50 Split */}
+      {/* Main Content - 3 Column Layout */}
       <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 gap-8 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-3 gap-6 h-[calc(100vh-200px)]">
           {/* Personal Goals - Left Side */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -493,6 +467,55 @@ export default function GoalsDashboard() {
                       : `${teamSortBy.charAt(0).toUpperCase() + teamSortBy.slice(1)} team goals will appear here when created through the administrative system`}
                   </p>
                   {/* Remove the create button - team goals are managed elsewhere */}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Company Goals - Third Column */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-orange-600" />
+                  Company Goals
+                </h2>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredCompanyGoals.length} goals
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={companySortBy} onValueChange={setCompanySortBy}>
+                  <SelectTrigger className="w-32 h-8 text-xs">
+                    <SelectValue placeholder="Sort by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Goals</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Company Goals List */}
+            <div className="space-y-4 overflow-y-auto flex-1">
+              {filteredCompanyGoals.length > 0 ? (
+                filteredCompanyGoals.map((goal) => (
+                  <GoalCard key={goal.id} goal={goal} isTeamGoal={false} canEdit={userRole === "admin"} />
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">
+                    {companySortBy === "all" ? "No company goals yet" : `No ${companySortBy} company goals`}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {companySortBy === "all"
+                      ? "Company goals are set during the onboarding process"
+                      : `${companySortBy.charAt(0).toUpperCase() + companySortBy.slice(1)} company goals will appear here when set during onboarding`}
+                  </p>
                 </div>
               )}
             </div>

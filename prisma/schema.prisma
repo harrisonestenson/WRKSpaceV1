@@ -1,0 +1,315 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User model for authentication and user management
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  image         String?
+  role          UserRole  @default(MEMBER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Profile information
+  title         String?
+  department    String?
+  hourlyRate    Float?
+  billableTarget Float?   // Monthly billable hours target
+  
+  // Company goal preferences
+  companyGoalPreferences Json? // Store user's view of company goals
+  
+  // Relationships
+  teamMemberships TeamMember[]
+  timeEntries   TimeEntry[]
+  goals         Goal[]
+  streaks       Streak[]
+  streakLogs    StreakLog[]
+  clockSessions ClockSession[]
+  
+  // Admin relationships
+  managedTeams  Team[]    @relation("TeamManager")
+  createdGoals  Goal[]    @relation("GoalCreator")
+  
+  @@map("users")
+}
+
+// Team model for organizing users
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  department  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  members     TeamMember[]
+  manager     User?    @relation("TeamManager", fields: [managerId], references: [id])
+  managerId   String?
+  goals       Goal[]
+  
+  @@map("teams")
+}
+
+// Many-to-many relationship between users and teams
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  role      String?  // Role within the team
+  joinedAt  DateTime @default(now())
+  
+  // Relationships
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, teamId])
+  @@map("team_members")
+}
+
+// Case/Matter model for legal cases
+model Case {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  client      String
+  type        String   // Divorce, Corporate, Criminal Defense, etc.
+  status      CaseStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  timeEntries TimeEntry[]
+  
+  @@map("cases")
+}
+
+// Time tracking entries
+model TimeEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  caseId      String?
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  duration    Int      // Duration in seconds
+  billable    Boolean  @default(true)
+  description String
+  status      TimeEntryStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Non-billable specific fields
+  nonBillableTaskId String?
+  points           Float?  // Contribution Value Score points
+  
+  // Relationships
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  case        Case?    @relation(fields: [caseId], references: [id])
+  nonBillableTask NonBillableTask? @relation(fields: [nonBillableTaskId], references: [id])
+  
+  @@map("time_entries")
+}
+
+// Non-billable tasks for tracking non-client work
+model NonBillableTask {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  pointsPerHour Float   @default(0.5)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  timeEntries TimeEntry[]
+  
+  @@map("non_billable_tasks")
+}
+
+// Goals for tracking personal and team objectives
+model Goal {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        GoalType
+  frequency   GoalFrequency
+  target      Float
+  current     Float    @default(0)
+  startDate   DateTime
+  endDate     DateTime
+  status      GoalStatus @default(ACTIVE)
+  scope       GoalScope @default(PERSONAL)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  userId      String?
+  teamId      String?
+  createdBy   String
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team        Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  creator     User     @relation("GoalCreator", fields: [createdBy], references: [id])
+  
+  @@map("goals")
+}
+
+// Streaks for gamification and consistency tracking
+model Streak {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  frequency   String   // daily, weekly, monthly
+  rule        Json     // Rule configuration
+  resetCondition String?
+  visibility  Boolean  @default(true)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  users       User[]
+  logs        StreakLog[]
+  
+  @@map("streaks")
+}
+
+// Streak logs for tracking individual streak progress
+model StreakLog {
+  id          String   @id @default(cuid())
+  streakId    String
+  userId      String
+  currentCount Int     @default(0)
+  longestCount Int     @default(0)
+  status      StreakStatus @default(ACTIVE)
+  lastUpdated DateTime @default(now())
+  
+  // Relationships
+  streak      Streak   @relation(fields: [streakId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([streakId, userId])
+  @@map("streak_logs")
+}
+
+// Clock in/out sessions
+model ClockSession {
+  id          String   @id @default(cuid())
+  userId      String
+  clockIn     DateTime
+  clockOut    DateTime?
+  totalHours  Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("clock_sessions")
+}
+
+// Daily pledges for team motivation
+model DailyPledge {
+  id          String   @id @default(cuid())
+  content     String
+  date        DateTime @unique
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("daily_pledges")
+}
+
+// Company-wide goals for organization-level targets
+model CompanyGoals {
+  id              String   @id @default(cuid())
+  weeklyBillable  Int      @default(0)
+  monthlyBillable Int      @default(0)
+  annualBillable  Int      @default(0)
+  organizationId  String   @unique // One set of goals per organization
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("company_goals")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  ATTORNEY
+  PARALEGAL
+  INTERN
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum CaseStatus {
+  ACTIVE
+  CLOSED
+  PENDING
+}
+
+enum TimeEntryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum GoalType {
+  BILLABLE_HOURS
+  TIME_MANAGEMENT
+  CULTURE
+  CASE_BASED
+  REVENUE
+}
+
+enum GoalFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum GoalScope {
+  PERSONAL
+  TEAM
+  ORGANIZATION
+}
+
+enum StreakStatus {
+  ACTIVE
+  BROKEN
+  IN_PROGRESS
+}

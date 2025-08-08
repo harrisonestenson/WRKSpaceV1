@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   ArrowLeft,
   ArrowRight,
@@ -45,27 +47,38 @@ import {
   EyeOff,
   Play,
   Pause,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 
-// Mock data for onboarding
-const mockTeams = [
-  { id: 1, name: "Litigation Team", department: "Litigation" },
-  { id: 2, name: "Corporate Team", department: "Corporate" },
-  { id: 3, name: "Real Estate Team", department: "Real Estate" },
-]
-
-const mockRoles = [
+// Role and goal type suggestions for onboarding
+const roleSuggestions = [
   { id: "associate", name: "Associate", description: "Junior attorney" },
   { id: "partner", name: "Partner", description: "Senior attorney" },
   { id: "paralegal", name: "Paralegal", description: "Legal support" },
   { id: "admin", name: "Administrator", description: "System administrator" },
+  { id: "intern", name: "Intern", description: "Legal intern" },
+  { id: "member", name: "Team Member", description: "General team member" },
 ]
 
-const mockGoalTypes = [
+const goalTypeSuggestions = [
   { id: "billable", name: "Billable Hours", description: "Client billable work" },
   { id: "time-management", name: "Time Management", description: "Efficiency goals" },
   { id: "culture", name: "Culture", description: "Team contribution" },
+]
+
+// Team department suggestions
+const departmentSuggestions = [
+  "Litigation",
+  "Corporate",
+  "Real Estate",
+  "Family Law",
+  "Criminal Defense",
+  "Estate Planning",
+  "Intellectual Property",
+  "Employment Law",
+  "Tax Law",
+  "Other"
 ]
 
 // Streak configuration data
@@ -152,11 +165,47 @@ const streakTemplates = [
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
   const initialRole = (searchParams?.get("role") as "admin" | "member") || "member"
+  const router = useRouter()
   
   // Onboarding state
   const [currentStep, setCurrentStep] = useState(1)
   const [userRole, setUserRole] = useState(initialRole)
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false)
+  const [isLoading, setIsLoading] = useState(false) // Changed from true to false
+  
+  console.log('Onboarding component - isOnboardingComplete:', isOnboardingComplete)
+  console.log('Onboarding component - userRole:', userRole)
+  
+  // Check localStorage for completion state on mount
+  useEffect(() => {
+    const savedCompletion = localStorage.getItem('onboardingComplete')
+    if (savedCompletion === 'true') {
+      console.log('Found saved completion state, redirecting to dashboard...')
+      setIsOnboardingComplete(true)
+      router.push('/')
+    }
+  }, [router])
+  
+  // Check if onboarding is already completed and redirect
+  useEffect(() => {
+    const savedCompletion = localStorage.getItem('onboardingComplete')
+    if (savedCompletion === 'true' && !isOnboardingComplete) {
+      console.log('Onboarding already completed, redirecting to dashboard...')
+      router.push('/')
+    }
+  }, [isOnboardingComplete, router])
+  
+  // Check if onboarding is already completed and prevent access
+  useEffect(() => {
+    const savedCompletion = localStorage.getItem('onboardingComplete')
+    if (savedCompletion === 'true') {
+      console.log('Onboarding already completed, redirecting to dashboard...')
+      router.push('/')
+    }
+  }, [router])
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Profile setup state
   const [profilePhoto, setProfilePhoto] = useState("")
@@ -176,7 +225,26 @@ export default function OnboardingPage() {
   })
   
   // Admin-specific state
-  const [teamData, setTeamData] = useState({
+  const [teamData, setTeamData] = useState<{
+    teams: Array<{
+      name: string;
+      department: string;
+      members: Array<{
+        name: string;
+        email: string;
+        title: string;
+        role: string;
+        expectedBillableHours: number;
+      }>;
+    }>;
+    companyGoals: {
+      weeklyBillable: number;
+      monthlyBillable: number;
+      annualBillable: number;
+    };
+    defaultGoalTypes: string[];
+    userExpectations: any[];
+  }>({
     teams: [],
     companyGoals: {
       weeklyBillable: 0,
@@ -187,17 +255,11 @@ export default function OnboardingPage() {
     userExpectations: [],
   })
   
-  // Team member expectations state for admin editing
-  const [teamMemberExpectations, setTeamMemberExpectations] = useState([
-    { name: "Sarah Johnson", team: "Litigation Team", expectedBillableHours: 1500, expectedNonBillablePoints: 120, personalTarget: "6 hours/day" },
-    { name: "Mike Chen", team: "Corporate Team", expectedBillableHours: 1600, expectedNonBillablePoints: 140, personalTarget: "7 hours/day" },
-    { name: "Lisa Rodriguez", team: "Real Estate Team", expectedBillableHours: 1400, expectedNonBillablePoints: 100, personalTarget: "5.5 hours/day" },
-    { name: "David Kim", team: "Litigation Team", expectedBillableHours: 1550, expectedNonBillablePoints: 130, personalTarget: "6.5 hours/day" },
-    { name: "Emma Wilson", team: "Corporate Team", expectedBillableHours: 1450, expectedNonBillablePoints: 110, personalTarget: "6 hours/day" },
-  ])
+  // Team member expectations state for admin editing - will be populated from teamData
+  const [teamMemberExpectations, setTeamMemberExpectations] = useState<any[]>([])
 
-  // Streaks configuration state
-  const [streaksConfig, setStreaksConfig] = useState(streakTemplates)
+  // Streaks configuration state - start with empty array instead of templates
+  const [streaksConfig, setStreaksConfig] = useState<any[]>([])
   const [showStreakEditor, setShowStreakEditor] = useState(false)
   const [editingStreak, setEditingStreak] = useState<any>(null)
   const [newStreak, setNewStreak] = useState({
@@ -220,8 +282,21 @@ export default function OnboardingPage() {
     weeklyBillable: 0,
     monthlyBillable: 0,
   })
-  const [teamGoals, setTeamGoals] = useState([])
+  const [teamGoals, setTeamGoals] = useState<Array<{
+    name: string;
+    description: string;
+    targetHours: number;
+    currentHours: number;
+    deadline: string;
+    status: string;
+  }>>([])
   
+  // Remove authentication check - just proceed with onboarding
+  useEffect(() => {
+    // Set loading to false immediately since we're not checking auth
+    setIsLoading(false)
+  }, [])
+
   // Calculate total steps based on role
   const totalSteps = userRole === "admin" ? 7 : 6
   const progressPercentage = (currentStep / totalSteps) * 100
@@ -249,9 +324,217 @@ export default function OnboardingPage() {
     }
   }
   
-  const handleCompleteOnboarding = () => {
-    setIsOnboardingComplete(true)
-    // Here you would typically save the onboarding data
+  const validateOnboardingData = () => {
+    const errors = []
+    
+    // Basic profile validation
+    if (!userName.trim()) {
+      errors.push('Full name is required')
+    }
+    
+    if (!userTitle.trim()) {
+      errors.push('Title is required')
+    }
+    
+    if (!selectedRole) {
+      errors.push('Role selection is required')
+    }
+    
+    // Admin-specific validation
+    if (userRole === 'admin') {
+      if (!teamData.teams || teamData.teams.length === 0) {
+        errors.push('At least one team is required')
+      }
+      
+      if (!teamData.companyGoals) {
+        errors.push('Company goals are required')
+      } else {
+        const { weeklyBillable, monthlyBillable, annualBillable } = teamData.companyGoals
+        if (!weeklyBillable || !monthlyBillable || !annualBillable) {
+          errors.push('All company goal fields are required')
+        }
+      }
+      
+      if (teamMemberExpectations.length === 0) {
+        errors.push('Team member expectations must be set')
+      }
+      
+      // Validate team member expectations
+      teamMemberExpectations.forEach((member, index) => {
+        if (!member.name.trim()) {
+          errors.push(`Team member ${index + 1} name is required`)
+        }
+        if (!member.team || member.team === 'Select Team') {
+          errors.push(`Team member ${index + 1} must be assigned to a team`)
+        }
+        if (!member.expectedBillableHours || member.expectedBillableHours <= 0) {
+          errors.push(`Team member ${index + 1} must have valid billable hours`)
+        }
+      })
+    }
+    
+    return errors
+  }
+
+  const handleCompleteOnboarding = async () => {
+    try {
+      console.log('Starting onboarding completion...')
+      
+      // Validate data before proceeding
+      const validationErrors = validateOnboardingData()
+      if (validationErrors.length > 0) {
+        alert(`Please fix the following issues:\n\n${validationErrors.join('\n')}`)
+        return
+      }
+      
+      const onboardingData = {
+        profile: {
+          name: userName,
+          title: userTitle,
+          role: selectedRole,
+          photo: profilePhoto,
+          productivityPreferences,
+          notificationSettings,
+        },
+        teamData,
+        personalGoals,
+        streaksConfig,
+        teamMemberExpectations,
+      }
+
+      console.log('Sending onboarding data:', onboardingData)
+
+      // Send main onboarding data
+      const response = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(onboardingData),
+      })
+
+      console.log('Onboarding response status:', response.status)
+
+      if (response.ok) {
+        const responseData = await response.json()
+        console.log('Onboarding successful:', responseData)
+        
+              // Save user preferences (profile, productivity, notifications)
+      try {
+        const preferencesResponse = await fetch('/api/user-preferences', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            profileData: {
+              name: userName,
+              title: userTitle,
+              role: selectedRole,
+              photo: profilePhoto,
+              department: ''
+            },
+            productivityPreferences,
+            notificationSettings
+          }),
+        })
+        
+        if (preferencesResponse.ok) {
+          const preferencesData = await preferencesResponse.json()
+          console.log('User preferences saved:', preferencesData)
+        }
+      } catch (error) {
+        console.error('Error saving user preferences:', error)
+      }
+
+      // If admin, also save team expectations and streaks separately
+      if (userRole === 'admin') {
+        try {
+          // Save team expectations
+          if (teamMemberExpectations.length > 0) {
+            const expectationsResponse = await fetch('/api/team-expectations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ teamExpectations: teamMemberExpectations }),
+            })
+            
+            if (expectationsResponse.ok) {
+              const expectationsData = await expectationsResponse.json()
+              console.log('Team expectations saved:', expectationsData)
+            }
+          }
+
+          // Save streaks configuration
+          if (streaksConfig.length > 0) {
+            const streaksResponse = await fetch('/api/streaks', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ streaks: streaksConfig }),
+            })
+            
+            if (streaksResponse.ok) {
+              const streaksData = await streaksResponse.json()
+              console.log('Streaks configuration saved:', streaksData)
+            }
+          }
+        } catch (error) {
+          console.error('Error saving additional admin data:', error)
+          // Don't fail the onboarding for these errors
+        }
+      }
+
+      // If team member, save personal goals
+      if (userRole === 'member') {
+        try {
+          const personalGoalsResponse = await fetch('/api/personal-goals', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              dailyBillable: personalGoals.dailyBillable,
+              weeklyBillable: personalGoals.weeklyBillable,
+              monthlyBillable: personalGoals.monthlyBillable,
+              teamGoals: teamGoals,
+              customGoals: []
+            }),
+          })
+          
+          if (personalGoalsResponse.ok) {
+            const personalGoalsData = await personalGoalsResponse.json()
+            console.log('Personal goals saved:', personalGoalsData)
+          }
+        } catch (error) {
+          console.error('Error saving personal goals:', error)
+        }
+      }
+        
+        setIsOnboardingComplete(true)
+        console.log('Set onboarding complete to true')
+        
+        // Save completion state to localStorage
+        localStorage.setItem('onboardingComplete', 'true')
+        
+        // Redirect to main dashboard after successful onboarding
+        setTimeout(() => {
+          console.log('Redirecting to dashboard...')
+          router.push('/')
+        }, 1000) // Reduced to 1 second for faster redirect
+        
+        // Also try immediate redirect as backup
+        router.push('/')
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to save onboarding data:', errorData)
+        alert(`Failed to save onboarding data: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error completing onboarding:', error)
+    }
   }
   
   const updateTeamMemberExpectation = (index: number, field: string, value: number | string) => {
@@ -261,6 +544,34 @@ export default function OnboardingPage() {
       )
     )
   }
+
+  // Function to populate team member expectations from team data
+  const populateTeamMemberExpectations = () => {
+    const allMembers: any[] = []
+    teamData.teams.forEach(team => {
+      if (team.members && team.members.length > 0) {
+        team.members.forEach(member => {
+          if (member.name && member.name.trim() !== '') {
+            allMembers.push({
+              name: member.name,
+              team: team.name,
+              expectedBillableHours: 1500, // Default values
+              expectedNonBillablePoints: 120,
+              personalTarget: "6 hours/day"
+            })
+          }
+        })
+      }
+    })
+    setTeamMemberExpectations(allMembers)
+  }
+
+  // Update team member expectations when team data changes
+  useEffect(() => {
+    if (userRole === "admin" && teamData.teams.length > 0) {
+      populateTeamMemberExpectations()
+    }
+  }, [teamData.teams, userRole])
   
   const renderStepContent = () => {
     switch (currentStep) {
@@ -279,12 +590,12 @@ export default function OnboardingPage() {
                   size="sm"
                   variant="outline"
                   className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
-                  onClick={() => document.getElementById("photo-upload")?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="h-4 w-4" />
                 </Button>
                 <input
-                  id="photo-upload"
+                  ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   onChange={handleFileUpload}
@@ -326,7 +637,7 @@ export default function OnboardingPage() {
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockRoles.map((role) => (
+                    {roleSuggestions.map((role) => (
                       <SelectItem key={role.id} value={role.id}>
                         <div className="flex items-center gap-2">
                           <span>{role.name}</span>
@@ -465,17 +776,140 @@ export default function OnboardingPage() {
                 </div>
                 
                 <div>
-                  <Label className="text-base font-medium">Existing Teams</Label>
-                  <div className="space-y-2 mt-2">
-                    {mockTeams.map((team) => (
-                      <div key={team.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <div className="font-medium">{team.name}</div>
-                          <div className="text-sm text-muted-foreground">{team.department}</div>
+                  <Label className="text-base font-medium">Create Teams</Label>
+                  <div className="space-y-4 mt-2">
+                    {teamData.teams.map((team: any, index: number) => (
+                      <div key={index} className="p-3 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-medium">Team {index + 1}</div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setTeamData(prev => ({
+                                ...prev,
+                                teams: prev.teams.filter((_: any, i: number) => i !== index)
+                              }))
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Badge variant="outline">3 members</Badge>
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <Input
+                            placeholder="Team name"
+                            value={team.name || ''}
+                            onChange={(e) => {
+                              setTeamData(prev => ({
+                                ...prev,
+                                teams: prev.teams.map((t: any, i: number) => 
+                                  i === index ? { ...t, name: e.target.value } : t
+                                )
+                              }))
+                            }}
+                          />
+                          <Select
+                            value={team.department || ''}
+                            onValueChange={(value) => {
+                              setTeamData(prev => ({
+                                ...prev,
+                                teams: prev.teams.map((t: any, i: number) => 
+                                  i === index ? { ...t, department: value } : t
+                                )
+                              }))
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {departmentSuggestions.map((dept) => (
+                                <SelectItem key={dept} value={dept}>
+                                  {dept}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {/* Team Members Section */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Team Members</Label>
+                          <div className="space-y-2">
+                            {team.members && team.members.map((member: any, memberIndex: number) => (
+                              <div key={memberIndex} className="flex items-center gap-2">
+                                <Input
+                                  placeholder="Member name"
+                                  value={member.name || ''}
+                                  onChange={(e) => {
+                                    setTeamData(prev => ({
+                                      ...prev,
+                                      teams: prev.teams.map((t: any, i: number) => 
+                                        i === index ? {
+                                          ...t,
+                                          members: t.members.map((m: any, mi: number) => 
+                                            mi === memberIndex ? { ...m, name: e.target.value } : m
+                                          )
+                                        } : t
+                                      )
+                                    }))
+                                  }}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setTeamData(prev => ({
+                                      ...prev,
+                                      teams: prev.teams.map((t: any, i: number) => 
+                                        i === index ? {
+                                          ...t,
+                                          members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
+                                        } : t
+                                      )
+                                    }))
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setTeamData(prev => ({
+                                  ...prev,
+                                  teams: prev.teams.map((t: any, i: number) => 
+                                    i === index ? {
+                                      ...t,
+                                      members: [...(t.members || []), { name: '', email: '', title: '', role: '', expectedBillableHours: 0 }]
+                                    } : t
+                                  )
+                                }))
+                              }}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Team Member
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ))}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setTeamData(prev => ({
+                          ...prev,
+                          teams: [...prev.teams, { name: '', department: '', members: [] }]
+                        }))
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Team
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -542,6 +976,14 @@ export default function OnboardingPage() {
                       id="weekly-billable"
                       type="number"
                       placeholder="0"
+                      value={teamData.companyGoals.weeklyBillable}
+                      onChange={(e) => setTeamData(prev => ({ 
+                        ...prev, 
+                        companyGoals: { 
+                          ...prev.companyGoals, 
+                          weeklyBillable: parseInt(e.target.value) || 0 
+                        } 
+                      }))}
                       className="mt-1"
                     />
                   </div>
@@ -551,6 +993,14 @@ export default function OnboardingPage() {
                       id="monthly-billable"
                       type="number"
                       placeholder="0"
+                      value={teamData.companyGoals.monthlyBillable}
+                      onChange={(e) => setTeamData(prev => ({ 
+                        ...prev, 
+                        companyGoals: { 
+                          ...prev.companyGoals, 
+                          monthlyBillable: parseInt(e.target.value) || 0 
+                        } 
+                      }))}
                       className="mt-1"
                     />
                   </div>
@@ -560,6 +1010,14 @@ export default function OnboardingPage() {
                       id="annual-billable"
                       type="number"
                       placeholder="0"
+                      value={teamData.companyGoals.annualBillable}
+                      onChange={(e) => setTeamData(prev => ({ 
+                        ...prev, 
+                        companyGoals: { 
+                          ...prev.companyGoals, 
+                          annualBillable: parseInt(e.target.value) || 0 
+                        } 
+                      }))}
                       className="mt-1"
                     />
                   </div>
@@ -568,9 +1026,20 @@ export default function OnboardingPage() {
                 <div>
                   <Label className="text-base font-medium">Default Goal Types</Label>
                   <div className="space-y-2 mt-2">
-                    {mockGoalTypes.map((goalType) => (
+                    {goalTypeSuggestions.map((goalType) => (
                       <div key={goalType.id} className="flex items-center space-x-2">
-                        <Checkbox id={goalType.id} />
+                        <Checkbox 
+                          id={goalType.id}
+                          checked={teamData.defaultGoalTypes.includes(goalType.id)}
+                          onCheckedChange={(checked) => {
+                            setTeamData(prev => ({
+                              ...prev,
+                              defaultGoalTypes: checked 
+                                ? [...prev.defaultGoalTypes, goalType.id]
+                                : prev.defaultGoalTypes.filter(id => id !== goalType.id)
+                            }))
+                          }}
+                        />
                         <Label htmlFor={goalType.id}>
                           <div className="font-medium">{goalType.name}</div>
                           <div className="text-sm text-muted-foreground">{goalType.description}</div>
@@ -603,6 +1072,8 @@ export default function OnboardingPage() {
                       id="daily-billable"
                       type="number"
                       placeholder="0"
+                      value={personalGoals.dailyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, dailyBillable: parseInt(e.target.value) || 0 }))}
                       className="mt-1"
                     />
                   </div>
@@ -612,6 +1083,8 @@ export default function OnboardingPage() {
                       id="weekly-billable-personal"
                       type="number"
                       placeholder="0"
+                      value={personalGoals.weeklyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, weeklyBillable: parseInt(e.target.value) || 0 }))}
                       className="mt-1"
                     />
                   </div>
@@ -621,6 +1094,8 @@ export default function OnboardingPage() {
                       id="monthly-billable-personal"
                       type="number"
                       placeholder="0"
+                      value={personalGoals.monthlyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, monthlyBillable: parseInt(e.target.value) || 0 }))}
                       className="mt-1"
                     />
                   </div>
@@ -632,6 +1107,22 @@ export default function OnboardingPage() {
                     placeholder="e.g., Contribute 50 hours to Smith v. Jones case"
                     className="mt-2"
                     rows={3}
+                    value={teamGoals.length > 0 ? teamGoals[0]?.description || '' : ''}
+                    onChange={(e) => {
+                      const goalText = e.target.value
+                      if (goalText.trim()) {
+                        setTeamGoals([{
+                          name: 'Team Contribution Goal',
+                          description: goalText,
+                          targetHours: 50,
+                          currentHours: 0,
+                          deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+                          status: 'active'
+                        }])
+                      } else {
+                        setTeamGoals([])
+                      }
+                    }}
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     These will be sent to your admin for approval
@@ -657,78 +1148,94 @@ export default function OnboardingPage() {
               </div>
               
               <div className="space-y-6">
-                <div className="space-y-4">
-                  {teamMemberExpectations.map((user, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-2">
-                            <div>
-                              <Label htmlFor={`name-${index}`} className="text-xs text-muted-foreground">Name</Label>
-                              <Input
-                                id={`name-${index}`}
-                                value={user.name}
-                                onChange={(e) => updateTeamMemberExpectation(index, 'name', e.target.value)}
-                                className="w-32 h-8 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor={`team-${index}`} className="text-xs text-muted-foreground">Team</Label>
-                              <Select 
-                                value={user.team} 
-                                onValueChange={(value) => updateTeamMemberExpectation(index, 'team', value)}
-                              >
-                                <SelectTrigger className="w-32 h-8 text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {mockTeams.map((team) => (
-                                    <SelectItem key={team.id} value={team.name}>
-                                      {team.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="text-right space-y-3">
-                            <div className="flex items-center gap-4">
+                {teamMemberExpectations.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h4 className="text-lg font-medium mb-2">No Team Members Added</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Go back to the "Create or Import Team" step and add team members to set their expectations.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentStep(3)}
+                    >
+                      Back to Team Creation
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {teamMemberExpectations.map((user, index) => (
+                      <Card key={index}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-2">
                               <div>
-                                <Label htmlFor={`billable-${index}`} className="text-xs text-muted-foreground">Billable Hours/Year</Label>
+                                <Label htmlFor={`name-${index}`} className="text-xs text-muted-foreground">Name</Label>
                                 <Input
-                                  id={`billable-${index}`}
-                                  type="number"
-                                  value={user.expectedBillableHours}
-                                  onChange={(e) => updateTeamMemberExpectation(index, 'expectedBillableHours', parseInt(e.target.value) || 0)}
-                                  className="w-24 h-8 text-sm"
+                                  id={`name-${index}`}
+                                  value={user.name}
+                                  onChange={(e) => updateTeamMemberExpectation(index, 'name', e.target.value)}
+                                  className="w-32 h-8 text-sm"
                                 />
                               </div>
                               <div>
-                                <Label htmlFor={`nonbillable-${index}`} className="text-xs text-muted-foreground">Non-Billable Points/Year</Label>
-                                <Input
-                                  id={`nonbillable-${index}`}
-                                  type="number"
-                                  value={user.expectedNonBillablePoints}
-                                  onChange={(e) => updateTeamMemberExpectation(index, 'expectedNonBillablePoints', parseInt(e.target.value) || 0)}
-                                  className="w-24 h-8 text-sm"
-                                />
+                                <Label htmlFor={`team-${index}`} className="text-xs text-muted-foreground">Team</Label>
+                                <Select 
+                                  value={user.team} 
+                                  onValueChange={(value) => updateTeamMemberExpectation(index, 'team', value)}
+                                >
+                                  <SelectTrigger className="w-32 h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {teamData.teams.map((team, teamIndex) => (
+                                      <SelectItem key={teamIndex} value={team.name}>
+                                        {team.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setTeamMemberExpectations(prev => prev.filter((_, i) => i !== index))}
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                              >
-                                ×
-                              </Button>
                             </div>
-                            <div className="text-sm text-muted-foreground">{user.personalTarget}</div>
+                            <div className="text-right space-y-3">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <Label htmlFor={`billable-${index}`} className="text-xs text-muted-foreground">Billable Hours/Year</Label>
+                                  <Input
+                                    id={`billable-${index}`}
+                                    type="number"
+                                    value={user.expectedBillableHours}
+                                    onChange={(e) => updateTeamMemberExpectation(index, 'expectedBillableHours', parseInt(e.target.value) || 0)}
+                                    className="w-24 h-8 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor={`nonbillable-${index}`} className="text-xs text-muted-foreground">Non-Billable Points/Year</Label>
+                                  <Input
+                                    id={`nonbillable-${index}`}
+                                    type="number"
+                                    value={user.expectedNonBillablePoints}
+                                    onChange={(e) => updateTeamMemberExpectation(index, 'expectedNonBillablePoints', parseInt(e.target.value) || 0)}
+                                    className="w-24 h-8 text-sm"
+                                  />
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setTeamMemberExpectations(prev => prev.filter((_, i) => i !== index))}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                              <div className="text-sm text-muted-foreground">{user.personalTarget}</div>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
                 
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <div className="flex items-start space-x-2">
@@ -943,48 +1450,109 @@ export default function OnboardingPage() {
                   </CardContent>
                 </Card>
 
-                {/* Pre-configured Streaks */}
+                {/* Available Streak Templates */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Trophy className="h-5 w-5" />
-                      Pre-configured Streaks
+                      Available Streak Templates
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
-                        We've set up some common streaks to get you started. You can customize these or add new ones.
+                        Select from these proven streak templates or create your own custom streaks.
                       </p>
                       
                       <div className="space-y-3">
-                        {streaksConfig.map((streak, index) => (
+                        {streakTemplates.map((template, index) => (
                           <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                             <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full ${streak.active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                              <Checkbox
+                                checked={streaksConfig.some(s => s.id === template.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setStreaksConfig(prev => [...prev, template])
+                                  } else {
+                                    setStreaksConfig(prev => prev.filter(s => s.id !== template.id))
+                                  }
+                                }}
+                              />
                               <div>
-                                <div className="font-medium">{streak.name}</div>
-                                <div className="text-sm text-muted-foreground">{streak.rule.description}</div>
+                                <div className="font-medium">{template.name}</div>
+                                <div className="text-sm text-muted-foreground">{template.rule.description}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Category: {template.category} • Frequency: {template.frequency}
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {streak.frequency}
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setEditingStreak(streak)
-                                  setShowStreakEditor(true)
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {template.frequency}
+                            </Badge>
                           </div>
                         ))}
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Selected Streaks */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5" />
+                      Selected Streaks ({streaksConfig.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {streaksConfig.length === 0 ? (
+                        <div className="text-center py-6">
+                          <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            No streaks selected yet. Choose from the templates above or create custom streaks.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {streaksConfig.map((streak, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+                              <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-green-500" />
+                                <div>
+                                  <div className="font-medium">{streak.name}</div>
+                                  <div className="text-sm text-muted-foreground">{streak.rule.description}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {streak.frequency}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setEditingStreak(streak)
+                                    setShowStreakEditor(true)
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setStreaksConfig(prev => prev.filter((_, i) => i !== index))
+                                  }}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       
                       <Button
                         variant="outline"
@@ -995,7 +1563,7 @@ export default function OnboardingPage() {
                         }}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Add New Streak
+                        Create Custom Streak
                       </Button>
                     </div>
                   </CardContent>
@@ -1103,68 +1671,140 @@ export default function OnboardingPage() {
             <div className="space-y-6">
               <div className="text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                  <BarChart3 className="h-8 w-8 text-purple-600" />
+                  <CheckCircle className="h-8 w-8 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Quick Dashboard Overview</h3>
-                  <p className="text-muted-foreground">Your admin dashboard at a glance</p>
+                  <h3 className="text-lg font-semibold">Review Your Setup</h3>
+                  <p className="text-muted-foreground">Review all your configuration before completing</p>
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-6">
+                {/* Profile Summary */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Target className="h-4 w-4" />
-                      Team Goal Tracker
+                      <User className="h-4 w-4" />
+                      Profile Information
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Monitor team progress, set goals, and track performance across all members
-                    </p>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Name:</span>
+                      <span className="font-medium">{userName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Title:</span>
+                      <span className="font-medium">{userTitle}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Role:</span>
+                      <span className="font-medium">{selectedRole}</span>
+                    </div>
                   </CardContent>
                 </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      Team Metrics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      View utilization rates, billable efficiency, and team-wide analytics
-                    </p>
-                  </CardContent>
-                </Card>
-                
+
+                {/* Teams Summary */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Add/Manage Users
+                      Teams ({teamData.teams.length})
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Invite new team members, assign roles, and manage permissions
-                    </p>
+                  <CardContent className="space-y-3">
+                    {teamData.teams.map((team: any, index: number) => (
+                      <div key={index} className="p-3 border rounded-lg">
+                        <div className="font-medium">{team.name || `Team ${index + 1}`}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Department: {team.department || 'Not specified'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Members: {team.members?.length || 0}
+                        </div>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
-                
+
+                {/* Company Goals Summary */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Review Goals
+                      <Target className="h-4 w-4" />
+                      Company Goals
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Approve or modify team goals submitted by individual members
-                    </p>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Weekly Billable:</span>
+                      <span className="font-medium">{teamData.companyGoals?.weeklyBillable || 0} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Monthly Billable:</span>
+                      <span className="font-medium">{teamData.companyGoals?.monthlyBillable || 0} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Annual Billable:</span>
+                      <span className="font-medium">{teamData.companyGoals?.annualBillable || 0} hours</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Team Member Expectations Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <UserCheck className="h-4 w-4" />
+                      Team Member Expectations ({teamMemberExpectations.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="text-sm text-muted-foreground mb-3">
+                      Average expectations across all team members:
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Avg. Billable Hours:</span>
+                      <span className="font-medium">
+                        {teamMemberExpectations.length > 0 
+                          ? Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedBillableHours, 0) / teamMemberExpectations.length)
+                          : 0} hours/year
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Avg. Non-Billable Points:</span>
+                      <span className="font-medium">
+                        {teamMemberExpectations.length > 0 
+                          ? Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedNonBillablePoints, 0) / teamMemberExpectations.length)
+                          : 0} points/year
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Streaks Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Flame className="h-4 w-4" />
+                      Streaks Configuration ({streaksConfig.filter(s => s.active).length} active)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="text-sm text-muted-foreground mb-3">
+                      Configured streaks to motivate team performance:
+                    </div>
+                    <div className="space-y-1">
+                      {streaksConfig.filter(s => s.active).map((streak, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-sm">{streak.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {streak.frequency}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -1249,6 +1889,18 @@ export default function OnboardingPage() {
     }
   }
   
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (isOnboardingComplete) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1263,13 +1915,36 @@ export default function OnboardingPage() {
             </p>
           </div>
           <div className="space-y-3">
-            <Link href={`/?role=${userRole}`}>
+            <Link href="/">
               <Button className="w-full">
                 {userRole === "admin" ? "Launch Admin Dashboard" : "Start Logging Time"}
               </Button>
             </Link>
             <Button variant="outline" className="w-full">
               Review Settings
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                console.log('Manual completion test')
+                localStorage.setItem('onboardingComplete', 'true')
+                router.push('/')
+              }}
+            >
+              Test Manual Completion
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => {
+                console.log('Clearing onboarding completion')
+                localStorage.removeItem('onboardingComplete')
+                setIsOnboardingComplete(false)
+                router.push('/role-select')
+              }}
+            >
+              Reset Onboarding
             </Button>
           </div>
         </div>
