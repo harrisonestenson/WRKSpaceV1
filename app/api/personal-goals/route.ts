@@ -1,203 +1,139 @@
 import { NextRequest, NextResponse } from 'next/server'
-// import { getServerSession } from 'next-auth'
-// import { authOptions } from '@/lib/auth'
-// import { prisma } from '@/lib/prisma'
+import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+
+// File-based storage for personal goals (in production, this would be a database)
+const DATA_FILE_PATH = join(process.cwd(), 'data', 'personal-goals.json')
+
+// Ensure data directory exists
+const dataDir = join(process.cwd(), 'data')
+if (!existsSync(dataDir)) {
+  const fs = require('fs')
+  fs.mkdirSync(dataDir, { recursive: true })
+}
+
+// Helper functions for file-based storage
+function savePersonalGoals(data: any) {
+  try {
+    writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2))
+    console.log('Personal Goals API - Data saved to file successfully')
+  } catch (error) {
+    console.error('Personal Goals API - Error saving data to file:', error)
+  }
+}
+
+function loadPersonalGoals(): any {
+  try {
+    if (existsSync(DATA_FILE_PATH)) {
+      const data = readFileSync(DATA_FILE_PATH, 'utf8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('Personal Goals API - Error loading data from file:', error)
+  }
+  return null
+}
 
 export async function GET() {
   try {
-    // Temporarily bypass authentication and database for testing
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
-
-    // For now, return mock personal goals
-    const mockPersonalGoals = {
-      id: 'mock-personal-goals',
-      dailyBillable: 6,
-      weeklyBillable: 35,
-      monthlyBillable: 150,
-      teamGoals: [
-        {
-          id: 'goal-1',
-          name: 'Contribute to Smith v. Jones case',
-          description: 'Focus on document review and research',
-          targetHours: 20,
-          currentHours: 12,
-          deadline: '2024-02-15'
-        }
-      ],
-      customGoals: [
-        {
-          id: 'custom-1',
-          name: 'Improve time logging consistency',
-          description: 'Log time within 24 hours of work',
-          type: 'behavioral',
-          status: 'active'
-        }
-      ]
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      personalGoals: mockPersonalGoals,
-      message: 'Personal goals retrieved (mock data)'
+    const data = loadPersonalGoals()
+    
+    return NextResponse.json({
+      success: true,
+      personalGoals: data || []
     })
-
-    // TODO: Re-enable database operations once connection is fixed
-    /*
-    const personalGoals = await prisma.goal.findMany({
-      where: {
-        userId: session.user.id,
-        scope: 'PERSONAL'
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
-
-    return NextResponse.json({ 
-      success: true, 
-      personalGoals: personalGoals
-    })
-    */
-
   } catch (error) {
     console.error('Error fetching personal goals:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to fetch personal goals' },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Temporarily bypass authentication and database for testing
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
-
-    const body = await request.json()
-    const { 
-      dailyBillable, 
-      weeklyBillable, 
-      monthlyBillable, 
-      teamGoals, 
-      customGoals 
-    } = body
-
-    console.log('Personal Goals API - Received data:', {
-      dailyBillable,
-      weeklyBillable,
-      monthlyBillable,
-      teamGoalsCount: teamGoals?.length || 0,
-      customGoalsCount: customGoals?.length || 0
-    })
-
-    // Validate the data
-    if (!dailyBillable && !weeklyBillable && !monthlyBillable) {
-      return NextResponse.json({ 
-        error: 'At least one billable target is required' 
-      }, { status: 400 })
-    }
-
-    // Process and structure the data
-    const processedGoals = {
-      billableTargets: {
-        daily: parseInt(dailyBillable) || 0,
-        weekly: parseInt(weeklyBillable) || 0,
-        monthly: parseInt(monthlyBillable) || 0
-      },
-      teamGoals: teamGoals?.map((goal: any) => ({
-        name: goal.name,
-        description: goal.description || '',
-        targetHours: parseInt(goal.targetHours) || 0,
-        currentHours: parseInt(goal.currentHours) || 0,
-        deadline: goal.deadline || null,
-        status: goal.status || 'active'
-      })) || [],
-      customGoals: customGoals?.map((goal: any) => ({
-        name: goal.name,
-        description: goal.description || '',
-        type: goal.type || 'behavioral',
-        status: goal.status || 'active'
-      })) || []
-    }
-
-    // For now, just return success without database operations
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Personal goals saved successfully (bypassed for testing)',
-      processedGoals,
-      summary: {
-        totalTargets: Object.values(processedGoals.billableTargets).filter(v => v > 0).length,
-        teamGoalsCount: processedGoals.teamGoals.length,
-        customGoalsCount: processedGoals.customGoals.length,
-        totalWeeklyTarget: processedGoals.billableTargets.weekly
-      }
-    })
-
-    // TODO: Re-enable database operations once connection is fixed
-    /*
-    // Create or update billable targets
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        billableTarget: processedGoals.billableTargets.monthly
-      }
-    })
-
-    // Create team goals
-    for (const goal of processedGoals.teamGoals) {
-      await prisma.goal.create({
-        data: {
-          name: goal.name,
-          description: goal.description,
-          type: 'BILLABLE_HOURS',
-          frequency: 'MONTHLY',
-          target: goal.targetHours,
-          current: goal.currentHours,
-          status: goal.status === 'active' ? 'ACTIVE' : 'PAUSED',
-          scope: 'PERSONAL',
-          userId: session.user.id,
-          createdBy: session.user.id,
-          startDate: new Date(),
-          endDate: goal.deadline ? new Date(goal.deadline) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        }
+    const data = await request.json()
+    console.log('Personal Goals API - Received data:', data)
+    
+    // Transform the data into the expected format
+    const personalGoals = []
+    
+    if (data.dailyBillable > 0) {
+      personalGoals.push({
+        id: 'daily-billable',
+        name: 'Daily Billable Hours',
+        type: 'Personal Goal',
+        frequency: 'daily',
+        target: data.dailyBillable,
+        current: 0,
+        status: 'active',
+        description: 'Daily billable hours target'
       })
     }
-
-    // Create custom goals
-    for (const goal of processedGoals.customGoals) {
-      await prisma.goal.create({
-        data: {
-          name: goal.name,
-          description: goal.description,
-          type: 'TIME_MANAGEMENT',
-          frequency: 'DAILY',
-          target: 1,
-          current: 0,
-          status: goal.status === 'active' ? 'ACTIVE' : 'PAUSED',
-          scope: 'PERSONAL',
-          userId: session.user.id,
-          createdBy: session.user.id,
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        }
+    
+    if (data.weeklyBillable > 0) {
+      personalGoals.push({
+        id: 'weekly-billable',
+        name: 'Weekly Billable Hours',
+        type: 'Personal Goal',
+        frequency: 'weekly',
+        target: data.weeklyBillable,
+        current: 0,
+        status: 'active',
+        description: 'Weekly billable hours target'
       })
     }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Personal goals updated successfully',
-      processedGoals
+    
+    if (data.monthlyBillable > 0) {
+      personalGoals.push({
+        id: 'monthly-billable',
+        name: 'Monthly Billable Hours',
+        type: 'Personal Goal',
+        frequency: 'monthly',
+        target: data.monthlyBillable,
+        current: 0,
+        status: 'active',
+        description: 'Monthly billable hours target'
+      })
+    }
+    
+    // Save the personal goals to file
+    savePersonalGoals(personalGoals)
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Personal goals stored successfully'
     })
-    */
-
   } catch (error) {
-    console.error('Error saving personal goals:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('Error storing personal goals:', error)
+    return NextResponse.json(
+      { error: 'Failed to store personal goals' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE() {
+  try {
+    console.log('Personal Goals API - Clearing data')
+    
+    // Clear the personal goals data by deleting the file
+    const fs = require('fs')
+    if (existsSync(DATA_FILE_PATH)) {
+      fs.unlinkSync(DATA_FILE_PATH)
+      console.log('Personal Goals API - Data file deleted successfully')
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Personal goals cleared successfully'
+    })
+  } catch (error) {
+    console.error('Error clearing personal goals:', error)
+    return NextResponse.json(
+      { error: 'Failed to clear personal goals' },
+      { status: 500 }
+    )
   }
 } 

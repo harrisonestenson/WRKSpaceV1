@@ -3,6 +3,53 @@ import { NextRequest, NextResponse } from 'next/server'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
 
+// TypeScript interfaces for better type safety
+interface TimeEntry {
+  id: string
+  userId: string
+  date: string
+  startTime: string
+  endTime: string
+  duration: number
+  billable: boolean
+  description: string
+  caseId: string | null
+  points: number | null
+}
+
+interface CVSBreakdown {
+  task: string
+  billableHours: number
+  nonBillablePoints: number
+  pointValue: number
+}
+
+interface CVSCalculation {
+  userId: string
+  timeFrame: string
+  calculation: {
+    billableHours: {
+      actual: number
+      expected: number
+      percentage: number
+    }
+    nonBillablePoints: {
+      actual: number
+      expected: number
+      percentage: number
+    }
+    totalPoints: number
+    totalPercentage: number
+    cvsScore: number
+  }
+  breakdown: CVSBreakdown[]
+  expectations: {
+    expectedBillableHours: number
+    expectedNonBillablePoints: number
+    personalTarget: string
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing
@@ -36,14 +83,14 @@ export async function GET(request: NextRequest) {
 
     // Calculate actual billable hours and non-billable points from time entries
     const actualBillableHours = timeEntries
-      .filter((entry: any) => entry.billable === true)
-      .reduce((sum: number, entry: any) => {
+      .filter((entry: TimeEntry) => entry.billable === true)
+      .reduce((sum: number, entry: TimeEntry) => {
         return sum + (entry.duration / 3600) // Convert seconds to hours
       }, 0)
 
     const actualNonBillablePoints = timeEntries
-      .filter((entry: any) => entry.billable === false)
-      .reduce((sum: number, entry: any) => {
+      .filter((entry: TimeEntry) => entry.billable === false)
+      .reduce((sum: number, entry: TimeEntry) => {
         return sum + (entry.points || 0)
       }, 0)
 
@@ -58,7 +105,7 @@ export async function GET(request: NextRequest) {
     const nonBillablePercentage = expectedNonBillablePoints > 0 ? (actualNonBillablePoints / expectedNonBillablePoints) * 100 : 0
 
     // Create breakdown from actual time entries
-    const breakdown = timeEntries.map((entry: any) => ({
+    const breakdown: CVSBreakdown[] = timeEntries.map((entry: TimeEntry) => ({
       task: entry.description,
       billableHours: entry.billable ? entry.duration / 3600 : 0,
       nonBillablePoints: !entry.billable ? entry.points || 0 : 0,
@@ -145,6 +192,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
+interface CVSRequest {
+  userId: string
+  timeFrame: string
+  actualBillableHours?: number
+  actualNonBillablePoints?: number
+  expectedBillableHours: number
+  expectedNonBillablePoints: number
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing
@@ -153,7 +209,7 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
 
-    const body = await request.json()
+    const body = await request.json() as CVSRequest
     const { 
       userId, 
       timeFrame, 

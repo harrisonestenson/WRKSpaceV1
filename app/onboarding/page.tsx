@@ -258,6 +258,15 @@ export default function OnboardingPage() {
   // Team member expectations state for admin editing - will be populated from teamData
   const [teamMemberExpectations, setTeamMemberExpectations] = useState<any[]>([])
 
+  // Legal cases state for admin
+  const [legalCases, setLegalCases] = useState<any[]>([])
+  const [showCaseEditor, setShowCaseEditor] = useState(false)
+  const [editingCase, setEditingCase] = useState<any>(null)
+  const [newCase, setNewCase] = useState({
+    name: "",
+    startDate: ""
+  })
+
   // Streaks configuration state - start with empty array instead of templates
   const [streaksConfig, setStreaksConfig] = useState<any[]>([])
   const [showStreakEditor, setShowStreakEditor] = useState(false)
@@ -298,7 +307,7 @@ export default function OnboardingPage() {
   }, [])
 
   // Calculate total steps based on role
-  const totalSteps = userRole === "admin" ? 7 : 6
+  const totalSteps = userRole === "admin" ? 8 : 6
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -400,6 +409,7 @@ export default function OnboardingPage() {
         personalGoals,
         streaksConfig,
         teamMemberExpectations,
+        legalCases,
       }
 
       console.log('Sending onboarding data:', onboardingData)
@@ -479,6 +489,22 @@ export default function OnboardingPage() {
             if (streaksResponse.ok) {
               const streaksData = await streaksResponse.json()
               console.log('Streaks configuration saved:', streaksData)
+            }
+          }
+
+          // Save legal cases
+          if (legalCases.length > 0) {
+            const legalCasesResponse = await fetch('/api/legal-cases', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ cases: legalCases }),
+            })
+            
+            if (legalCasesResponse.ok) {
+              const legalCasesData = await legalCasesResponse.json()
+              console.log('Legal cases saved:', legalCasesData)
             }
           }
         } catch (error) {
@@ -604,7 +630,7 @@ export default function OnboardingPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">Profile Setup</h3>
-                <p className="text-muted-foreground">Let's get to know you better</p>
+                <p className="text-muted-foreground">Let&apos;s get to know you better</p>
               </div>
             </div>
             
@@ -660,7 +686,7 @@ export default function OnboardingPage() {
                         setProductivityPreferences(prev => ({ ...prev, morningFocus: checked }))
                       }
                     />
-                    <Label htmlFor="morning-focus">I'm most productive in the morning</Label>
+                    <Label htmlFor="morning-focus">I&apos;m most productive in the morning</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1670,6 +1696,153 @@ export default function OnboardingPage() {
           return (
             <div className="space-y-6">
               <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Legal Cases Setup</h3>
+                  <p className="text-muted-foreground">Add the legal cases your firm is currently working on</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Cases List */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Current Cases ({legalCases.length})</h4>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNewCase({
+                          name: "",
+                          startDate: ""
+                        })
+                        setEditingCase(null)
+                        setShowCaseEditor(true)
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Case
+                    </Button>
+                  </div>
+                  
+                  {legalCases.length === 0 ? (
+                    <div className="text-center py-8 border-2 border-dashed border-muted-foreground/20 rounded-lg">
+                      <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No cases added yet</p>
+                      <p className="text-sm text-muted-foreground">Add your first legal case to get started</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {legalCases.map((caseItem, index) => (
+                        <Card key={index} className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h5 className="font-medium">{caseItem.name}</h5>
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <div>Started: {caseItem.startDate}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingCase(caseItem)
+                                  setNewCase(caseItem)
+                                  setShowCaseEditor(true)
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const updatedCases = legalCases.filter((_, i) => i !== index)
+                                  setLegalCases(updatedCases)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Case Editor Dialog */}
+              <Dialog open={showCaseEditor} onOpenChange={setShowCaseEditor}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {editingCase ? 'Edit Case' : 'Add New Case'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      Enter the details for this legal case
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="case-name">Case Name</Label>
+                      <Input
+                        id="case-name"
+                        value={newCase.name}
+                        onChange={(e) => setNewCase(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g., Johnson vs. Smith"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="start-date">Start Date</Label>
+                      <Input
+                        id="start-date"
+                        type="date"
+                        value={newCase.startDate}
+                        onChange={(e) => setNewCase(prev => ({ ...prev, startDate: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowCaseEditor(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (editingCase) {
+                          // Update existing case
+                          const updatedCases = legalCases.map((caseItem, index) => 
+                            caseItem === editingCase ? newCase : caseItem
+                          )
+                          setLegalCases(updatedCases)
+                        } else {
+                          // Add new case
+                          setLegalCases([...legalCases, { ...newCase, id: `case-${Date.now()}` }])
+                        }
+                        setShowCaseEditor(false)
+                      }}
+                    >
+                      {editingCase ? 'Update Case' : 'Add Case'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )
+        }
+        
+      case 8:
+        if (userRole === "admin") {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
                   <CheckCircle className="h-8 w-8 text-purple-600" />
                 </div>
@@ -1807,6 +1980,37 @@ export default function OnboardingPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Legal Cases Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Legal Cases ({legalCases.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="text-sm text-muted-foreground mb-3">
+                      Active cases being tracked:
+                    </div>
+                    <div className="space-y-1">
+                      {legalCases.length > 0 ? (
+                        legalCases.map((caseItem, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 border rounded">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{caseItem.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Started: {caseItem.startDate}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No cases added yet</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           )
@@ -1911,7 +2115,7 @@ export default function OnboardingPage() {
           <div>
             <h1 className="text-2xl font-bold">Onboarding Complete!</h1>
             <p className="text-muted-foreground mt-2">
-              Welcome to the team! Your setup is complete and you're ready to get started.
+              Welcome to the team! Your setup is complete and you&apos;re ready to get started.
             </p>
           </div>
           <div className="space-y-3">

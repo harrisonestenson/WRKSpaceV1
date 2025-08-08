@@ -435,9 +435,9 @@ export default function NewGoalPage() {
                 <div className="text-sm">
                   <p className="font-medium mb-1">Examples:</p>
                   <ul className="text-xs text-muted-foreground space-y-1 ml-2">
-                    <li>• "Complete 320 billable hours this month"</li>
-                    <li>• "Resolve 15 cases by quarter end"</li>
-                    <li>• "Attend 2 training sessions weekly"</li>
+                    <li>• &ldquo;Complete 320 billable hours this month&rdquo;</li>
+                    <li>• &ldquo;Resolve 15 cases by quarter end&rdquo;</li>
+                    <li>• &ldquo;Attend 2 training sessions weekly&rdquo;</li>
                   </ul>
                 </div>
               </CardContent>

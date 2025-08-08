@@ -16,43 +16,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-// Mock data for Manage section
-const mockTeamMembers = [
-  { id: 1, name: "Sarah Johnson", email: "sarah.johnson@lawfirm.com", role: "Attorney", team: "Divorce Team", status: "active", joinedDate: "2023-01-15", billableHours: 320, avatar: "SJ" },
-  { id: 2, name: "Mike Chen", email: "mike.chen@lawfirm.com", role: "Attorney", team: "Corporate Team", status: "active", joinedDate: "2023-03-20", billableHours: 350, avatar: "MC" },
-  { id: 3, name: "Lisa Rodriguez", email: "lisa.rodriguez@lawfirm.com", role: "Paralegal", team: "Divorce Team", status: "active", joinedDate: "2023-02-10", billableHours: 280, avatar: "LR" },
-  { id: 4, name: "David Kim", email: "david.kim@lawfirm.com", role: "Attorney", team: "Real Estate Team", status: "active", joinedDate: "2023-04-05", billableHours: 340, avatar: "DK" },
-  { id: 5, name: "Emma Wilson", email: "emma.wilson@lawfirm.com", role: "Intern", team: "Corporate Team", status: "active", joinedDate: "2023-06-01", billableHours: 200, avatar: "EW" },
-]
-
-const mockTeams = [
-  { id: 1, name: "Divorce Team", members: 3, leader: "Sarah Johnson", goals: 5, activeGoals: 3 },
-  { id: 2, name: "Corporate Team", members: 4, leader: "Mike Chen", goals: 4, activeGoals: 2 },
-  { id: 3, name: "Real Estate Team", members: 2, leader: "David Kim", goals: 3, activeGoals: 2 },
-  { id: 4, name: "Admin Support", members: 1, leader: "Lisa Rodriguez", goals: 2, activeGoals: 1 },
-]
-
-const mockGoals = [
-  { id: 1, name: "Q1 Revenue Target", type: "Billable Hours / Revenue", frequency: "Quarterly", target: "$500,000", progress: 75, status: "active", assignedTo: "All Teams" },
-  { id: 2, name: "Case Resolution Rate", type: "Case-Based", frequency: "Monthly", target: "85% resolution", progress: 92, status: "active", assignedTo: "Divorce Team" },
-  { id: 3, name: "Team Training Hours", type: "Culture", frequency: "Monthly", target: "40 hours total", progress: 100, status: "completed", assignedTo: "All Teams" },
-  { id: 4, name: "Daily Time Tracking", type: "Time Management", frequency: "Daily", target: "8 hours logged", progress: 75, status: "active", assignedTo: "All Users" },
-]
-
-const mockStreaks = [
-  { id: 1, name: "Start Work Before 9AM", category: "Time Management", frequency: "daily", visibility: true, active: true, participants: 8, avgStreak: 12 },
-  { id: 2, name: "Meet Billable Hours Target", category: "Task Management", frequency: "weekly", visibility: true, active: true, participants: 12, avgStreak: 8 },
-  { id: 3, name: "Maintain CVS Above 90%", category: "Goal Alignment", frequency: "weekly", visibility: false, active: true, participants: 5, avgStreak: 15 },
-  { id: 4, name: "Log Time Every Weekday", category: "Time Management", frequency: "weekly", visibility: true, active: false, participants: 0, avgStreak: 0 },
-]
-
-const mockRoles = [
-  { id: 1, name: "Admin", permissions: ["full_access"], users: 2, description: "Full system access" },
-  { id: 2, name: "Manager", permissions: ["view_team", "create_goals", "approve_time"], users: 3, description: "Limited admin access" },
-  { id: 3, name: "Attorney", permissions: ["view_own", "create_goals"], users: 8, description: "Standard attorney access" },
-  { id: 4, name: "Paralegal", permissions: ["view_own"], users: 4, description: "Limited access" },
-  { id: 5, name: "Intern", permissions: ["view_own"], users: 2, description: "Basic access" },
-]
+// Empty data - will be populated from database
+const mockTeamMembers: any[] = []
+const mockTeams: any[] = []
+const mockGoals: any[] = []
+const mockStreaks: any[] = []
+const mockRoles: any[] = []
 
 export default function ManageDashboard() {
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)

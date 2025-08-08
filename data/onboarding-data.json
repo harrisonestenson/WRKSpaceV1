@@ -1,0 +1,89 @@
+{
+  "profile": {
+    "name": "zac",
+    "title": "partner",
+    "role": "partner",
+    "photo": "",
+    "productivityPreferences": {
+      "morningFocus": false,
+      "reminderSettings": false
+    },
+    "notificationSettings": {
+      "dailyGoalReminders": true,
+      "milestoneProgressAlerts": true,
+      "deliveryMethod": "both"
+    }
+  },
+  "teamData": {
+    "teams": [
+      {
+        "name": "team",
+        "department": "",
+        "members": [
+          {
+            "name": "em",
+            "email": "",
+            "title": "",
+            "role": "member",
+            "expectedBillableHours": 1500
+          }
+        ]
+      }
+    ],
+    "companyGoals": {
+      "weeklyBillable": 100,
+      "monthlyBillable": 1000,
+      "annualBillable": 10000
+    },
+    "defaultGoalTypes": []
+  },
+  "teamMemberExpectations": [
+    {
+      "name": "em",
+      "team": "team",
+      "expectedBillableHours": 1500,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    }
+  ],
+  "streaksConfig": [
+    {
+      "name": "Meet Billable Hours Target",
+      "category": "task-management",
+      "frequency": "weekly",
+      "rule": {
+        "type": "billable-hours-target",
+        "value": "35",
+        "description": "Hit expected weekly hours set by admin"
+      },
+      "resetCondition": "missed-threshold",
+      "visibility": true,
+      "active": true
+    },
+    {
+      "name": "Maintain CVS Above 90%",
+      "category": "task-management",
+      "frequency": "weekly",
+      "rule": {
+        "type": "cvs-threshold",
+        "value": "90",
+        "description": "CVS ≥ 90% for the week"
+      },
+      "resetCondition": "missed-threshold",
+      "visibility": true,
+      "active": true
+    }
+  ],
+  "personalGoals": {
+    "dailyBillable": 0,
+    "weeklyBillable": 0,
+    "monthlyBillable": 0
+  },
+  "legalCases": [
+    {
+      "name": "test",
+      "startDate": "",
+      "id": "case-1754669125266"
+    }
+  ]
+}

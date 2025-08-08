@@ -3,6 +3,45 @@ import { NextRequest, NextResponse } from 'next/server'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
 
+// TypeScript interfaces for better type safety
+interface Goal {
+  id: string
+  title: string
+  type: string
+  frequency: string
+  actual?: number
+  target: number
+  status: string
+}
+
+interface TimeEntry {
+  id: string
+  duration: number
+  billable: boolean
+  description: string
+}
+
+interface GoalTypeData {
+  type: string
+  totalGoals: number
+  achievedGoals: number
+  totalCompletion: number
+}
+
+interface ProcessedGoalType {
+  type: string
+  achievementRate: number
+  totalGoals: number
+  achievedGoals: number
+  averageCompletion: number
+}
+
+interface TimeFrameData {
+  timeFrame: string
+  totalGoals: number
+  achievedGoals: number
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing
@@ -168,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate goal achievement rate
-    const calculateGoalAchievementRate = (goals: any[]) => {
+    const calculateGoalAchievementRate = (goals: Goal[]) => {
       if (goals.length === 0) return 0
       
       const achievedGoals = goals.filter(goal => {
@@ -182,16 +221,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate billable efficiency
-    const calculateBillableEfficiency = (entries: any[]) => {
+    const calculateBillableEfficiency = (entries: TimeEntry[]) => {
       if (entries.length === 0) return 0
       
-      const totalHours = entries.reduce((sum: number, entry: any) => {
+      const totalHours = entries.reduce((sum: number, entry: TimeEntry) => {
         return sum + ((entry.duration || 0) / 3600)
       }, 0)
       
       const billableHours = entries
         .filter(entry => entry.billable === true)
-        .reduce((sum: number, entry: any) => {
+        .reduce((sum: number, entry: TimeEntry) => {
           return sum + ((entry.duration || 0) / 3600)
         }, 0)
       
@@ -199,12 +238,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate time logging accuracy
-    const calculateTimeLoggingAccuracy = (entries: any[]) => {
+    const calculateTimeLoggingAccuracy = (entries: TimeEntry[]) => {
       if (entries.length === 0) return 0
       
       // This would need clock session data to compare logged vs. actual time
       // For now, using a simplified calculation
-      const totalLoggedTime = entries.reduce((sum: number, entry: any) => {
+      const totalLoggedTime = entries.reduce((sum: number, entry: TimeEntry) => {
         return sum + ((entry.duration || 0) / 3600)
       }, 0)
       
@@ -221,7 +260,7 @@ export async function POST(request: NextRequest) {
     const overallEfficiency = (goalAchievementRate + billableEfficiency + timeLoggingAccuracy) / 3
 
     // Group goals by type
-    const byGoalType = goals.reduce((acc: any, goal: any) => {
+    const byGoalType = goals.reduce((acc: Record<string, GoalTypeData>, goal: Goal) => {
       const type = goal.type || 'General'
       if (!acc[type]) {
         acc[type] = {
@@ -246,7 +285,7 @@ export async function POST(request: NextRequest) {
     }, {})
 
     // Process goal type breakdown
-    const processedByGoalType = Object.values(byGoalType).map((typeData: any) => ({
+    const processedByGoalType: ProcessedGoalType[] = (Object.values(byGoalType) as GoalTypeData[]).map((typeData) => ({
       type: typeData.type,
       achievementRate: Math.round((typeData.achievedGoals / typeData.totalGoals) * 1000) / 10,
       totalGoals: typeData.totalGoals,
@@ -255,7 +294,7 @@ export async function POST(request: NextRequest) {
     }))
 
     // Group goals by time frame
-    const byTimeFrame = goals.reduce((acc: any, goal: any) => {
+    const byTimeFrame = goals.reduce((acc: Record<string, TimeFrameData>, goal: Goal) => {
       const timeFrame = goal.frequency || 'Monthly'
       if (!acc[timeFrame]) {
         acc[timeFrame] = {
@@ -278,7 +317,7 @@ export async function POST(request: NextRequest) {
     }, {})
 
     // Process time frame breakdown
-    const processedByTimeFrame = Object.values(byTimeFrame).map((timeData: any) => ({
+    const processedByTimeFrame = (Object.values(byTimeFrame) as TimeFrameData[]).map((timeData) => ({
       timeFrame: timeData.timeFrame,
       achievementRate: Math.round((timeData.achievedGoals / timeData.totalGoals) * 1000) / 10,
       totalGoals: timeData.totalGoals,
@@ -286,11 +325,11 @@ export async function POST(request: NextRequest) {
     }))
 
     // Generate insights
-    const bestPerformingArea = processedByGoalType.reduce((best: any, current: any) => 
+    const bestPerformingArea = processedByGoalType.reduce((best: ProcessedGoalType, current: ProcessedGoalType) => 
       current.achievementRate > best.achievementRate ? current : best
     )
 
-    const needsImprovement = processedByGoalType.reduce((worst: any, current: any) => 
+    const needsImprovement = processedByGoalType.reduce((worst: ProcessedGoalType, current: ProcessedGoalType) => 
       current.achievementRate < worst.achievementRate ? current : worst
     )
 

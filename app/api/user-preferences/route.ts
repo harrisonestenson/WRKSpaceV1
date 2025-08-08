@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { onboardingStore } from '@/lib/onboarding-store'
 // import { getServerSession } from 'next-auth'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
@@ -11,36 +12,52 @@ export async function GET() {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
 
-    // For now, return mock user preferences
-    const mockUserPreferences = {
-      id: 'mock-user-preferences',
-      productivityPreferences: {
-        morningFocus: true,
-        reminderSettings: true,
-        preferredWorkHours: '9:00 AM - 5:00 PM',
-        breakReminders: true
-      },
-      notificationSettings: {
-        dailyGoalReminders: true,
-        milestoneProgressAlerts: true,
-        deliveryMethod: 'both',
-        emailNotifications: true,
-        inAppNotifications: true,
-        weeklyReports: true
-      },
-      profileData: {
-        name: 'John Doe',
-        title: 'Associate',
-        role: 'ATTORNEY',
-        photo: null,
-        department: 'Litigation'
+    // Get user preferences from onboarding data
+    const profile = onboardingStore.getProfile()
+    
+    if (profile) {
+      const onboardingUserPreferences = {
+        id: 'onboarding-user-preferences',
+        productivityPreferences: profile.productivityPreferences || {
+          morningFocus: false,
+          reminderSettings: false,
+          preferredWorkHours: '9:00 AM - 5:00 PM',
+          breakReminders: true
+        },
+        notificationSettings: profile.notificationSettings || {
+          dailyGoalReminders: true,
+          milestoneProgressAlerts: true,
+          deliveryMethod: 'both',
+          emailNotifications: true,
+          inAppNotifications: true,
+          weeklyReports: true
+        },
+        profileData: {
+          name: profile.name,
+          title: profile.title,
+          role: profile.role.toUpperCase(),
+          photo: profile.photo,
+          department: profile.title
+        }
       }
+
+      return NextResponse.json({ 
+        success: true, 
+        userPreferences: onboardingUserPreferences,
+        message: 'User preferences retrieved from onboarding data'
+      })
     }
 
+    // Return empty data if no onboarding data
     return NextResponse.json({ 
       success: true, 
-      userPreferences: mockUserPreferences,
-      message: 'User preferences retrieved (mock data)'
+      userPreferences: {
+        id: 'no-user-preferences',
+        productivityPreferences: {},
+        notificationSettings: {},
+        profileData: {}
+      },
+      message: 'No user preferences found - complete onboarding to set preferences'
     })
 
     // TODO: Re-enable database operations once connection is fixed

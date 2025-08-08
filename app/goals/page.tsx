@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,41 +28,7 @@ import Link from "next/link"
 // Empty data - will be populated from database
 const mockPersonalGoals: any[] = []
 const mockTeamGoals: any[] = []
-const mockCompanyGoals = [
-  {
-    id: 1,
-    name: "Weekly Billable Hours",
-    type: "company-weekly",
-    frequency: "weekly",
-    target: 50,
-    current: 45,
-    max: 50,
-    status: "active",
-    description: "Company-wide weekly billable hours target"
-  },
-  {
-    id: 2,
-    name: "Monthly Billable Hours", 
-    type: "company-monthly",
-    frequency: "monthly",
-    target: 200,
-    current: 180,
-    max: 200,
-    status: "active",
-    description: "Company-wide monthly billable hours target"
-  },
-  {
-    id: 3,
-    name: "Annual Billable Hours",
-    type: "company-annual", 
-    frequency: "yearly",
-    target: 2400,
-    current: 2160,
-    max: 2400,
-    status: "active",
-    description: "Company-wide annual billable hours target"
-  }
-]
+const mockCompanyGoals: any[] = []
 
 const personalGoalTypes = [
   { value: "billable", label: "Billable / Work Output", icon: DollarSign, color: "bg-blue-100 text-blue-800" },
@@ -93,13 +59,72 @@ const frequencies = [
 export default function GoalsDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
-  // Remove these modal states
-  // const [isPersonalGoalModalOpen, setIsPersonalGoalModalOpen] = useState(false)
-  // const [isTeamGoalModalOpen, setIsTeamGoalModalOpen] = useState(false)
+  
+  // State for real data
+  const [realGoalsData, setRealGoalsData] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Remove the form states since they're not needed anymore
-  // Remove: const [personalGoalForm, setPersonalGoalForm] = useState({...})
-  // Remove: const [teamGoalForm, setTeamGoalForm] = useState({...})
+  // Fetch real data from onboarding
+  useEffect(() => {
+    const fetchRealData = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Fetch company goals data
+        const goalsResponse = await fetch('/api/company-goals')
+        const goalsData = await goalsResponse.json()
+
+        // Fetch streaks data
+        const streaksResponse = await fetch('/api/streaks')
+        const streaksData = await streaksResponse.json()
+
+        // Transform onboarding data into goals format
+        const transformedData = {
+          personalGoals: [], // Will be populated from user's personal goals
+          teamGoals: [], // Will be populated from team goals
+          companyGoals: goalsData.success ? goalsData.goals.map((goal: any) => ({
+            id: goal.id || Math.random().toString(),
+            name: goal.name,
+            type: goal.type,
+            frequency: goal.frequency,
+            target: goal.target,
+            current: goal.current || 0,
+            max: goal.target,
+            status: goal.status || 'active',
+            description: goal.description || ''
+          })) : [],
+          streaks: streaksData.success ? streaksData.streaks.map((streak: any) => ({
+            id: streak.id || Math.random().toString(),
+            name: streak.name,
+            type: 'Streak',
+            frequency: streak.frequency,
+            target: 1,
+            current: 0, // Will be calculated based on actual streak progress
+            max: 1,
+            status: streak.active ? 'active' : 'inactive',
+            description: streak.rule?.description || ''
+          })) : []
+        }
+
+        setRealGoalsData(transformedData)
+      } catch (err) {
+        console.error('Error fetching real goals data:', err)
+        setError('Failed to load goals data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRealData()
+  }, [])
+
+  // Use real data if available, otherwise fall back to mock data
+  const personalGoals = realGoalsData?.personalGoals || mockPersonalGoals
+  const teamGoals = realGoalsData?.teamGoals || mockTeamGoals
+  const companyGoals = realGoalsData?.companyGoals || mockCompanyGoals
+  const streaks = realGoalsData?.streaks || []
 
   const [personalSortBy, setPersonalSortBy] = useState<string>("all")
   const [teamSortBy, setTeamSortBy] = useState<string>("all")
@@ -115,19 +140,19 @@ export default function GoalsDashboard() {
   // Remove: const handleTeamGoalSubmit = () => {...}
 
   // Filter and sort personal goals
-  const filteredPersonalGoals = mockPersonalGoals.filter((goal) => {
+  const filteredPersonalGoals = personalGoals.filter((goal) => {
     if (personalSortBy === "all") return true
     return goal.frequency.toLowerCase() === personalSortBy
   })
 
   // Filter and sort team goals
-  const filteredTeamGoals = mockTeamGoals.filter((goal) => {
+  const filteredTeamGoals = teamGoals.filter((goal) => {
     if (teamSortBy === "all") return true
     return goal.frequency.toLowerCase() === teamSortBy
   })
 
   // Filter and sort company goals
-  const filteredCompanyGoals = mockCompanyGoals.filter((goal) => {
+  const filteredCompanyGoals = companyGoals.filter((goal) => {
     if (companySortBy === "all") return true
     return goal.frequency.toLowerCase() === companySortBy
   })

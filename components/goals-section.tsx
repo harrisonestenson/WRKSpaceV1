@@ -28,64 +28,9 @@ import {
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Mock data
-const mockPersonalGoals = [
-  {
-    id: 1,
-    name: "Monthly Billable Hours",
-    type: "Billable / Work Output",
-    frequency: "Monthly",
-    target: "320 hours",
-    current: 250,
-    max: 320,
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    notes: "Focus on high-priority cases",
-    userId: "current-user",
-  },
-  {
-    id: 2,
-    name: "Daily Time Tracking",
-    type: "Time Management",
-    frequency: "Daily",
-    target: "8 hours logged",
-    current: 6,
-    max: 8,
-    startDate: "2024-01-01",
-    endDate: "2024-12-31",
-    notes: "Improve time tracking consistency",
-    userId: "current-user",
-  },
-]
-
-const mockTeamGoals = [
-  {
-    id: 1,
-    name: "Q1 Revenue Target",
-    type: "Billable Hours / Revenue",
-    frequency: "Quarterly",
-    target: "$500,000",
-    current: 375000,
-    max: 500000,
-    startDate: "2024-01-01",
-    endDate: "2024-03-31",
-    notes: "Focus on high-value cases",
-    createdBy: "admin",
-  },
-  {
-    id: 2,
-    name: "Case Resolution Rate",
-    type: "Case-Based",
-    frequency: "Monthly",
-    target: "85% resolution",
-    current: 78,
-    max: 85,
-    startDate: "2024-01-01",
-    endDate: "2024-01-31",
-    notes: "Improve case closure efficiency",
-    createdBy: "admin",
-  },
-]
+// Empty data - will be populated from database
+const mockPersonalGoals: any[] = []
+const mockTeamGoals: any[] = []
 
 const personalGoalTypes = [
   { value: "billable", label: "Billable / Work Output", icon: DollarSign, color: "bg-blue-100 text-blue-800" },

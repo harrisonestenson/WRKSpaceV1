@@ -15,9 +15,60 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw } from "lucide-react"
+import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale } from "lucide-react"
 
 import Link from "next/link"
+
+// TypeScript interfaces for dashboard data
+interface DashboardGoal {
+  id: string
+  title: string
+  type: string
+  frequency: string
+  actual: number
+  target: number
+  status: string
+  progress: number
+}
+
+interface DashboardTimeEntry {
+  id: string
+  date: string
+  duration: number
+  billable: boolean
+  description: string
+}
+
+interface DashboardTeamMember {
+  id: string
+  name: string
+  title: string
+  status: string
+  billableHours: number
+  goalProgress: number
+}
+
+interface DashboardLegalCase {
+  id: string
+  name: string
+  startDate: string
+}
+
+interface DashboardData {
+  userId: string
+  userRole: string
+  goals: DashboardGoal[]
+  timeEntries: DashboardTimeEntry[]
+  teamMembers: DashboardTeamMember[]
+  legalCases: DashboardLegalCase[]
+  summary: {
+    totalBillableHours: number
+    totalNonBillableHours: number
+    goalCompletionRate: number
+    averageDailyHours: number
+    activeCases: number
+  }
+}
 
 // Empty data - will be populated from database
 const mockCases: any[] = []
@@ -31,6 +82,11 @@ const currentUser = {
 
 export default function LawFirmDashboard() {
   const router = useRouter()
+  
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
   
   // Check if user has selected a role
   useEffect(() => {
@@ -231,12 +287,91 @@ export default function LawFirmDashboard() {
     const savedCompletion = localStorage.getItem('onboardingComplete')
     setIsOnboardingCompleted(savedCompletion === 'true')
   }, [])
+
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoadingDashboard(true)
+        setDashboardError(null)
+        
+        const response = await fetch(`/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`)
+        const data = await response.json()
+        
+        if (data.success) {
+          setDashboardData(data.dashboardData)
+        } else {
+          setDashboardError('Failed to fetch dashboard data')
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+        setDashboardError('Failed to fetch dashboard data')
+      } finally {
+        setIsLoadingDashboard(false)
+      }
+    }
+
+    if (userRole) {
+      fetchDashboardData()
+    }
+  }, [userRole])
   
   // Function to reset onboarding
-  const resetOnboarding = () => {
-    localStorage.removeItem('onboardingComplete')
-    setIsOnboardingCompleted(false)
-    router.push('/role-select')
+  const resetOnboarding = async () => {
+    try {
+      console.log('Resetting onboarding data...')
+      
+      // Clear client-side data
+      localStorage.removeItem('onboardingComplete')
+      localStorage.removeItem('onboardingData')
+      
+      // Clear server-side data for all APIs
+      const apisToClear = [
+        '/api/onboarding-data',
+        '/api/company-goals',
+        '/api/personal-goals',
+        '/api/legal-cases',
+        '/api/streaks'
+      ]
+      
+      const clearPromises = apisToClear.map(async (api) => {
+        try {
+          const response = await fetch(api, { method: 'DELETE' })
+          if (response.ok) {
+            console.log(`✅ Cleared ${api}`)
+          } else {
+            console.error(`❌ Failed to clear ${api}`)
+          }
+        } catch (error) {
+          console.error(`❌ Error clearing ${api}:`, error)
+        }
+      })
+      
+      await Promise.all(clearPromises)
+      
+      // Update UI state
+      setIsOnboardingCompleted(false)
+      
+      // Clear any cached data in components
+      setCompanyGoals({
+        weeklyBillable: 0,
+        monthlyBillable: 0,
+        annualBillable: 0
+      })
+      setPersonalGoals([])
+      setLegalCases([])
+      setStreaks([])
+      
+      // Redirect to role selection
+      router.push('/role-select')
+      
+      console.log('✅ Onboarding reset completed successfully')
+      
+    } catch (error) {
+      console.error('❌ Error resetting onboarding:', error)
+      // Still redirect even if there's an error
+      router.push('/role-select')
+    }
   }
   
   // Daily pledge state
@@ -281,6 +416,18 @@ export default function LawFirmDashboard() {
     }
   }, [isTimerRunning])
 
+  // Personal goals state
+  const [personalGoals, setPersonalGoals] = useState<any[]>([])
+  const [isLoadingPersonalGoals, setIsLoadingPersonalGoals] = useState(true)
+
+  // Legal cases state
+  const [legalCases, setLegalCases] = useState<any[]>([])
+  const [isLoadingLegalCases, setIsLoadingLegalCases] = useState(true)
+
+  // Streaks state
+  const [streaks, setStreaks] = useState<any[]>([])
+  const [isLoadingStreaks, setIsLoadingStreaks] = useState(true)
+
   // Fetch company goals
   useEffect(() => {
     const fetchCompanyGoals = async () => {
@@ -290,22 +437,22 @@ export default function LawFirmDashboard() {
           const data = await response.json()
           setCompanyGoals(data.companyGoals)
           
-          // Calculate progress (mock data for now)
+          // Calculate progress (using 0 for actual since we don't have real time tracking yet)
           setCompanyProgress({
             weekly: { 
-              actual: 45, 
+              actual: 0, 
               target: data.companyGoals.weeklyBillable, 
-              percentage: data.companyGoals.weeklyBillable > 0 ? (45 / data.companyGoals.weeklyBillable) * 100 : 0 
+              percentage: 0 
             },
             monthly: { 
-              actual: 180, 
+              actual: 0, 
               target: data.companyGoals.monthlyBillable, 
-              percentage: data.companyGoals.monthlyBillable > 0 ? (180 / data.companyGoals.monthlyBillable) * 100 : 0 
+              percentage: 0 
             },
             annual: { 
-              actual: 2160, 
+              actual: 0, 
               target: data.companyGoals.annualBillable, 
-              percentage: data.companyGoals.annualBillable > 0 ? (2160 / data.companyGoals.annualBillable) * 100 : 0 
+              percentage: 0 
             }
           })
         }
@@ -315,6 +462,69 @@ export default function LawFirmDashboard() {
     }
 
     fetchCompanyGoals()
+  }, [])
+
+  // Fetch personal goals
+  useEffect(() => {
+    const fetchPersonalGoals = async () => {
+      try {
+        setIsLoadingPersonalGoals(true)
+        const response = await fetch('/api/personal-goals')
+        const data = await response.json()
+        
+        if (data.success) {
+          setPersonalGoals(data.personalGoals || [])
+        }
+      } catch (error) {
+        console.error('Error fetching personal goals:', error)
+      } finally {
+        setIsLoadingPersonalGoals(false)
+      }
+    }
+
+    fetchPersonalGoals()
+  }, [])
+
+  // Fetch legal cases
+  useEffect(() => {
+    const fetchLegalCases = async () => {
+      try {
+        setIsLoadingLegalCases(true)
+        const response = await fetch('/api/legal-cases')
+        const data = await response.json()
+        
+        if (data.success) {
+          setLegalCases(data.data.cases || [])
+        }
+      } catch (error) {
+        console.error('Error fetching legal cases:', error)
+      } finally {
+        setIsLoadingLegalCases(false)
+      }
+    }
+
+    fetchLegalCases()
+  }, [])
+
+  // Fetch streaks
+  useEffect(() => {
+    const fetchStreaks = async () => {
+      try {
+        setIsLoadingStreaks(true)
+        const response = await fetch('/api/streaks')
+        const data = await response.json()
+        
+        if (data.success) {
+          setStreaks(data.streaks || [])
+        }
+      } catch (error) {
+        console.error('Error fetching streaks:', error)
+      } finally {
+        setIsLoadingStreaks(false)
+      }
+    }
+
+    fetchStreaks()
   }, [])
 
   // Non-billable timer effect
@@ -799,7 +1009,7 @@ export default function LawFirmDashboard() {
     const endDateTime = new Date(`${manualDate}T${manualEndTime}`)
     const duration = Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000)
 
-    const selectedCaseDetails = mockCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
+    const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
     const manualTimeEntry = {
       date: manualDate,
       cases: selectedCaseDetails,
@@ -1252,23 +1462,33 @@ export default function LawFirmDashboard() {
                       Check all cases you worked on during this time period
                     </p>
                     <div className="border rounded-lg p-3 max-h-32 overflow-y-auto space-y-2">
-                      {mockCases.map((case_) => (
-                        <div key={case_.id} className="flex items-start space-x-2">
-                          <Checkbox
-                            id={`case-${case_.id}`}
-                            checked={selectedCases.includes(case_.id.toString())}
-                            onCheckedChange={(checked) => handleCaseSelection(case_.id.toString(), checked as boolean)}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <label htmlFor={`case-${case_.id}`} className="text-xs font-medium cursor-pointer block">
-                              {case_.name}
-                            </label>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {case_.client} • {case_.type} • {case_.code}
-                            </p>
-                          </div>
+                      {isLoadingLegalCases ? (
+                        <div className="text-center text-xs text-muted-foreground py-2">
+                          Loading cases...
                         </div>
-                      ))}
+                      ) : legalCases.length > 0 ? (
+                        legalCases.map((case_) => (
+                          <div key={case_.id} className="flex items-start space-x-2">
+                            <Checkbox
+                              id={`case-${case_.id}`}
+                              checked={selectedCases.includes(case_.id.toString())}
+                              onCheckedChange={(checked) => handleCaseSelection(case_.id.toString(), checked as boolean)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <label htmlFor={`case-${case_.id}`} className="text-xs font-medium cursor-pointer block">
+                                {case_.name}
+                              </label>
+                              <p className="text-xs text-muted-foreground truncate">
+                                Started: {new Date(case_.startDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-xs text-muted-foreground py-2">
+                          No legal cases available
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1409,22 +1629,34 @@ export default function LawFirmDashboard() {
                         />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockCases
-                          .filter((case_) => !manualSelectedCases.includes(case_.id.toString()))
-                          .map((case_) => (
-                            <SelectItem key={case_.id} value={case_.id.toString()}>
-                              <div className="flex flex-col">
-                                <span className="font-medium text-xs">{case_.name}</span>
-                                <span className="text-xs text-muted-foreground">{case_.client}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                        {isLoadingLegalCases ? (
+                          <SelectItem value="loading" disabled>
+                            Loading cases...
+                          </SelectItem>
+                        ) : legalCases.length > 0 ? (
+                          legalCases
+                            .filter((case_) => !manualSelectedCases.includes(case_.id.toString()))
+                            .map((case_) => (
+                              <SelectItem key={case_.id} value={case_.id.toString()}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-xs">{case_.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Started: {new Date(case_.startDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <SelectItem value="no-cases" disabled>
+                            No cases available
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                     {manualSelectedCases.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {manualSelectedCases.map((caseId) => {
-                          const case_ = mockCases.find((c) => c.id.toString() === caseId)
+                          const case_ = legalCases.find((c) => c.id.toString() === caseId)
                           return (
                             <Badge key={caseId} variant="secondary" className="text-xs">
                               {case_?.name}
@@ -1650,6 +1882,53 @@ export default function LawFirmDashboard() {
               </CardContent>
             </Card>
 
+            {/* Personal Goals Section */}
+            <Card className="h-1/3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Personal Goals
+                  {isLoadingPersonalGoals && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPersonalGoals ? (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Loading personal goals...
+                  </div>
+                ) : personalGoals.length > 0 ? (
+                  <div className="space-y-4">
+                    {personalGoals.slice(0, 3).map((goal) => (
+                      <div key={goal.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium truncate">{goal.name || goal.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {goal.current || goal.actual || 0}/{goal.target || goal.max || 0}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={Math.min(goal.progress || 0, 100)} 
+                          className="h-2"
+                        />
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">{goal.type || goal.frequency}</span>
+                          <span className={(goal.progress || 0) >= 100 ? "text-green-600" : (goal.progress || 0) >= 90 ? "text-yellow-600" : "text-muted-foreground"}>
+                            {(goal.progress || 0).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-sm text-muted-foreground">
+                    No personal goals set yet
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Company Goals Section */}
             <Card className="h-1/3">
               <CardHeader className="pb-3">
@@ -1720,6 +1999,51 @@ export default function LawFirmDashboard() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Legal Cases Section */}
+            <Card className="h-1/3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Scale className="h-4 w-4" />
+                  Legal Cases
+                  {isLoadingLegalCases && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingLegalCases ? (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Loading legal cases...
+                  </div>
+                ) : legalCases.length > 0 ? (
+                  <div className="space-y-3">
+                    {legalCases.slice(0, 3).map((caseItem) => (
+                      <div key={caseItem.id} className="flex items-center justify-between p-2 rounded-lg border">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{caseItem.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Started: {new Date(caseItem.startDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          Active
+                        </Badge>
+                      </div>
+                    ))}
+                    {legalCases.length > 3 && (
+                      <div className="text-center text-xs text-muted-foreground">
+                        +{legalCases.length - 3} more cases
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center text-sm text-muted-foreground">
+                    No legal cases added yet
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

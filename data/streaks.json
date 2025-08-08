@@ -1,0 +1,30 @@
+[
+  {
+    "id": "meet-billable-target",
+    "name": "Meet Billable Hours Target",
+    "category": "task-management",
+    "frequency": "weekly",
+    "rule": {
+      "type": "billable-hours-target",
+      "value": "35",
+      "description": "Hit expected weekly hours set by admin"
+    },
+    "resetCondition": "missed-threshold",
+    "visibility": true,
+    "active": true
+  },
+  {
+    "id": "maintain-cvs-above-90",
+    "name": "Maintain CVS Above 90%",
+    "category": "task-management",
+    "frequency": "weekly",
+    "rule": {
+      "type": "cvs-threshold",
+      "value": "90",
+      "description": "CVS ≥ 90% for the week"
+    },
+    "resetCondition": "missed-threshold",
+    "visibility": true,
+    "active": true
+  }
+]

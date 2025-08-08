@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { onboardingStore } from '@/lib/onboarding-store'
 // import { getServerSession } from 'next-auth'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
@@ -11,34 +12,33 @@ export async function GET() {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
 
-    // For now, return mock team expectations
-    const mockTeamExpectations = [
-      {
-        id: 'mock-1',
-        name: 'John Smith',
-        team: 'Litigation Team',
-        expectedBillableHours: 1500,
-        expectedNonBillablePoints: 120,
-        personalTarget: '6 hours/day',
-        role: 'Associate',
-        department: 'Litigation'
-      },
-      {
-        id: 'mock-2',
-        name: 'Sarah Johnson',
-        team: 'Corporate Team',
-        expectedBillableHours: 1600,
-        expectedNonBillablePoints: 100,
-        personalTarget: '7 hours/day',
-        role: 'Partner',
-        department: 'Corporate'
-      }
-    ]
+    // Get team expectations from onboarding data
+    const teamMemberExpectations = onboardingStore.getTeamMemberExpectations()
+    
+    if (teamMemberExpectations && teamMemberExpectations.length > 0) {
+      const onboardingTeamExpectations = teamMemberExpectations.map((member, index) => ({
+        id: `onboarding-member-${index + 1}`,
+        name: member.name,
+        team: member.team,
+        expectedBillableHours: member.expectedBillableHours,
+        expectedNonBillablePoints: member.expectedNonBillablePoints,
+        personalTarget: member.personalTarget,
+        role: 'Member', // Default role
+        department: member.team
+      }))
 
+      return NextResponse.json({ 
+        success: true, 
+        teamExpectations: onboardingTeamExpectations,
+        message: 'Team expectations retrieved from onboarding data'
+      })
+    }
+
+    // Return empty data if no onboarding data
     return NextResponse.json({ 
       success: true, 
-      teamExpectations: mockTeamExpectations,
-      message: 'Team expectations retrieved (mock data)'
+      teamExpectations: [],
+      message: 'No team expectations found - complete onboarding to set expectations'
     })
 
     // TODO: Re-enable database operations once connection is fixed

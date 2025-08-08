@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { onboardingStore } from '@/lib/onboarding-store'
 // import { getServerSession } from 'next-auth'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing
     const body = await request.json()
-    const { profile, teamData, personalGoals, streaksConfig, teamMemberExpectations } = body
+    const { profile, teamData, personalGoals, streaksConfig, teamMemberExpectations, legalCases } = body
 
     console.log('Onboarding API - Received data:', {
       profile: profile.name,
@@ -86,13 +87,31 @@ export async function POST(request: NextRequest) {
         visibility: streak.visibility,
         active: streak.active
       })) || [],
-      personalGoals: personalGoals || {}
+      personalGoals: personalGoals || {},
+      legalCases: legalCases || []
     }
 
-    // For now, just return success without database operations
+    // Store the processed data in our global store
+    onboardingStore.setData(processedData)
+    
+    // Also store in the onboarding data API
+    try {
+      await fetch(`${request.nextUrl.origin}/api/onboarding-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(processedData),
+      })
+    } catch (error) {
+      console.error('Error storing onboarding data in API:', error)
+    }
+    
+
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Onboarding completed successfully (bypassed for testing)',
+      message: 'Onboarding completed successfully (data stored in memory)',
       data: {
         profile: processedData.profile.name,
         role: processedData.profile.role,
