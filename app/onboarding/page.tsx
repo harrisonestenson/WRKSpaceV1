@@ -212,6 +212,9 @@ export default function OnboardingPage() {
   const [userName, setUserName] = useState("")
   const [userTitle, setUserTitle] = useState("")
   const [selectedRole, setSelectedRole] = useState("")
+  const [durationOfEmployment, setDurationOfEmployment] = useState("")
+  const [yearsOfExperience, setYearsOfExperience] = useState("")
+  const [durationOfPosition, setDurationOfPosition] = useState("")
   const [productivityPreferences, setProductivityPreferences] = useState({
     morningFocus: false,
     reminderSettings: false,
@@ -402,6 +405,9 @@ export default function OnboardingPage() {
           title: userTitle,
           role: selectedRole,
           photo: profilePhoto,
+          durationOfEmployment,
+          yearsOfExperience,
+          durationOfPosition,
           productivityPreferences,
           notificationSettings,
         },
@@ -442,7 +448,10 @@ export default function OnboardingPage() {
               title: userTitle,
               role: selectedRole,
               photo: profilePhoto,
-              department: ''
+              department: '',
+              durationOfEmployment,
+              yearsOfExperience,
+              durationOfPosition
             },
             productivityPreferences,
             notificationSettings
@@ -652,6 +661,36 @@ export default function OnboardingPage() {
                     value={userTitle}
                     onChange={(e) => setUserTitle(e.target.value)}
                     placeholder="e.g., Associate, Partner"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="employment-duration">Duration of Employment</Label>
+                  <Input
+                    id="employment-duration"
+                    value={durationOfEmployment}
+                    onChange={(e) => setDurationOfEmployment(e.target.value)}
+                    placeholder="e.g., 2 years"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="experience">Years of Experience</Label>
+                  <Input
+                    id="experience"
+                    value={yearsOfExperience}
+                    onChange={(e) => setYearsOfExperience(e.target.value)}
+                    placeholder="e.g., 5 years"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="position-duration">Duration of Position</Label>
+                  <Input
+                    id="position-duration"
+                    value={durationOfPosition}
+                    onChange={(e) => setDurationOfPosition(e.target.value)}
+                    placeholder="e.g., 1 year"
                   />
                 </div>
               </div>
@@ -1547,7 +1586,7 @@ export default function OnboardingPage() {
                                 <div className="w-3 h-3 rounded-full bg-green-500" />
                                 <div>
                                   <div className="font-medium">{streak.name}</div>
-                                  <div className="text-sm text-muted-foreground">{streak.rule.description}</div>
+                                  <div className="text-sm text-muted-foreground">{streak.rule?.description || "No description available"}</div>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -1873,6 +1912,18 @@ export default function OnboardingPage() {
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Role:</span>
                       <span className="font-medium">{selectedRole}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Duration of Employment:</span>
+                      <span className="font-medium">{durationOfEmployment || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Years of Experience:</span>
+                      <span className="font-medium">{yearsOfExperience || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Duration of Position:</span>
+                      <span className="font-medium">{durationOfPosition || 'Not specified'}</span>
                     </div>
                   </CardContent>
                 </Card>

@@ -1,6 +1,6 @@
 {
   "profile": {
-    "name": "zac",
+    "name": "Harrison estenson",
     "title": "partner",
     "role": "partner",
     "photo": "",
@@ -17,11 +17,11 @@
   "teamData": {
     "teams": [
       {
-        "name": "team",
-        "department": "",
+        "name": "my team ",
+        "department": "Family Law",
         "members": [
           {
-            "name": "em",
+            "name": "zac potter",
             "email": "",
             "title": "",
             "role": "member",
@@ -31,45 +31,32 @@
       }
     ],
     "companyGoals": {
-      "weeklyBillable": 100,
-      "monthlyBillable": 1000,
-      "annualBillable": 10000
+      "weeklyBillable": 10,
+      "monthlyBillable": 100,
+      "annualBillable": 1000
     },
     "defaultGoalTypes": []
   },
   "teamMemberExpectations": [
     {
-      "name": "em",
-      "team": "team",
-      "expectedBillableHours": 1500,
+      "name": "zac potter",
+      "team": "my team ",
+      "expectedBillableHours": 1800,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
     }
   ],
   "streaksConfig": [
     {
-      "name": "Meet Billable Hours Target",
-      "category": "task-management",
-      "frequency": "weekly",
+      "name": "Start Work Before 9AM",
+      "category": "time-management",
+      "frequency": "daily",
       "rule": {
-        "type": "billable-hours-target",
-        "value": "35",
-        "description": "Hit expected weekly hours set by admin"
+        "type": "time-logged-before",
+        "value": "9:00 AM",
+        "description": "User logs time before 9:00 AM"
       },
-      "resetCondition": "missed-threshold",
-      "visibility": true,
-      "active": true
-    },
-    {
-      "name": "Maintain CVS Above 90%",
-      "category": "task-management",
-      "frequency": "weekly",
-      "rule": {
-        "type": "cvs-threshold",
-        "value": "90",
-        "description": "CVS ≥ 90% for the week"
-      },
-      "resetCondition": "missed-threshold",
+      "resetCondition": "missed-entry",
       "visibility": true,
       "active": true
     }
@@ -81,9 +68,9 @@
   },
   "legalCases": [
     {
-      "name": "test",
+      "name": "test case",
       "startDate": "",
-      "id": "case-1754669125266"
+      "id": "case-1754752187924"
     }
   ]
 }

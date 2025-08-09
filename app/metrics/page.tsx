@@ -137,6 +137,15 @@ export default function MetricsDashboard() {
   const [realMetricsData, setRealMetricsData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+
+  // New metrics state
+  const [billableHoursData, setBillableHoursData] = useState<any>(null)
+  const [realizationRateData, setRealizationRateData] = useState<any>(null)
+  const [clientRetentionData, setClientRetentionData] = useState<any>(null)
+  const [revenueData, setRevenueData] = useState<any>(null)
+  const [nonBillableHoursData, setNonBillableHoursData] = useState<any>(null)
+  const [metricsTimeframe, setMetricsTimeframe] = useState('monthly')
 
   // Fetch real data from onboarding
   useEffect(() => {
@@ -153,6 +162,44 @@ export default function MetricsDashboard() {
         const goalsResponse = await fetch('/api/company-goals')
         const goalsData = await goalsResponse.json()
 
+        // Fetch team members data
+        const teamMembersResponse = await fetch('/api/team-members')
+        const teamMembersData = await teamMembersResponse.json()
+        if (teamMembersData.success) {
+          setTeamMembers(teamMembersData.teamMembers)
+        }
+
+        // Fetch new metrics data
+        const billableHoursResponse = await fetch(`/api/metrics/billable-hours?timeframe=${metricsTimeframe}`)
+        const billableHoursData = await billableHoursResponse.json()
+        if (billableHoursData.success) {
+          setBillableHoursData(billableHoursData.data)
+        }
+
+        const realizationRateResponse = await fetch(`/api/metrics/realization-rate?timeframe=${metricsTimeframe}`)
+        const realizationRateData = await realizationRateResponse.json()
+        if (realizationRateData.success) {
+          setRealizationRateData(realizationRateData.data)
+        }
+
+        const clientRetentionResponse = await fetch(`/api/metrics/client-retention?timeframe=${metricsTimeframe}`)
+        const clientRetentionData = await clientRetentionResponse.json()
+        if (clientRetentionData.success) {
+          setClientRetentionData(clientRetentionData.data)
+        }
+
+        const revenueResponse = await fetch(`/api/metrics/revenue?timeframe=${metricsTimeframe}`)
+        const revenueData = await revenueResponse.json()
+        if (revenueData.success) {
+          setRevenueData(revenueData.data)
+        }
+
+        const nonBillableHoursResponse = await fetch(`/api/metrics/non-billable-hours?timeframe=${metricsTimeframe}`)
+        const nonBillableHoursData = await nonBillableHoursResponse.json()
+        if (nonBillableHoursData.success) {
+          setNonBillableHoursData(nonBillableHoursData.data)
+        }
+
         // Transform onboarding data into metrics format
         const transformedData = {
           personal: {
@@ -162,14 +209,22 @@ export default function MetricsDashboard() {
               longestStreak: 0,
               daysMissed: 0,
               mostProductiveTime: "",
-              dailyStreaks: streaksData.success ? streaksData.streaks.map((streak: any) => ({
+              dailyStreaks: streaksData.success ? streaksData.streaks.filter((streak: any) => streak.frequency === 'daily').map((streak: any) => ({
                 name: streak.name,
                 category: streak.category,
                 frequency: streak.frequency,
                 active: streak.active,
+                rule: streak.rule || { description: 'No description available' },
                 currentStreak: 0 // Will be calculated based on actual streak data
               })) : [],
-              weeklyStreaks: []
+              weeklyStreaks: streaksData.success ? streaksData.streaks.filter((streak: any) => streak.frequency === 'weekly').map((streak: any) => ({
+                name: streak.name,
+                category: streak.category,
+                frequency: streak.frequency,
+                active: streak.active,
+                rule: streak.rule || { description: 'No description available' },
+                currentStreak: 0 // Will be calculated based on actual streak data
+              })) : []
             }
           },
           team: {
@@ -177,7 +232,8 @@ export default function MetricsDashboard() {
             streaks: streaksData.success ? streaksData.streaks.map((streak: any) => ({
               name: streak.name,
               streak: 0, // Will be calculated based on actual streak data
-              status: streak.active ? "active" : "broken"
+              status: streak.active ? "active" : "broken",
+              rule: streak.rule || { description: 'No description available' }
             })) : [],
             companyGoals: goalsData.success ? {
               weekly: { actual: 0, target: goalsData.goals?.find((g: any) => g.frequency === 'weekly')?.target || 0, percentage: 0 },
@@ -197,7 +253,7 @@ export default function MetricsDashboard() {
     }
 
     fetchRealData()
-  }, [])
+  }, [metricsTimeframe])
 
   // Use real data if available, otherwise fall back to mock data
   const personalData = realMetricsData?.personal || mockMetricsData.personal
@@ -292,6 +348,10 @@ export default function MetricsDashboard() {
     cvs: teamData.cvs.personal[cvsTimeFrame as keyof typeof teamData.cvs.personal] || teamData.cvs.personal.monthly
   }
 
+  // Resolve dynamic icon components safely for JSX usage
+  const BestIcon = personalMetrics?.bestMetric?.icon as React.ComponentType<{ className?: string }> | undefined
+  const WorstIcon = personalMetrics?.worstMetric?.icon as React.ComponentType<{ className?: string }> | undefined
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -339,11 +399,26 @@ export default function MetricsDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Users (Team View)</SelectItem>
-                        <SelectItem value="sarah">Sarah Johnson</SelectItem>
-                        <SelectItem value="mike">Mike Chen</SelectItem>
-                        <SelectItem value="lisa">Lisa Rodriguez</SelectItem>
-                        <SelectItem value="david">David Kim</SelectItem>
-                        <SelectItem value="emma">Emma Wilson</SelectItem>
+                        {teamMembers.map((member: any) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Timeframe:</span>
+                    <Select value={metricsTimeframe} onValueChange={setMetricsTimeframe}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -380,6 +455,46 @@ export default function MetricsDashboard() {
             >
               <Award className="h-4 w-4" />
               Goal Performance
+            </Button>
+            <Button
+              variant={metricsActiveTab === "billable-hours" ? "default" : "outline"}
+              onClick={() => setMetricsActiveTab("billable-hours")}
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              Billable Hours
+            </Button>
+            <Button
+              variant={metricsActiveTab === "realization-rate" ? "default" : "outline"}
+              onClick={() => setMetricsActiveTab("realization-rate")}
+              className="flex items-center gap-2"
+            >
+              <Calculator className="h-4 w-4" />
+              Realization Rate
+            </Button>
+            <Button
+              variant={metricsActiveTab === "client-retention" ? "default" : "outline"}
+              onClick={() => setMetricsActiveTab("client-retention")}
+              className="flex items-center gap-2"
+            >
+              <Users className="h-4 w-4" />
+              Client Retention
+            </Button>
+            <Button
+              variant={metricsActiveTab === "revenue" ? "default" : "outline"}
+              onClick={() => setMetricsActiveTab("revenue")}
+              className="flex items-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Revenue
+            </Button>
+            <Button
+              variant={metricsActiveTab === "non-billable-hours" ? "default" : "outline"}
+              onClick={() => setMetricsActiveTab("non-billable-hours")}
+              className="flex items-center gap-2"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Non-Billable Hours
             </Button>
           </div>
 
@@ -888,7 +1003,7 @@ export default function MetricsDashboard() {
                                 <CardContent>
                                   <div className="space-y-3">
                                     <div className="text-xs text-muted-foreground mb-2">
-                                      {streak.rule.description}
+                                      {streak.rule?.description || 'No description available'}
                                     </div>
                                     
                                     {/* Team Member Progress */}
@@ -944,7 +1059,7 @@ export default function MetricsDashboard() {
                                 <CardContent>
                                   <div className="space-y-3">
                                     <div className="text-xs text-muted-foreground mb-2">
-                                      {streak.rule.description}
+                                      {streak.rule?.description || 'No description available'}
                                     </div>
                                     
                                     {/* Team Member Progress */}
@@ -1044,7 +1159,7 @@ export default function MetricsDashboard() {
                                       <span className="text-sm">{streak.longestCount}</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                      {streak.rule.description}
+                                      {streak.rule?.description || "No description available"}
                                     </div>
                                     {streak.status === "broken" && (
                                       <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
@@ -1094,7 +1209,7 @@ export default function MetricsDashboard() {
                                       <span className="text-sm">{streak.longestCount}</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                      {streak.rule.description}
+                                      {streak.rule?.description || "No description available"}
                                     </div>
                                     {streak.status === "broken" && (
                                       <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
@@ -1189,7 +1304,464 @@ export default function MetricsDashboard() {
               </Card>
             )}
 
-            
+            {/* Billable Hours Metrics */}
+            {metricsActiveTab === "billable-hours" && billableHoursData && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Billable Hours Overview
+                    </CardTitle>
+                    <CardDescription>
+                      Total billable hours and billable rate for {metricsTimeframe} timeframe
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{billableHoursData.totalBillableHours}h</div>
+                        <div className="text-sm text-blue-700">Total Billable</div>
+                      </div>
+                      <div className="text-center p-4 bg-green-100 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{billableHoursData.totalNonBillableHours}h</div>
+                        <div className="text-sm text-green-700">Total Non-Billable</div>
+                      </div>
+                      <div className="text-center p-4 bg-purple-100 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">{billableHoursData.totalHours}h</div>
+                        <div className="text-sm text-purple-700">Total Hours</div>
+                      </div>
+                      <div className="text-center p-4 bg-orange-100 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">{billableHoursData.billableRate}%</div>
+                        <div className="text-sm text-orange-700">Billable Rate</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Time Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Period</TableHead>
+                          <TableHead>Billable Hours</TableHead>
+                          <TableHead>Non-Billable Hours</TableHead>
+                          <TableHead>Total Hours</TableHead>
+                          <TableHead>Billable Rate</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {billableHoursData.breakdown?.slice(-10).map((period: any, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">{period.period}</TableCell>
+                            <TableCell>{period.billableHours}h</TableCell>
+                            <TableCell>{period.nonBillableHours}h</TableCell>
+                            <TableCell>{period.totalHours}h</TableCell>
+                            <TableCell>{period.billableRate}%</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Realization Rate Metrics */}
+            {metricsActiveTab === "realization-rate" && realizationRateData && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5" />
+                      Realization Rate Overview
+                    </CardTitle>
+                    <CardDescription>
+                      Billed hours vs worked hours for {metricsTimeframe} timeframe
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{realizationRateData.overallRealizationRate}%</div>
+                        <div className="text-sm text-blue-700">Overall Rate</div>
+                      </div>
+                      <div className="text-center p-4 bg-green-100 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{realizationRateData.billedHours}h</div>
+                        <div className="text-sm text-green-700">Billed Hours</div>
+                      </div>
+                      <div className="text-center p-4 bg-red-100 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{realizationRateData.workedHours}h</div>
+                        <div className="text-sm text-red-700">Worked Hours</div>
+                      </div>
+                      <div className="text-center p-4 bg-orange-100 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">{realizationRateData.writeOffs}h</div>
+                        <div className="text-sm text-orange-700">Write-offs</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Case</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Case</TableHead>
+                            <TableHead>Billed</TableHead>
+                            <TableHead>Worked</TableHead>
+                            <TableHead>Rate</TableHead>
+                            <TableHead>Revenue</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {realizationRateData.byCase?.slice(0, 5).map((case_: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{case_.caseName}</TableCell>
+                              <TableCell>{case_.billedHours}h</TableCell>
+                              <TableCell>{case_.workedHours}h</TableCell>
+                              <TableCell>{case_.realizationRate}%</TableCell>
+                              <TableCell>${case_.revenue.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Attorney</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Attorney</TableHead>
+                            <TableHead>Billed</TableHead>
+                            <TableHead>Worked</TableHead>
+                            <TableHead>Rate</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {realizationRateData.byAttorney?.slice(0, 5).map((attorney: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{attorney.attorneyName}</TableCell>
+                              <TableCell>{attorney.billedHours}h</TableCell>
+                              <TableCell>{attorney.workedHours}h</TableCell>
+                              <TableCell>{attorney.realizationRate}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Client Retention Metrics */}
+            {metricsActiveTab === "client-retention" && clientRetentionData && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Client Retention Overview
+                    </CardTitle>
+                    <CardDescription>
+                      Client retention rates for {metricsTimeframe} timeframe
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{clientRetentionData.overallRetentionRate}%</div>
+                        <div className="text-sm text-blue-700">Retention Rate</div>
+                      </div>
+                      <div className="text-center p-4 bg-green-100 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{clientRetentionData.totalClients}</div>
+                        <div className="text-sm text-green-700">Total Clients</div>
+                      </div>
+                      <div className="text-center p-4 bg-purple-100 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">{clientRetentionData.retainedClients}</div>
+                        <div className="text-sm text-purple-700">Retained</div>
+                      </div>
+                      <div className="text-center p-4 bg-red-100 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{clientRetentionData.lostClients}</div>
+                        <div className="text-sm text-red-700">Lost</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Client Type</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Retained</TableHead>
+                            <TableHead>Rate</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientRetentionData.byClientType?.map((type: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{type.clientType}</TableCell>
+                              <TableCell>{type.totalClients}</TableCell>
+                              <TableCell>{type.retainedClients}</TableCell>
+                              <TableCell>{type.retentionRate}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Retained Clients</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Client</TableHead>
+                            <TableHead>Years</TableHead>
+                            <TableHead>Revenue</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clientRetentionData.topRetainedClients?.slice(0, 5).map((client: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{client.clientName}</TableCell>
+                              <TableCell>{client.yearsWithFirm}</TableCell>
+                              <TableCell>${client.totalRevenue.toLocaleString()}</TableCell>
+                              <TableCell>
+                                <Badge variant={client.status === 'Active' ? 'default' : 'secondary'}>
+                                  {client.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Revenue Metrics */}
+            {metricsActiveTab === "revenue" && revenueData && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      Revenue Overview
+                    </CardTitle>
+                    <CardDescription>
+                      Revenue metrics for {metricsTimeframe} timeframe
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-green-100 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">${revenueData.totalRevenue.toLocaleString()}</div>
+                        <div className="text-sm text-green-700">Total Revenue</div>
+                      </div>
+                      <div className="text-center p-4 bg-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{revenueData.totalBilledHours}h</div>
+                        <div className="text-sm text-blue-700">Billed Hours</div>
+                      </div>
+                      <div className="text-center p-4 bg-purple-100 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">${revenueData.averageHourlyRate}</div>
+                        <div className="text-sm text-purple-700">Avg Hourly Rate</div>
+                      </div>
+                      <div className="text-center p-4 bg-orange-100 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">${revenueData.revenuePerCase.toLocaleString()}</div>
+                        <div className="text-sm text-orange-700">Revenue per Case</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Case</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Case</TableHead>
+                            <TableHead>Revenue</TableHead>
+                            <TableHead>Hours</TableHead>
+                            <TableHead>Rate</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {revenueData.byCase?.slice(0, 5).map((case_: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{case_.caseName}</TableCell>
+                              <TableCell>${case_.revenue.toLocaleString()}</TableCell>
+                              <TableCell>{case_.billedHours}h</TableCell>
+                              <TableCell>${case_.hourlyRate}</TableCell>
+                              <TableCell>
+                                <Badge variant={case_.status === 'Active' ? 'default' : 'secondary'}>
+                                  {case_.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Practice Area</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Practice Area</TableHead>
+                            <TableHead>Revenue</TableHead>
+                            <TableHead>Hours</TableHead>
+                            <TableHead>Cases</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {revenueData.byPracticeArea?.slice(0, 5).map((area: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{area.practiceArea}</TableCell>
+                              <TableCell>${area.revenue.toLocaleString()}</TableCell>
+                              <TableCell>{area.billedHours}h</TableCell>
+                              <TableCell>{area.cases}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Non-Billable Hours Metrics */}
+            {metricsActiveTab === "non-billable-hours" && nonBillableHoursData && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Non-Billable Hours Overview
+                    </CardTitle>
+                    <CardDescription>
+                      Non-billable hours breakdown for {metricsTimeframe} timeframe
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-orange-100 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">{nonBillableHoursData.totalNonBillableHours}h</div>
+                        <div className="text-sm text-orange-700">Non-Billable</div>
+                      </div>
+                      <div className="text-center p-4 bg-blue-100 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{nonBillableHoursData.totalBillableHours}h</div>
+                        <div className="text-sm text-blue-700">Billable</div>
+                      </div>
+                      <div className="text-center p-4 bg-purple-100 rounded-lg">
+                        <div className="text-2xl font-bold text-purple-600">{nonBillableHoursData.totalBillableHours + nonBillableHoursData.totalNonBillableHours}h</div>
+                        <div className="text-sm text-purple-700">Total Hours</div>
+                      </div>
+                      <div className="text-center p-4 bg-red-100 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{nonBillableHoursData.nonBillablePercentage}%</div>
+                        <div className="text-sm text-red-700">Non-Billable %</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Category</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Hours</TableHead>
+                            <TableHead>Percentage</TableHead>
+                            <TableHead>Description</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {nonBillableHoursData.byCategory?.map((category: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{category.category}</TableCell>
+                              <TableCell>{category.hours}h</TableCell>
+                              <TableCell>{category.percentage}%</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{category.description}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>By Activity</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Activity</TableHead>
+                            <TableHead>Hours</TableHead>
+                            <TableHead>Percentage</TableHead>
+                            <TableHead>Category</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {nonBillableHoursData.byActivity?.slice(0, 8).map((activity: any, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{activity.activity}</TableCell>
+                              <TableCell>{activity.hours}h</TableCell>
+                              <TableCell>{activity.percentage}%</TableCell>
+                              <TableCell>{activity.category}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
 
             {/* Personal Best/Worst Metrics for Team Members */}
             {!isAdmin && personalMetrics.bestMetric && personalMetrics.worstMetric && (
@@ -1201,7 +1773,7 @@ export default function MetricsDashboard() {
                         Best Metric
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
-                        <personalMetrics.bestMetric.icon className="h-4 w-4" />
+                        {BestIcon && <BestIcon className="h-4 w-4" />}
                         {personalMetrics.bestMetric.name}
                       </CardDescription>
                     </CardHeader>
@@ -1221,7 +1793,7 @@ export default function MetricsDashboard() {
                         Needs Improvement
                       </CardTitle>
                       <CardDescription className="flex items-center gap-2">
-                        <personalMetrics.worstMetric.icon className="h-4 w-4" />
+                        {WorstIcon && <WorstIcon className="h-4 w-4" />}
                         {personalMetrics.worstMetric.name}
                       </CardDescription>
                     </CardHeader>

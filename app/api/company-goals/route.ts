@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { onboardingStore } from '@/lib/onboarding-store'
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
+import { applyCanonicalToCompanyGoals, resolveGoalIntentFromText } from '@/lib/goal-intent-resolver'
 
 // File-based storage for company goals (in production, this would be a database)
 const DATA_FILE_PATH = join(process.cwd(), 'data', 'company-goals.json')
@@ -46,7 +47,8 @@ export async function GET() {
           console.log('Company Goals API - Retrieved from onboarding-data API:', onboardingDataResult.data.teamData.companyGoals)
           return NextResponse.json({
             success: true,
-            companyGoals: onboardingDataResult.data.teamData.companyGoals
+            companyGoals: onboardingDataResult.data.teamData.companyGoals,
+            notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
           })
         }
       }
@@ -60,7 +62,8 @@ export async function GET() {
       console.log('Company Goals API - Retrieved from file storage:', fileData)
       return NextResponse.json({
         success: true,
-        companyGoals: fileData
+        companyGoals: fileData,
+        notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
       })
     }
 
@@ -80,7 +83,8 @@ export async function GET() {
     
     return NextResponse.json({
       success: true,
-      companyGoals: goalsToReturn
+      companyGoals: goalsToReturn,
+      notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
     })
   } catch (error) {
     console.error('Error fetching company goals:', error)
@@ -96,6 +100,35 @@ export async function POST(request: NextRequest) {
     const data = await request.json()
     console.log('Company Goals API - Received data:', data)
     
+    const warnings: string[] = []
+    
+    // If freeTextGoals array is provided, resolve them into canonical company goals
+    try {
+      const freeText: string[] = Array.isArray(data?.freeTextGoals) ? data.freeTextGoals : []
+      if (freeText.length > 0) {
+        const intents = freeText
+          .map((t) => resolveGoalIntentFromText(t, { scope: 'company' }))
+          .filter(Boolean) as ReturnType<typeof resolveGoalIntentFromText>[]
+        const merged = applyCanonicalToCompanyGoals(intents as any, {
+          weeklyBillable: parseInt(data?.weeklyBillable) || 0,
+          monthlyBillable: parseInt(data?.monthlyBillable) || 0,
+          annualBillable: parseInt(data?.annualBillable) || 0
+        })
+        data.weeklyBillable = merged.weeklyBillable
+        data.monthlyBillable = merged.monthlyBillable
+        data.annualBillable = merged.annualBillable
+
+        // Note unsupported metrics
+        intents.forEach((i: any) => {
+          if (i.metricKey !== 'billable_hours' && i.metricKey !== 'non_billable_hours') {
+            warnings.push(`Goal intent for "${i.metricKey}" isn\'t connected to live data yet.`)
+          }
+        })
+      }
+    } catch (e) {
+      console.warn('Company Goals API - freeTextGoals parse skipped:', e)
+    }
+
     // Save the company goals to file
     saveCompanyGoals(data)
     
@@ -111,7 +144,8 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Company goals stored successfully'
+      message: 'Company goals stored successfully',
+      warnings: warnings.length > 0 ? warnings : undefined
     })
   } catch (error) {
     console.error('Error storing company goals:', error)

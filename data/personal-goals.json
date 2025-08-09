@@ -1,0 +1,14 @@
+[
+  {
+    "id": "goal-1754781537007",
+    "name": "billable hours",
+    "type": "billable",
+    "frequency": "weekly",
+    "target": 60,
+    "current": 0,
+    "status": "active",
+    "description": "Personal goal",
+    "title": "billable hours",
+    "tracking": "supported"
+  }
+]

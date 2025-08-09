@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -16,8 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-// Empty data - will be populated from database
-const mockTeamMembers: any[] = []
+// Team members state - will be populated from API
 const mockTeams: any[] = []
 const mockGoals: any[] = []
 const mockStreaks: any[] = []
@@ -54,9 +53,29 @@ export default function ManageDashboard() {
     description: ""
   })
   const [streaks, setStreaks] = useState(mockStreaks)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  
+  // Fetch team members on component mount
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const response = await fetch('/api/team-members')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setTeamMembers(data.teamMembers)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching team members:', error)
+      }
+    }
+
+    fetchTeamMembers()
+  }, [])
   
   // Filter team members based on search and filters
-  const filteredMembers = mockTeamMembers.filter((member) => {
+  const filteredMembers = teamMembers.filter((member: any) => {
     const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          member.email.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesRole = filterRole === "all" || member.role === filterRole
@@ -200,6 +219,36 @@ export default function ManageDashboard() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="employment-duration" className="text-right">
+                        Employment Duration
+                      </Label>
+                      <Input
+                        id="employment-duration"
+                        placeholder="e.g., 2 years"
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="experience" className="text-right">
+                        Years of Experience
+                      </Label>
+                      <Input
+                        id="experience"
+                        placeholder="e.g., 5 years"
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="position-duration" className="text-right">
+                        Position Duration
+                      </Label>
+                      <Input
+                        id="position-duration"
+                        placeholder="e.g., 1 year"
+                        className="col-span-3"
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>
@@ -317,6 +366,9 @@ export default function ManageDashboard() {
                       <TableHead>Member</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Team</TableHead>
+                      <TableHead>Employment Duration</TableHead>
+                      <TableHead>Experience</TableHead>
+                      <TableHead>Position Duration</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Actions</TableHead>
@@ -340,6 +392,21 @@ export default function ManageDashboard() {
                           <Badge variant="outline">{member.role}</Badge>
                         </TableCell>
                         <TableCell>{member.team}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {member.durationOfEmployment || 'Not specified'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {member.yearsOfExperience || 'Not specified'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {member.durationOfPosition || 'Not specified'}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={member.status === "active" ? "default" : "secondary"}>
                             {member.status}
@@ -408,7 +475,7 @@ export default function ManageDashboard() {
                           <SelectValue placeholder="Select team leader" />
                         </SelectTrigger>
                         <SelectContent>
-                          {mockTeamMembers.filter(member => member.role === "Attorney").map((member) => (
+                          {teamMembers.filter((member: any) => member.role === "Attorney").map((member: any) => (
                             <SelectItem key={member.id} value={member.id.toString()}>
                               {member.name}
                             </SelectItem>

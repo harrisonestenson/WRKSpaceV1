@@ -267,6 +267,17 @@ export default function LawFirmDashboard() {
   const [manualEndTime, setManualEndTime] = useState("")
   const [manualSelectedCases, setManualSelectedCases] = useState<string[]>([])
   const [manualDescription, setManualDescription] = useState("")
+  const manualDurationOptions = [
+    { label: '15 minutes', seconds: 15 * 60 },
+    { label: '30 minutes', seconds: 30 * 60 },
+    { label: '45 minutes', seconds: 45 * 60 },
+    { label: '1 hour', seconds: 60 * 60 },
+    { label: '1.5 hours', seconds: 90 * 60 },
+    { label: '2 hours', seconds: 120 * 60 },
+    { label: '3 hours', seconds: 180 * 60 },
+    { label: '4 hours', seconds: 240 * 60 }
+  ]
+  const [manualDurationSeconds, setManualDurationSeconds] = useState<number | null>(null)
 
   // Non-billable manual entry states
   const [nonBillableManualDate, setNonBillableManualDate] = useState(new Date().toISOString().split("T")[0])
@@ -548,6 +559,46 @@ export default function LawFirmDashboard() {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
+  // Parse a date-only input from <input type="date"> (value is usually YYYY-MM-DD). Fallbacks for MM/DD/YYYY.
+  const parseDateOnly = (dateInput: string): Date => {
+    const s = (dateInput || '').trim()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split('-').map((v) => parseInt(v, 10))
+      return new Date(y, (m - 1), d)
+    }
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+      const [mm, dd, yyyy] = s.split('/').map((v) => parseInt(v, 10))
+      return new Date(yyyy, (mm - 1), dd)
+    }
+    // Last resort
+    const fallback = new Date(s)
+    return isNaN(fallback.getTime()) ? new Date() : fallback
+  }
+
+  // Parse a time input like "13:30", "1:30 PM", or "1 PM" into a Date on the given base date
+  const parseTimeToDate = (baseDate: string, timeInput: string): Date => {
+    const base = parseDateOnly(baseDate)
+    let t = (timeInput || '').trim().toUpperCase()
+    const am = t.includes('AM')
+    const pm = t.includes('PM')
+    t = t.replace(/AM|PM/g, '').replace(/\s+/g, '')
+
+    let hours = 0
+    let minutes = 0
+
+    const match = t.match(/^(\d{1,2})(?::?(\d{2}))?$/)
+    if (match) {
+      hours = parseInt(match[1] || '0', 10)
+      minutes = parseInt(match[2] || '0', 10)
+    }
+
+    if (pm && hours < 12) hours += 12
+    if (am && hours === 12) hours = 0
+
+    base.setHours(hours, minutes, 0, 0)
+    return base
+  }
+
   // Notification helper functions
   const markNotificationAsRead = (id: number) => {
     setNotifications(prev => 
@@ -670,7 +721,7 @@ export default function LawFirmDashboard() {
     }))
   }
 
-  const stopTimer = () => {
+  const stopTimer = async () => {
     setIsTimerRunning(false)
     if (selectedCases.length === 0 || !workDescription.trim() || timerSeconds === 0) {
       alert("Please select at least one case and enter a work description")
@@ -687,6 +738,29 @@ export default function LawFirmDashboard() {
     }
 
     console.log("Time entry submitted for multiple cases:", timeEntry)
+    
+    // Persist to backend: create one entry per selected case using duration
+    try {
+      const now = new Date()
+      const payloads = selectedCases.map((caseId) => ({
+        userId: 'mock-user-id',
+        caseId,
+        date: now.toISOString(),
+        duration: timerSeconds,
+        billable: true,
+        description: workDescription,
+        source: 'timer'
+      }))
+      await Promise.all(payloads.map(p => fetch('/api/time-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p)
+      })))
+    } catch (e) {
+      console.error('Failed to store timer entry:', e)
+      alert('Failed to store time entry. Please try again.')
+      return
+    }
     
     // Add work hours to today's entry in data dashboard
     const workSummary = `Billable work: ${selectedCaseDetails.map(c => c.name).join(", ")} - ${workDescription}`
@@ -998,36 +1072,91 @@ export default function LawFirmDashboard() {
     setManualSelectedCases((prev) => prev.filter((id) => id !== caseId))
   }
 
-  // Manual entry submit
-  const submitManualEntry = () => {
-    if (manualSelectedCases.length === 0 || !manualDescription.trim() || !manualStartTime || !manualEndTime) {
-      alert("Please select at least one case, fill in all time fields, and enter a description")
-      return
+    // Manual entry submit
+
+  const submitManualEntry = async () => {
+     // Fallback to DOM values in case controlled state didn't capture input (Safari/time input quirks)
+     const startRaw = ''
+     const endRaw = ''
+     const descRaw = manualDescription || (typeof document !== 'undefined' ? (document.getElementById('manual-description') as HTMLTextAreaElement | null)?.value || '' : '')
+
+     const missing: string[] = []
+     if (manualSelectedCases.length === 0) missing.push('case')
+     // Only require times if duration not chosen
+         if (manualDurationSeconds == null) missing.push('duration')
+    if (!descRaw.trim()) missing.push('description')
+     if (missing.length > 0) {
+       console.log('Manual submit missing fields:', { manualSelectedCases, manualStartTime, manualEndTime, startRaw, endRaw, manualDescription: descRaw, manualDurationSeconds })
+       alert(`Please fix missing fields: ${missing.join(', ')}`)
+       return
+     }
+
+     // Compute duration either from dropdown or from start/end
+         let startDateTime: Date | null = null
+    let endDateTime: Date | null = null
+    let duration = 0
+    if (manualDurationSeconds != null) {
+      // Anchor at midnight; only duration matters for aggregation
+      startDateTime = new Date(manualDate)
+      startDateTime.setHours(0, 0, 0, 0)
+      duration = manualDurationSeconds
+      endDateTime = new Date(startDateTime)
+      endDateTime.setSeconds(endDateTime.getSeconds() + duration)
     }
 
-    const startDateTime = new Date(`${manualDate}T${manualStartTime}`)
-    const endDateTime = new Date(`${manualDate}T${manualEndTime}`)
-    const duration = Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000)
+     const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
+     const manualTimeEntry = {
+       date: manualDate,
+       cases: selectedCaseDetails,
+       description: descRaw,
+       startTime: startDateTime ? startDateTime.toISOString() : null,
+       endTime: endDateTime ? endDateTime.toISOString() : null,
+       duration: formatTime(duration),
+     }
 
-    const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
-    const manualTimeEntry = {
-      date: manualDate,
-      cases: selectedCaseDetails,
-      description: manualDescription,
-      startTime: manualStartTime,
-      endTime: manualEndTime,
-      duration: formatTime(duration),
-    }
+     console.log("Manual time entry submitted for multiple cases:", manualTimeEntry)
 
-    console.log("Manual time entry submitted for multiple cases:", manualTimeEntry)
-    alert(`Manual time entry submitted for ${manualSelectedCases.length} case(s)!`)
+     // Persist to backend: create one entry per selected case
+     try {
+       const payloads = manualSelectedCases.map((caseId) => ({
+         userId: 'mock-user-id',
+         caseId,
+         date: (startDateTime || new Date(manualDate)).toISOString(),
+         startTime: startDateTime ? startDateTime.toISOString() : undefined,
+         endTime: endDateTime ? endDateTime.toISOString() : undefined,
+         duration,
+         billable: true,
+         description: descRaw,
+         source: 'manual-form'
+       }))
+       const responses = await Promise.all(payloads.map(p => fetch('/api/time-entries', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(p)
+       })))
+       const firstError = await (async () => {
+         for (const r of responses) {
+           if (!r.ok) {
+             try { const j = await r.json(); return j?.error || r.statusText } catch { return r.statusText }
+           }
+         }
+         return null
+       })()
+       if (firstError) throw new Error(String(firstError))
+       alert(`Manual time entry submitted for ${manualSelectedCases.length} case(s)!`)
+     } catch (e) {
+       console.error('Failed to store manual time entry:', e)
+       alert('Failed to store time entry. Please try again.')
+       return
+     }
 
-    // Reset form
-    setManualSelectedCases([])
-    setManualDescription("")
-    setManualStartTime("")
-    setManualEndTime("")
-  }
+     // Reset form
+     setManualSelectedCases([])
+     setManualDescription("")
+     setManualStartTime("")
+     setManualEndTime("")
+     setManualDurationSeconds(null)
+   }
 
   // Non-billable manual entry submit
   const submitNonBillableManualEntry = () => {
@@ -1674,31 +1803,25 @@ export default function LawFirmDashboard() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="manual-start" className="text-xs">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="manual-start"
-                      type="time"
-                      value={manualStartTime}
-                      onChange={(e) => setManualStartTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manual-end" className="text-xs">
-                      End Time
-                    </Label>
-                    <Input
-                      id="manual-end"
-                      type="time"
-                      value={manualEndTime}
-                      onChange={(e) => setManualEndTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
+
+
+                <div>
+                  <Label className="text-xs">Or pick a Duration</Label>
+                  <Select onValueChange={(v) => setManualDurationSeconds(parseInt(v, 10))}>
+                    <SelectTrigger className="text-sm w-full">
+                      <SelectValue placeholder="Select duration (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {manualDurationOptions.map(opt => (
+                        <SelectItem key={opt.seconds} value={String(opt.seconds)}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {manualDurationSeconds != null && (
+                    <p className="text-xs text-muted-foreground mt-1">Selected: {Math.round(manualDurationSeconds/60)} minutes</p>
+                  )}
                 </div>
 
                 <div>

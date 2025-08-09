@@ -3,6 +3,7 @@ import { onboardingStore } from '@/lib/onboarding-store'
 // import { getServerSession } from 'next-auth'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
+import { applyCanonicalToCompanyGoals, mapCanonicalToPersonalGoal, resolveGoalIntentFromText } from '@/lib/goal-intent-resolver'
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,6 +92,76 @@ export async function POST(request: NextRequest) {
       legalCases: legalCases || []
     }
 
+    // Optional: resolve free text goals included during onboarding
+    try {
+      const companyFreeText: string[] = Array.isArray(body?.freeTextCompanyGoals) ? body.freeTextCompanyGoals : []
+      if (companyFreeText.length > 0) {
+        const intents = companyFreeText
+          .map((t: string) => resolveGoalIntentFromText(t, { scope: 'company' }))
+          .filter(Boolean) as ReturnType<typeof resolveGoalIntentFromText>[]
+        const merged = applyCanonicalToCompanyGoals(intents as any, processedData.teamData.companyGoals)
+        processedData.teamData.companyGoals = merged
+      }
+    } catch (e) {
+      console.warn('Onboarding - freeTextCompanyGoals parse skipped:', e)
+    }
+
+    try {
+      const personalFreeText: string[] = Array.isArray(body?.freeTextPersonalGoals) ? body.freeTextPersonalGoals : []
+      if (personalFreeText.length > 0) {
+        await fetch(`${request.nextUrl.origin}/api/personal-goals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ freeTextGoals: personalFreeText })
+        })
+      }
+    } catch (e) {
+      console.warn('Onboarding - freeTextPersonalGoals parse skipped:', e)
+    }
+
+    // Optionally allow admin to add himself during onboarding via flag
+    if (
+      processedData.profile.role === 'admin' &&
+      body?.options?.includeSelf === true
+    ) {
+      const adminName = (processedData.profile.name || '').trim()
+
+      if (processedData.teamData.teams && processedData.teamData.teams.length > 0 && adminName) {
+        let adminAddedToTeam = false
+        for (const team of processedData.teamData.teams) {
+          const alreadyMember = (team.members || []).some(
+            (m: any) => (m?.name || '').trim().toLowerCase() === adminName.toLowerCase()
+          )
+          if (!alreadyMember && !adminAddedToTeam) {
+            team.members = team.members || []
+            team.members.push({
+              name: adminName,
+              email: '',
+              title: processedData.profile.title || 'Admin',
+              role: 'admin',
+              expectedBillableHours: 1500
+            })
+            adminAddedToTeam = true
+          }
+        }
+      }
+
+      const hasSelfExpectation = (processedData.teamMemberExpectations || []).some(
+        (e: any) => (e?.name || '').trim().toLowerCase() === adminName.toLowerCase()
+      )
+      if (!hasSelfExpectation && adminName) {
+        const firstTeamName = processedData.teamData.teams?.[0]?.name || 'Unassigned'
+        processedData.teamMemberExpectations = processedData.teamMemberExpectations || []
+        processedData.teamMemberExpectations.push({
+          name: adminName,
+          team: firstTeamName,
+          expectedBillableHours: 1500,
+          expectedNonBillablePoints: 120,
+          personalTarget: '6 hours/day'
+        })
+      }
+    }
+
     // Store the processed data in our global store
     onboardingStore.setData(processedData)
     
@@ -106,9 +177,41 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('Error storing onboarding data in API:', error)
     }
+ 
+    // Sync onboarding streaks into the persistent streaks store so they appear in Metrics → Streaks/Consistency
+    try {
+      if (processedData.streaksConfig && processedData.streaksConfig.length > 0) {
+        const slugify = (value: string) =>
+          (value || '')
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+
+        const streaksToPersist = processedData.streaksConfig.map((s: any, index: number) => ({
+          id: s.id || `${slugify(s.name || 'streak')}-${index + 1}`,
+          name: s.name,
+          category: s.category,
+          frequency: s.frequency,
+          rule: s.rule,
+          resetCondition: s.resetCondition,
+          visibility: s.visibility,
+          active: s.active !== false
+        }))
+
+        await fetch(`${request.nextUrl.origin}/api/streaks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ streaks: streaksToPersist })
+        })
+      }
+    } catch (error) {
+      console.error('Error synchronizing streaks to streaks API:', error)
+    }
     
-
-
+ 
+ 
     return NextResponse.json({ 
       success: true, 
       message: 'Onboarding completed successfully (data stored in memory)',

@@ -96,8 +96,7 @@ interface LiveSession {
   status: 'active' | 'completed'
 }
 
-// Empty data - will be populated from database
-const mockTeamMembers: any[] = []
+// Team members state - will be populated from API
 
 // Empty team-wide data
 const mockTeamData = {
@@ -152,6 +151,7 @@ export default function DataDashboard() {
   // Metrics section state
   const [metricsActiveTab, setMetricsActiveTab] = useState("time-trends")
   const [isTeamView, setIsTeamView] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
   
   // Time entries state
   const [mockTimeEntries, setMockTimeEntries] = useState<any[]>(() => {
@@ -192,6 +192,25 @@ export default function DataDashboard() {
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
   const [billableComparisonPeriod, setBillableComparisonPeriod] = useState("weekly")
+
+  // Fetch team members on component mount
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const response = await fetch('/api/team-members')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setTeamMembers(data.teamMembers)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching team members:', error)
+      }
+    }
+
+    fetchTeamMembers()
+  }, [])
   
   // Live session state
   const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
@@ -2105,14 +2124,14 @@ export default function DataDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Users (Team View)</SelectItem>
-                      {mockTeamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{member.avatar}</span>
-                            <span>{member.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                                              {teamMembers.map((member: any) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{member.avatar || '👤'}</span>
+                              <span>{member.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2622,10 +2641,10 @@ export default function DataDashboard() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockTeamMembers.map((member) => (
+                    {teamMembers.map((member: any) => (
                       <SelectItem key={member.id} value={member.id}>
                         <div className="flex items-center gap-2">
-                          <span>{member.avatar}</span>
+                          <span>{member.avatar || '👤'}</span>
                           <span>{member.name}</span>
                           <span className="text-muted-foreground">({member.role})</span>
                         </div>
@@ -2749,7 +2768,7 @@ export default function DataDashboard() {
                   <DashboardCard
                     title="Team Time Log"
                     icon={Clock}
-                    stats={`${mockTeamMembers.length - 1} team members`}
+                    stats={`${teamMembers.length} team members`}
                     onClick={() => setActiveSection("time-log")}
                   />
                   <DashboardCard

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { onboardingStore } from '@/lib/onboarding-store'
 import { prisma } from '@/lib/prisma'
+import fs from 'fs'
+import path from 'path'
 
 // TypeScript interfaces for dashboard data
 interface DashboardGoal {
@@ -12,6 +14,7 @@ interface DashboardGoal {
   target: number
   status: string
   progress: number
+  notice?: string
 }
 
 interface DashboardTimeEntry {
@@ -53,6 +56,76 @@ interface DashboardData {
   }
 }
 
+// Read time entries from file-based store
+function readTimeEntries(): any[] {
+  try {
+    const p = path.join(process.cwd(), 'data', 'time-entries.json')
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, 'utf8')
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    }
+  } catch (e) {
+    console.warn('Dashboard - read time entries failed:', e)
+  }
+  return []
+}
+
+// Get date range for a given frequency relative to now
+function getRangeForFrequency(freq: string): { start: Date; end: Date } {
+  const now = new Date()
+  const end = new Date()
+  switch ((freq || '').toLowerCase()) {
+    case 'daily': {
+      const start = new Date(now)
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'weekly': {
+      const start = new Date(now)
+      start.setDate(now.getDate() - now.getDay())
+      start.setHours(0, 0, 0, 0)
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'annual':
+    case 'yearly': {
+      const start = new Date(now.getFullYear(), 0, 1)
+      end.setFullYear(now.getFullYear(), 11, 31)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'monthly':
+    default: {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      endOfMonth.setHours(23, 59, 59, 999)
+      return { start, end: endOfMonth }
+    }
+  }
+}
+
+// Compute billable/non-billable totals for a user or all users within a frequency window
+function computeHoursForFrequency(entries: any[], freq: string, opts?: { userId?: string | 'all' }) {
+  const { start, end } = getRangeForFrequency(freq)
+  const userId = opts?.userId ?? 'all'
+  const inRange = entries.filter((e: any) => {
+    const d = new Date(e.date)
+    const byUser = userId === 'all' || e.userId === userId
+    return d >= start && d <= end && byUser
+  })
+  const billableHours = inRange.filter((e: any) => e.billable).reduce((s: number, e: any) => s + e.duration / 3600, 0)
+  const nonBillableHours = inRange.filter((e: any) => !e.billable).reduce((s: number, e: any) => s + e.duration / 3600, 0)
+  const totalHours = billableHours + nonBillableHours
+  return {
+    billableHours: Math.round(billableHours * 100) / 100,
+    nonBillableHours: Math.round(nonBillableHours * 100) / 100,
+    totalHours: Math.round(totalHours * 100) / 100,
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -79,6 +152,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const unsupportedNotice = 'Live data ingestion is not yet connected for this goal type. Billable and non-billable hour goals are tracked first.'
+
+    // Read time entries once
+    const allEntries = readTimeEntries()
+
     // Fetch company goals from onboarding
     try {
       const companyGoalsResponse = await fetch(`${request.nextUrl.origin}/api/company-goals`)
@@ -87,44 +165,50 @@ export async function GET(request: NextRequest) {
         if (companyGoalsData.success && companyGoalsData.companyGoals) {
           // Convert company goals to dashboard goals format
           const companyGoals = companyGoalsData.companyGoals
-          const companyGoalEntries = []
+          const companyGoalEntries: DashboardGoal[] = []
           
           if (companyGoals.weeklyBillable > 0) {
+            const hrs = computeHoursForFrequency(allEntries, 'weekly', { userId: 'all' })
+            const actual = hrs.billableHours
             companyGoalEntries.push({
               id: 'company-weekly-goal',
               title: 'Weekly Billable Hours',
               type: 'Company Goal',
               frequency: 'weekly',
-              actual: 0, // Will be calculated from actual data
+              actual,
               target: companyGoals.weeklyBillable,
               status: 'active',
-              progress: 0
+              progress: companyGoals.weeklyBillable > 0 ? Math.min(100, Math.round((actual / companyGoals.weeklyBillable) * 100)) : 0
             })
           }
           
           if (companyGoals.monthlyBillable > 0) {
+            const hrs = computeHoursForFrequency(allEntries, 'monthly', { userId: 'all' })
+            const actual = hrs.billableHours
             companyGoalEntries.push({
               id: 'company-monthly-goal',
               title: 'Monthly Billable Hours',
               type: 'Company Goal',
               frequency: 'monthly',
-              actual: 0, // Will be calculated from actual data
+              actual,
               target: companyGoals.monthlyBillable,
               status: 'active',
-              progress: 0
+              progress: companyGoals.monthlyBillable > 0 ? Math.min(100, Math.round((actual / companyGoals.monthlyBillable) * 100)) : 0
             })
           }
           
           if (companyGoals.annualBillable > 0) {
+            const hrs = computeHoursForFrequency(allEntries, 'annual', { userId: 'all' })
+            const actual = hrs.billableHours
             companyGoalEntries.push({
               id: 'company-annual-goal',
               title: 'Annual Billable Hours',
               type: 'Company Goal',
               frequency: 'annual',
-              actual: 0, // Will be calculated from actual data
+              actual,
               target: companyGoals.annualBillable,
               status: 'active',
-              progress: 0
+              progress: companyGoals.annualBillable > 0 ? Math.min(100, Math.round((actual / companyGoals.annualBillable) * 100)) : 0
             })
           }
           
@@ -141,16 +225,27 @@ export async function GET(request: NextRequest) {
       if (personalGoalsResponse.ok) {
         const personalGoalsData = await personalGoalsResponse.json()
         if (personalGoalsData.success && personalGoalsData.personalGoals) {
-          const personalGoalEntries = personalGoalsData.personalGoals.map((goal: any) => ({
-            id: goal.id,
-            title: goal.title,
-            type: goal.type,
-            frequency: goal.frequency,
-            actual: goal.actual || 0,
-            target: goal.target,
-            status: goal.status || 'active',
-            progress: goal.progress || 0
-          }))
+          const personalGoalEntries = personalGoalsData.personalGoals.map((goal: any) => {
+            // Compute actual/progress only for billable-hours style goals
+            const isBillable = ((goal.title || goal.name || '').toLowerCase().includes('billable') && !((goal.title || goal.name || '').toLowerCase().includes('non-billable')))
+            let actual = goal.actual || goal.current || 0
+            if (isBillable) {
+              const hrs = computeHoursForFrequency(allEntries, goal.frequency || 'monthly', { userId })
+              actual = hrs.billableHours
+            }
+            const target = goal.target
+            return {
+              id: goal.id,
+              title: goal.title || goal.name,
+              type: goal.type,
+              frequency: goal.frequency,
+              actual,
+              target,
+              status: goal.status || 'active',
+              progress: target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 0,
+              notice: goal.tracking === 'not_supported' ? unsupportedNotice : undefined
+            } as DashboardGoal
+          })
           dashboardData.goals = [...dashboardData.goals, ...personalGoalEntries]
         }
       }
@@ -170,7 +265,7 @@ export async function GET(request: NextRequest) {
             title: streak.name,
             type: 'Streak',
             frequency: streak.frequency,
-            actual: 0, // Will be calculated based on streak progress
+            actual: 0, // Will be calculated based on streak progress (not implemented here)
             target: 1,
             status: streak.active ? 'active' : 'inactive',
             progress: 0 // Will be calculated based on streak progress
@@ -212,16 +307,21 @@ export async function GET(request: NextRequest) {
       }))
     }
 
-    // Calculate summary based on goals
+    // Calculate summary based on selected timeFrame and time entries
+    const frameTotals = computeHoursForFrequency(allEntries, timeFrame, { userId })
+    // For averageDailyHours, approximate by dividing totalHours by number of days in range
+    const { start, end } = getRangeForFrequency(timeFrame)
+    const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
+
     const totalGoals = dashboardData.goals.length
     const completedGoals = dashboardData.goals.filter(goal => goal.progress >= 100).length
     const goalCompletionRate = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0
 
     dashboardData.summary = {
-      totalBillableHours: 0, // Will be calculated from time entries
-      totalNonBillableHours: 0, // Will be calculated from time entries
+      totalBillableHours: frameTotals.billableHours,
+      totalNonBillableHours: frameTotals.nonBillableHours,
       goalCompletionRate,
-      averageDailyHours: 0, // Will be calculated from time entries
+      averageDailyHours: Math.round((frameTotals.totalHours / days) * 100) / 100,
       activeCases: dashboardData.legalCases.length
     }
 

@@ -71,22 +71,38 @@ export default function NewGoalPage() {
     setIsSubmitting(true)
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Extract numeric value from target string
+      const targetValue = Number.parseFloat(formData.target.replace(/[^\d.]/g, "")) || 100
 
       const goalData = {
         ...formData,
-        id: Date.now(), // Generate a simple ID
-        goalType: goalType,
-        createdBy: userRole,
-        status: "active",
+        id: `goal-${Date.now()}`, // Generate a unique ID
+        target: targetValue,
         current: 0,
-        max: Number.parseFloat(formData.target.replace(/[^\d.]/g, "")) || 100, // Extract number from target
+        status: "active",
         userId: "current-user",
         createdAt: new Date().toISOString(),
       }
 
       console.log(`${goalType} goal created:`, goalData)
+
+      // Save personal goal to API
+      if (goalType === "personal") {
+        const response = await fetch('/api/personal-goals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(goalData),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to save personal goal')
+        }
+
+        const result = await response.json()
+        console.log('Personal goal saved:', result)
+      }
 
       // Show success message
       alert(`${goalType === "team" ? "Team" : "Personal"} goal "${formData.name}" created successfully!`)

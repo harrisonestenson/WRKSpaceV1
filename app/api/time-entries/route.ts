@@ -1,163 +1,159 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
 // import { getServerSession } from 'next-auth'
 // import { authOptions } from '@/lib/auth'
 // import { prisma } from '@/lib/prisma'
 
+const DATA_FILE_PATH = join(process.cwd(), 'data', 'time-entries.json')
+
+function readStore(): any[] {
+  try {
+    if (existsSync(DATA_FILE_PATH)) {
+      const raw = readFileSync(DATA_FILE_PATH, 'utf8')
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    }
+  } catch (e) {
+    console.warn('Time Entries API - read store failed:', e)
+  }
+  return []
+}
+
+function writeStore(entries: any[]) {
+  try {
+    const dir = join(process.cwd(), 'data')
+    if (!existsSync(dir)) {
+      const fs = require('fs')
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(DATA_FILE_PATH, JSON.stringify(entries, null, 2))
+  } catch (e) {
+    console.error('Time Entries API - write store failed:', e)
+  }
+}
+
+function getTimeFrameDateRange(timeFrame: string, startDate?: string, endDate?: string) {
+  const now = new Date()
+  if (startDate && endDate) return { start: new Date(startDate), end: new Date(endDate) }
+  switch (timeFrame) {
+    case 'weekly': {
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - now.getDay())
+      weekStart.setHours(0, 0, 0, 0)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+      weekEnd.setHours(23, 59, 59, 999)
+      return { start: weekStart, end: weekEnd }
+    }
+    case 'monthly': {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      monthEnd.setHours(23, 59, 59, 999)
+      return { start: monthStart, end: monthEnd }
+    }
+    case 'annual': {
+      const yearStart = new Date(now.getFullYear(), 0, 1)
+      const yearEnd = new Date(now.getFullYear(), 11, 31)
+      yearEnd.setHours(23, 59, 59, 999)
+      return { start: yearStart, end: yearEnd }
+    }
+    default: {
+      const dayStart = new Date(now)
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(now)
+      dayEnd.setHours(23, 59, 59, 999)
+      return { start: dayStart, end: dayEnd }
+    }
+  }
+}
+
+// Recompute and update user's personal billable-hours goals (daily/weekly/monthly/annual)
+function updatePersonalBillableGoals(userId: string) {
+  try {
+    const goalsPath = join(process.cwd(), 'data', 'personal-goals.json')
+    if (!existsSync(goalsPath)) return
+
+    const rawGoals = readFileSync(goalsPath, 'utf8')
+    const goals = JSON.parse(rawGoals)
+    if (!Array.isArray(goals)) return
+
+    const allEntries = readStore()
+    const isBillableGoal = (g: any) => {
+      const t = (g?.title || g?.name || '').toLowerCase()
+      return t.includes('billable') && !t.includes('non-billable')
+    }
+    const calcHours = (tf: string) => {
+      const { start, end } = getTimeFrameDateRange(tf)
+      const pick = allEntries.filter((e: any) => {
+        const d = new Date(e.date)
+        return e.userId === userId && e.billable && d >= start && d <= end
+      })
+      const hours = pick.reduce((s: number, e: any) => s + e.duration / 3600, 0)
+      return Math.round(hours * 100) / 100
+    }
+
+    const currentByFreq: Record<string, number> = {
+      daily: calcHours('daily'),
+      weekly: calcHours('weekly'),
+      monthly: calcHours('monthly'),
+      annual: calcHours('annual')
+    }
+
+    const updated = goals.map((g: any) => {
+      if (!isBillableGoal(g)) return g
+      const freq = (g.frequency || '').toLowerCase()
+      const curr = currentByFreq[freq]
+      if (typeof curr === 'number') {
+        return { ...g, current: curr }
+      }
+      return g
+    })
+
+    writeFileSync(goalsPath, JSON.stringify(updated, null, 2))
+    console.log('Time Entries API - Personal billable goals updated:', currentByFreq)
+  } catch (e) {
+    console.warn('Time Entries API - update personal goals skipped:', e)
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Temporarily bypass authentication and database for testing
-    // const session = await getServerSession(authOptions)
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
-
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || 'mock-user-id'
+    const userId = searchParams.get('userId') || 'all'
     const timeFrame = searchParams.get('timeFrame') || 'monthly'
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
+    const startDate = searchParams.get('startDate') || undefined
+    const endDate = searchParams.get('endDate') || undefined
 
-    console.log('Time Entries API - Request:', {
-      userId,
-      timeFrame,
-      startDate,
-      endDate
+    console.log('Time Entries API - Request:', { userId, timeFrame, startDate, endDate })
+
+    const all = readStore()
+    const range = getTimeFrameDateRange(timeFrame, startDate, endDate)
+
+    const filtered = all.filter((e: any) => {
+      const d = new Date(e.date)
+      const inRange = d >= range.start && d <= range.end
+      const byUser = userId === 'all' || e.userId === userId
+      return inRange && byUser
     })
 
-    // For now, return mock time entries data
-    const mockTimeEntries = [
-      {
-        id: 'entry-1',
-        userId: userId,
-        caseId: 'case-1',
-        date: '2024-01-15T00:00:00.000Z',
-        startTime: '2024-01-15T09:00:00.000Z',
-        endTime: '2024-01-15T11:00:00.000Z',
-        duration: 7200, // 2 hours in seconds
-        billable: true,
-        description: 'Client consultation - Smith v. Jones',
-        status: 'COMPLETED',
-        nonBillableTaskId: null,
-        points: null
-      },
-      {
-        id: 'entry-2',
-        userId: userId,
-        caseId: 'case-1',
-        date: '2024-01-15T00:00:00.000Z',
-        startTime: '2024-01-15T11:30:00.000Z',
-        endTime: '2024-01-15T13:30:00.000Z',
-        duration: 7200, // 2 hours in seconds
-        billable: true,
-        description: 'Document review and analysis',
-        status: 'COMPLETED',
-        nonBillableTaskId: null,
-        points: null
-      },
-      {
-        id: 'entry-3',
-        userId: userId,
-        caseId: null,
-        date: '2024-01-15T00:00:00.000Z',
-        startTime: '2024-01-15T14:00:00.000Z',
-        endTime: '2024-01-15T15:00:00.000Z',
-        duration: 3600, // 1 hour in seconds
-        billable: false,
-        description: 'Team meeting - weekly sync',
-        status: 'COMPLETED',
-        nonBillableTaskId: 'task-1',
-        points: 0.5
-      },
-      {
-        id: 'entry-4',
-        userId: userId,
-        caseId: 'case-2',
-        date: '2024-01-16T00:00:00.000Z',
-        startTime: '2024-01-16T09:00:00.000Z',
-        endTime: '2024-01-16T12:00:00.000Z',
-        duration: 10800, // 3 hours in seconds
-        billable: true,
-        description: 'Legal research and case preparation',
-        status: 'COMPLETED',
-        nonBillableTaskId: null,
-        points: null
-      },
-      {
-        id: 'entry-5',
-        userId: userId,
-        caseId: null,
-        date: '2024-01-16T00:00:00.000Z',
-        startTime: '2024-01-16T13:00:00.000Z',
-        endTime: '2024-01-16T14:00:00.000Z',
-        duration: 3600, // 1 hour in seconds
-        billable: false,
-        description: 'Training session - new software',
-        status: 'COMPLETED',
-        nonBillableTaskId: 'task-2',
-        points: 0.3
-      }
-    ]
+    const totalHours = filtered.reduce((sum, e: any) => sum + (e.duration / 3600), 0)
+    const billableHours = filtered
+      .filter((e: any) => e.billable)
+      .reduce((sum, e: any) => sum + (e.duration / 3600), 0)
+    const nonBillableHours = totalHours - billableHours
 
-    return NextResponse.json({ 
-      success: true, 
-      timeEntries: mockTimeEntries,
+    return NextResponse.json({
+      success: true,
+      timeEntries: filtered,
       summary: {
-        totalEntries: mockTimeEntries.length,
-        totalHours: mockTimeEntries.reduce((sum, entry) => sum + (entry.duration / 3600), 0),
-        billableHours: mockTimeEntries
-          .filter(entry => entry.billable)
-          .reduce((sum, entry) => sum + (entry.duration / 3600), 0),
-        nonBillablePoints: mockTimeEntries
-          .filter(entry => !entry.billable)
-          .reduce((sum, entry) => sum + (entry.points || 0), 0)
-      },
-      message: 'Time entries retrieved (mock data)'
-    })
-
-    // TODO: Re-enable database operations once connection is fixed
-    /*
-    // Calculate date range based on time frame
-    const dateRange = getTimeFrameDateRange(timeFrame, startDate, endDate)
-
-    // Get time entries from database
-    const timeEntries = await prisma.timeEntry.findMany({
-      where: {
-        userId: userId,
-        date: {
-          gte: dateRange.start,
-          lte: dateRange.end
-        }
-      },
-      include: {
-        case: true,
-        nonBillableTask: true
-      },
-      orderBy: {
-        date: 'desc'
-      }
-    })
-
-    // Calculate summary statistics
-    const totalHours = timeEntries.reduce((sum, entry) => sum + (entry.duration / 3600), 0)
-    const billableHours = timeEntries
-      .filter(entry => entry.billable)
-      .reduce((sum, entry) => sum + (entry.duration / 3600), 0)
-    const nonBillablePoints = timeEntries
-      .filter(entry => !entry.billable)
-      .reduce((sum, entry) => sum + (entry.points || 0), 0)
-
-    return NextResponse.json({ 
-      success: true, 
-      timeEntries,
-      summary: {
-        totalEntries: timeEntries.length,
+        totalEntries: filtered.length,
         totalHours: Math.round(totalHours * 100) / 100,
         billableHours: Math.round(billableHours * 100) / 100,
-        nonBillablePoints: Math.round(nonBillablePoints * 100) / 100
-      }
+        nonBillableHours: Math.round(nonBillableHours * 100) / 100
+      },
+      message: 'Time entries retrieved'
     })
-    */
-
   } catch (error) {
     console.error('Error fetching time entries:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -183,135 +179,75 @@ export async function POST(request: NextRequest) {
       billable,
       description,
       nonBillableTaskId,
-      points
+      points,
+      teamId,
+      source
     } = body
 
-    console.log('Time Entries API - Received data:', {
-      userId,
-      caseId,
-      date,
-      startTime,
-      endTime,
-      duration,
-      billable,
-      description,
-      nonBillableTaskId,
-      points
-    })
+    console.log('Time Entries API - Received data:', { userId, caseId, date, startTime, endTime, duration, billable, description, nonBillableTaskId, points, teamId, source })
 
-    // Validate required data
-    if (!userId || !date || !startTime || !endTime || !duration || !description) {
+    if (!userId || !date || (!startTime && !endTime && !duration) || !description) {
       return NextResponse.json({ 
-        error: 'Missing required fields: userId, date, startTime, endTime, duration, description' 
+        error: 'Missing required fields: userId, date, duration or (startTime & endTime), description' 
       }, { status: 400 })
     }
 
-    // For now, just return success without database operations
-    const processedTimeEntry = {
+    const computedDuration = (() => {
+      if (typeof duration === 'number' && duration > 0) return duration
+      if (startTime && endTime) {
+        const st = new Date(startTime).getTime()
+        const et = new Date(endTime).getTime()
+        const diff = Math.max(0, et - st)
+        return Math.floor(diff / 1000)
+      }
+      return 0
+    })()
+
+    if (computedDuration <= 0) {
+      return NextResponse.json({ error: 'Invalid or missing duration' }, { status: 400 })
+    }
+
+    const newEntry = {
       id: `entry-${Date.now()}`,
       userId,
+      teamId: teamId || null,
       caseId: caseId || null,
-      date: new Date(date),
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
-      duration: parseInt(duration),
-      billable: billable !== false, // Default to true
+      date: new Date(date).toISOString(),
+      startTime: startTime ? new Date(startTime).toISOString() : null,
+      endTime: endTime ? new Date(endTime).toISOString() : null,
+      duration: computedDuration, // seconds
+      billable: billable !== false,
       description,
       status: 'COMPLETED',
       nonBillableTaskId: nonBillableTaskId || null,
-      points: points || null,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      points: typeof points === 'number' ? points : null,
+      source: source || 'manual',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
 
+    const all = readStore()
+    all.push(newEntry)
+    writeStore(all)
+
+    // Update user's personal billable goals' current values
+    try { updatePersonalBillableGoals(userId) } catch {}
+
     return NextResponse.json({ 
       success: true, 
-      message: 'Time entry created successfully (bypassed for testing)',
-      timeEntry: processedTimeEntry,
+      message: 'Time entry stored',
+      timeEntry: newEntry,
       summary: {
-        hoursLogged: Math.round((processedTimeEntry.duration / 3600) * 100) / 100,
-        billable: processedTimeEntry.billable,
-        points: processedTimeEntry.points
+        hoursLogged: Math.round((newEntry.duration / 3600) * 100) / 100,
+        billable: newEntry.billable,
+        points: newEntry.points
       }
     })
-
-    // TODO: Re-enable database operations once connection is fixed
-    /*
-    // Create time entry in database
-    const timeEntry = await prisma.timeEntry.create({
-      data: {
-        userId,
-        caseId: caseId || null,
-        date: new Date(date),
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        duration: parseInt(duration),
-        billable: billable !== false,
-        description,
-        status: 'COMPLETED',
-        nonBillableTaskId: nonBillableTaskId || null,
-        points: points || null
-      },
-      include: {
-        case: true,
-        nonBillableTask: true
-      }
-    })
-
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Time entry created successfully',
-      timeEntry
-    })
-    */
-
   } catch (error) {
     console.error('Error creating time entry:', error)
     return NextResponse.json({ 
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
-  }
-}
-
-// Helper function to calculate date range based on time frame
-function getTimeFrameDateRange(timeFrame: string, startDate?: string, endDate?: string) {
-  const now = new Date()
-  
-  if (startDate && endDate) {
-    return {
-      start: new Date(startDate),
-      end: new Date(endDate)
-    }
-  }
-  
-  switch (timeFrame) {
-    case 'weekly':
-      const weekStart = new Date(now)
-      weekStart.setDate(now.getDate() - now.getDay())
-      weekStart.setHours(0, 0, 0, 0)
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekStart.getDate() + 6)
-      weekEnd.setHours(23, 59, 59, 999)
-      return { start: weekStart, end: weekEnd }
-      
-    case 'monthly':
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      monthEnd.setHours(23, 59, 59, 999)
-      return { start: monthStart, end: monthEnd }
-      
-    case 'annual':
-      const yearStart = new Date(now.getFullYear(), 0, 1)
-      const yearEnd = new Date(now.getFullYear(), 11, 31)
-      yearEnd.setHours(23, 59, 59, 999)
-      return { start: yearStart, end: yearEnd }
-      
-    default:
-      const dayStart = new Date(now)
-      dayStart.setHours(0, 0, 0, 0)
-      const dayEnd = new Date(now)
-      dayEnd.setHours(23, 59, 59, 999)
-      return { start: dayStart, end: dayEnd }
   }
 } 

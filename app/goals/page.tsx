@@ -36,12 +36,7 @@ const personalGoalTypes = [
   { value: "culture", label: "Team Contribution / Culture", icon: Users, color: "bg-green-100 text-green-800" },
 ]
 
-const teamGoalTypes = [
-  { value: "revenue", label: "Billable Hours / Revenue", icon: DollarSign, color: "bg-blue-100 text-blue-800" },
-  { value: "case", label: "Case-Based", icon: FileText, color: "bg-purple-100 text-purple-800" },
-  { value: "time", label: "Time Management", icon: Clock, color: "bg-yellow-100 text-yellow-800" },
-  { value: "culture", label: "Culture", icon: Users, color: "bg-green-100 text-green-800" },
-]
+
 
 const companyGoalTypes = [
   { value: "company-weekly", label: "Company Weekly Goal", icon: DollarSign, color: "bg-orange-100 text-orange-800" },
@@ -76,35 +71,104 @@ export default function GoalsDashboard() {
         const goalsResponse = await fetch('/api/company-goals')
         const goalsData = await goalsResponse.json()
 
+        // Fetch personal goals data
+        const personalGoalsResponse = await fetch('/api/personal-goals')
+        const personalGoalsData = await personalGoalsResponse.json()
+
         // Fetch streaks data
         const streaksResponse = await fetch('/api/streaks')
         const streaksData = await streaksResponse.json()
 
-        // Transform onboarding data into goals format
+        // Fetch billable hours from saved entries for company and personal aggregates
+        const [weeklyAllRes, monthlyAllRes, annualAllRes, dailyUserRes, weeklyUserRes, monthlyUserRes, annualUserRes] = await Promise.all([
+          fetch('/api/time-entries?userId=all&timeFrame=weekly'),
+          fetch('/api/time-entries?userId=all&timeFrame=monthly'),
+          fetch('/api/time-entries?userId=all&timeFrame=annual'),
+          fetch('/api/time-entries?userId=mock-user-id&timeFrame=daily'),
+          fetch('/api/time-entries?userId=mock-user-id&timeFrame=weekly'),
+          fetch('/api/time-entries?userId=mock-user-id&timeFrame=monthly'),
+          fetch('/api/time-entries?userId=mock-user-id&timeFrame=annual'),
+        ])
+        const [weeklyAll, monthlyAll, annualAll, dailyUser, weeklyUser, monthlyUser, annualUser] = await Promise.all([
+          weeklyAllRes.json(), monthlyAllRes.json(), annualAllRes.json(), dailyUserRes.json(), weeklyUserRes.json(), monthlyUserRes.json(), annualUserRes.json()
+        ])
+
+        const companyBillableMap: Record<string, number> = {
+          weekly: weeklyAll?.summary?.billableHours ?? 0,
+          monthly: monthlyAll?.summary?.billableHours ?? 0,
+          annual: annualAll?.summary?.billableHours ?? 0,
+        }
+        const personalBillableMap: Record<string, number> = {
+          daily: dailyUser?.summary?.billableHours ?? 0,
+          weekly: weeklyUser?.summary?.billableHours ?? 0,
+          monthly: monthlyUser?.summary?.billableHours ?? 0,
+          annual: annualUser?.summary?.billableHours ?? 0,
+        }
+
+        // Transform onboarding data into goals format and plug in current actuals
         const transformedData = {
-          personalGoals: [], // Will be populated from user's personal goals
-          teamGoals: [], // Will be populated from team goals
-          companyGoals: goalsData.success ? goalsData.goals.map((goal: any) => ({
-            id: goal.id || Math.random().toString(),
-            name: goal.name,
-            type: goal.type,
-            frequency: goal.frequency,
-            target: goal.target,
-            current: goal.current || 0,
-            max: goal.target,
-            status: goal.status || 'active',
-            description: goal.description || ''
-          })) : [],
-          streaks: streaksData.success ? streaksData.streaks.map((streak: any) => ({
+          personalGoals: personalGoalsData.success && personalGoalsData.personalGoals ? personalGoalsData.personalGoals.map((goal: any) => {
+            const title = (goal.title || goal.name || '').toLowerCase()
+            const isBillable = title.includes('billable') && !title.includes('non-billable')
+            const freq = (goal.frequency || '').toLowerCase()
+            const current = isBillable ? (personalBillableMap[freq] ?? (goal.current || 0)) : (goal.current || 0)
+            return {
+              id: goal.id,
+              name: goal.name,
+              type: goal.type,
+              frequency: goal.frequency,
+              target: goal.target,
+              current,
+              max: goal.target,
+              status: goal.status || 'active',
+              description: goal.description || 'Personal goal'
+            }
+          }) : [],
+          companyGoals: goalsData.success && goalsData.companyGoals ? [
+            {
+              id: 'company-weekly-goal',
+              name: 'Weekly Billable Hours',
+              type: 'Company Goal',
+              frequency: 'weekly',
+              target: goalsData.companyGoals.weeklyBillable || 0,
+              current: companyBillableMap.weekly || 0,
+              max: goalsData.companyGoals.weeklyBillable || 0,
+              status: 'active',
+              description: 'Weekly billable hours target'
+            },
+            {
+              id: 'company-monthly-goal',
+              name: 'Monthly Billable Hours',
+              type: 'Company Goal',
+              frequency: 'monthly',
+              target: goalsData.companyGoals.monthlyBillable || 0,
+              current: companyBillableMap.monthly || 0,
+              max: goalsData.companyGoals.monthlyBillable || 0,
+              status: 'active',
+              description: 'Monthly billable hours target'
+            },
+            {
+              id: 'company-annual-goal',
+              name: 'Annual Billable Hours',
+              type: 'Company Goal',
+              frequency: 'annual',
+              target: goalsData.companyGoals.annualBillable || 0,
+              current: companyBillableMap.annual || 0,
+              max: goalsData.companyGoals.annualBillable || 0,
+              status: 'active',
+              description: 'Annual billable hours target'
+            }
+          ].filter(goal => goal.target > 0) : [],
+          streaks: streaksData.success && streaksData.streaks ? streaksData.streaks.filter((streak: any) => streak && typeof streak === 'object').map((streak: any) => ({
             id: streak.id || Math.random().toString(),
-            name: streak.name,
+            name: streak.name || 'Unnamed Streak',
             type: 'Streak',
-            frequency: streak.frequency,
+            frequency: streak.frequency || 'daily',
             target: 1,
-            current: 0, // Will be calculated based on actual streak progress
+            current: 0, // Streak progress not implemented here
             max: 1,
             status: streak.active ? 'active' : 'inactive',
-            description: streak.rule?.description || ''
+            description: streak.rule?.description || streak.description || 'Streak goal'
           })) : []
         }
 
@@ -122,33 +186,156 @@ export default function GoalsDashboard() {
 
   // Use real data if available, otherwise fall back to mock data
   const personalGoals = realGoalsData?.personalGoals || mockPersonalGoals
-  const teamGoals = realGoalsData?.teamGoals || mockTeamGoals
   const companyGoals = realGoalsData?.companyGoals || mockCompanyGoals
   const streaks = realGoalsData?.streaks || []
 
   const [personalSortBy, setPersonalSortBy] = useState<string>("all")
-  const [teamSortBy, setTeamSortBy] = useState<string>("all")
   const [companySortBy, setCompanySortBy] = useState<string>("all")
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
-  const getGoalTypeInfo = (type: string, isTeamGoal = false) => {
-    const types = isTeamGoal ? teamGoalTypes : personalGoalTypes
-    return types.find((t) => t.value === type || t.label === type) || types[0]
+  const getGoalTypeInfo = (type: string) => {
+    return personalGoalTypes.find((t) => t.value === type || t.label === type) || personalGoalTypes[0]
   }
 
-  // Remove the submit handlers
-  // Remove: const handlePersonalGoalSubmit = () => {...}
-  // Remove: const handleTeamGoalSubmit = () => {...}
+  const handleDeleteGoal = async (goalId: string) => {
+    if (!confirm('Are you sure you want to delete this goal? This action cannot be undone.')) {
+      return
+    }
+
+    setIsDeleting(goalId)
+    try {
+      const response = await fetch(`/api/personal-goals?id=${goalId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Refresh the data
+        const fetchRealData = async () => {
+          try {
+            const personalGoalsResponse = await fetch('/api/personal-goals')
+            const personalGoalsData = await personalGoalsResponse.json()
+            
+            const goalsResponse = await fetch('/api/company-goals')
+            const goalsData = await goalsResponse.json()
+            
+            const streaksResponse = await fetch('/api/streaks')
+            const streaksData = await streaksResponse.json()
+
+            // Fetch billable hours from saved entries for company and personal aggregates
+            const [weeklyAllRes, monthlyAllRes, annualAllRes, dailyUserRes, weeklyUserRes, monthlyUserRes, annualUserRes] = await Promise.all([
+              fetch('/api/time-entries?userId=all&timeFrame=weekly'),
+              fetch('/api/time-entries?userId=all&timeFrame=monthly'),
+              fetch('/api/time-entries?userId=all&timeFrame=annual'),
+              fetch('/api/time-entries?userId=mock-user-id&timeFrame=daily'),
+              fetch('/api/time-entries?userId=mock-user-id&timeFrame=weekly'),
+              fetch('/api/time-entries?userId=mock-user-id&timeFrame=monthly'),
+              fetch('/api/time-entries?userId=mock-user-id&timeFrame=annual'),
+            ])
+            const [weeklyAll, monthlyAll, annualAll, dailyUser, weeklyUser, monthlyUser, annualUser] = await Promise.all([
+              weeklyAllRes.json(), monthlyAllRes.json(), annualAllRes.json(), dailyUserRes.json(), weeklyUserRes.json(), monthlyUserRes.json(), annualUserRes.json()
+            ])
+
+            const companyBillableMap: Record<string, number> = {
+              weekly: weeklyAll?.summary?.billableHours ?? 0,
+              monthly: monthlyAll?.summary?.billableHours ?? 0,
+              annual: annualAll?.summary?.billableHours ?? 0,
+            }
+            const personalBillableMap: Record<string, number> = {
+              daily: dailyUser?.summary?.billableHours ?? 0,
+              weekly: weeklyUser?.summary?.billableHours ?? 0,
+              monthly: monthlyUser?.summary?.billableHours ?? 0,
+              annual: annualUser?.summary?.billableHours ?? 0,
+            }
+
+            const transformedData = {
+              personalGoals: personalGoalsData.success && personalGoalsData.personalGoals ? personalGoalsData.personalGoals.map((goal: any) => {
+                const title = (goal.title || goal.name || '').toLowerCase()
+                const isBillable = title.includes('billable') && !title.includes('non-billable')
+                const freq = (goal.frequency || '').toLowerCase()
+                const current = isBillable ? (personalBillableMap[freq] ?? (goal.current || 0)) : (goal.current || 0)
+                return {
+                  id: goal.id,
+                  name: goal.name,
+                  type: goal.type,
+                  frequency: goal.frequency,
+                  target: goal.target,
+                  current,
+                  max: goal.target,
+                  status: goal.status || 'active',
+                  description: goal.description || 'Personal goal'
+                }
+              }) : [],
+              companyGoals: goalsData.success && goalsData.companyGoals ? [
+                {
+                  id: 'company-weekly-goal',
+                  name: 'Weekly Billable Hours',
+                  type: 'Company Goal',
+                  frequency: 'weekly',
+                  target: goalsData.companyGoals.weeklyBillable || 0,
+                  current: companyBillableMap.weekly || 0,
+                  max: goalsData.companyGoals.weeklyBillable || 0,
+                  status: 'active',
+                  description: 'Weekly billable hours target'
+                },
+                {
+                  id: 'company-monthly-goal',
+                  name: 'Monthly Billable Hours',
+                  type: 'Company Goal',
+                  frequency: 'monthly',
+                  target: goalsData.companyGoals.monthlyBillable || 0,
+                  current: companyBillableMap.monthly || 0,
+                  max: goalsData.companyGoals.monthlyBillable || 0,
+                  status: 'active',
+                  description: 'Monthly billable hours target'
+                },
+                {
+                  id: 'company-annual-goal',
+                  name: 'Annual Billable Hours',
+                  type: 'Company Goal',
+                  frequency: 'annual',
+                  target: goalsData.companyGoals.annualBillable || 0,
+                  current: companyBillableMap.annual || 0,
+                  max: goalsData.companyGoals.annualBillable || 0,
+                  status: 'active',
+                  description: 'Annual billable hours target'
+                }
+              ].filter(goal => goal.target > 0) : [],
+              streaks: streaksData.success && streaksData.streaks ? streaksData.streaks.filter((streak: any) => streak && typeof streak === 'object').map((streak: any) => ({
+                id: streak.id || Math.random().toString(),
+                name: streak.name || 'Unnamed Streak',
+                type: 'Streak',
+                frequency: streak.frequency || 'daily',
+                target: 1,
+                current: 0,
+                max: 1,
+                status: streak.active ? 'active' : 'inactive',
+                description: streak.rule?.description || streak.description || 'Streak goal'
+              })) : []
+            }
+
+            setRealGoalsData(transformedData)
+          } catch (err) {
+            console.error('Error refreshing data after delete:', err)
+          }
+        }
+
+        fetchRealData()
+      } else {
+        alert('Failed to delete goal. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error deleting goal:', error)
+      alert('Failed to delete goal. Please try again.')
+    } finally {
+      setIsDeleting(null)
+    }
+  }
 
   // Filter and sort personal goals
   const filteredPersonalGoals = personalGoals.filter((goal) => {
     if (personalSortBy === "all") return true
     return goal.frequency.toLowerCase() === personalSortBy
-  })
-
-  // Filter and sort team goals
-  const filteredTeamGoals = teamGoals.filter((goal) => {
-    if (teamSortBy === "all") return true
-    return goal.frequency.toLowerCase() === teamSortBy
   })
 
   // Filter and sort company goals
@@ -169,16 +356,7 @@ export default function GoalsDashboard() {
     { total: 0, current: 0 },
   )
 
-  const teamProgress = filteredTeamGoals.reduce(
-    (acc, goal) => {
-      if (goal.max) {
-        acc.total += goal.max
-        acc.current += goal.current
-      }
-      return acc
-    },
-    { total: 0, current: 0 },
-  )
+
 
   const companyProgress = filteredCompanyGoals.reduce(
     (acc, goal) => {
@@ -192,7 +370,6 @@ export default function GoalsDashboard() {
   )
 
   const personalPercentage = personalProgress.total > 0 ? (personalProgress.current / personalProgress.total) * 100 : 0
-  const teamPercentage = teamProgress.total > 0 ? (teamProgress.current / teamProgress.total) * 100 : 0
   const companyPercentage = companyProgress.total > 0 ? (companyProgress.current / companyProgress.total) * 100 : 0
 
   const HaloPieChart = ({
@@ -261,17 +438,15 @@ export default function GoalsDashboard() {
 
   const GoalCard = ({
     goal,
-    isTeamGoal = false,
     canEdit = true,
   }: {
     goal: any
-    isTeamGoal?: boolean
     canEdit?: boolean
   }) => {
-    const typeInfo = getGoalTypeInfo(goal.type, isTeamGoal)
+    const typeInfo = getGoalTypeInfo(goal.type)
     const IconComponent = typeInfo.icon
     const progress = goal.max ? (goal.current / goal.max) * 100 : 0
-    const chartColor = isTeamGoal ? "#10b981" : "#3b82f6"
+    const chartColor = "#3b82f6"
 
     return (
       <Card className="hover:shadow-md transition-shadow">
@@ -312,9 +487,13 @@ export default function GoalsDashboard() {
                       <Edit className="h-4 w-4 mr-2" />
                       Edit Goal
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
+                    <DropdownMenuItem 
+                      className="text-destructive"
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      disabled={isDeleting === goal.id}
+                    >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Goal
+                      {isDeleting === goal.id ? 'Deleting...' : 'Delete Goal'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -379,9 +558,9 @@ export default function GoalsDashboard() {
         </div>
       </header>
 
-      {/* Main Content - 3 Column Layout */}
+      {/* Main Content - 2 Column Layout */}
       <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-2 gap-6 h-[calc(100vh-200px)]">
           {/* Personal Goals - Left Side */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -444,58 +623,7 @@ export default function GoalsDashboard() {
             </div>
           </div>
 
-          {/* Team Goals - Right Side */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Users className="h-5 w-5 text-green-600" />
-                  Team Goals
-                </h2>
-                <Badge variant="secondary" className="text-xs">
-                  {filteredTeamGoals.length} goals
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={teamSortBy} onValueChange={setTeamSortBy}>
-                  <SelectTrigger className="w-32 h-8 text-xs">
-                    <SelectValue placeholder="Sort by..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Goals</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
-                {/* Remove the New Goal button for team goals - admins cannot create team goals */}
-              </div>
-            </div>
 
-            {/* Team Progress Chart */}
-            {/* Team Goals List */}
-            <div className="space-y-4 overflow-y-auto flex-1">
-              {filteredTeamGoals.length > 0 ? (
-                filteredTeamGoals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} isTeamGoal={true} canEdit={userRole === "admin"} />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">
-                    {teamSortBy === "all" ? "No team goals yet" : `No ${teamSortBy} team goals`}
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    {teamSortBy === "all"
-                      ? "Team goals will be created and managed through the administrative system"
-                      : `${teamSortBy.charAt(0).toUpperCase() + teamSortBy.slice(1)} team goals will appear here when created through the administrative system`}
-                  </p>
-                  {/* Remove the create button - team goals are managed elsewhere */}
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Company Goals - Third Column */}
           <div className="space-y-6">
@@ -528,7 +656,7 @@ export default function GoalsDashboard() {
             <div className="space-y-4 overflow-y-auto flex-1">
               {filteredCompanyGoals.length > 0 ? (
                 filteredCompanyGoals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} isTeamGoal={false} canEdit={userRole === "admin"} />
+                  <GoalCard key={goal.id} goal={goal} canEdit={userRole === "admin"} />
                 ))
               ) : (
                 <div className="text-center py-12">
