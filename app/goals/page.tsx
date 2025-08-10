@@ -55,8 +55,12 @@ export default function GoalsDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
   
-  // Create a user identifier for this session
-  const userId = `${userRole}-user-${Date.now()}`
+  // Get the selected team member from localStorage instead of creating a generic ID
+  const selectedMemberName = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberName') : null
+  const selectedMemberId = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberId') : null
+  
+  // Use the actual team member's name/ID if available, otherwise fall back to generic ID
+  const userId = selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
   
   // State for real data
   const [realGoalsData, setRealGoalsData] = useState<any>(null)

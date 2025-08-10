@@ -345,13 +345,13 @@ export default function LawFirmDashboard() {
               setSelectedTeamMember(savedMember.name)
               setUserRole(savedMember.isAdmin ? "admin" : "member")
               // Update the stored ID to match current data
-              localStorage.setItem('selectedMemberId', savedMember.uniqueId)
+              localStorage.setItem('selectedMemberId', savedMember.name)
               console.log('Restored user selection by name:', savedMember.name)
             } else if (savedMemberId) {
-              // Fallback to finding by ID
-              const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+              // Fallback to finding by name
+              const savedMember = allMembers.find(m => m.name === savedMemberId)
               if (savedMember) {
-                console.log('Initial load - restoring user selection by ID:', savedMember.name)
+                console.log('Initial load - restoring user selection by name:', savedMember.name)
                 setSelectedTeamMember(savedMember.name)
                 setUserRole(savedMember.isAdmin ? "admin" : "member")
                 console.log('Restored user selection by ID:', savedMember.name)
@@ -361,7 +361,7 @@ export default function LawFirmDashboard() {
                 console.log('Initial load - saved member not found, setting to first:', firstMember.name)
                 setSelectedTeamMember(firstMember.name)
                 setUserRole(firstMember.isAdmin ? "admin" : "member")
-                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberId', firstMember.name)
                 localStorage.setItem('selectedMemberName', firstMember.name)
                 console.log('Saved member not found, set to first:', firstMember.name)
               }
@@ -371,15 +371,15 @@ export default function LawFirmDashboard() {
               console.log('Initial load - no saved selection, setting to first:', firstMember.name)
               setSelectedTeamMember(firstMember.name)
               setUserRole(firstMember.isAdmin ? "admin" : "member")
-              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+              localStorage.setItem('selectedMemberId', firstMember.name)
               localStorage.setItem('selectedMemberName', firstMember.name)
               console.log('Initial load - set to first member:', firstMember.name)
             }
           } else if (savedMemberId && allMembers.length > 0) {
-            // Only ID available, try to find by ID
-            const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+            // Only name available, try to find by name
+            const savedMember = allMembers.find(m => m.name === savedMemberId)
             if (savedMember) {
-              console.log('Initial load - restoring user selection by ID only:', savedMember.name)
+                              console.log('Initial load - restoring user selection by name only:', savedMember.name)
               setSelectedTeamMember(savedMember.name)
               setUserRole(savedMember.isAdmin ? "admin" : "member")
               // Also store the name for future use
@@ -391,7 +391,7 @@ export default function LawFirmDashboard() {
               console.log('Initial load - saved member not found, setting to first:', firstMember.name)
               setSelectedTeamMember(firstMember.name)
               setUserRole(firstMember.isAdmin ? "admin" : "member")
-              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+              localStorage.setItem('selectedMemberId', firstMember.name)
               localStorage.setItem('selectedMemberName', firstMember.name)
               console.log('Saved member not found, set to first:', firstMember.name)
             }
@@ -401,7 +401,7 @@ export default function LawFirmDashboard() {
             console.log('Initial load - no saved selection, setting to first:', firstMember.name)
             setSelectedTeamMember(firstMember.name)
             setUserRole(firstMember.isAdmin ? "admin" : "member")
-            localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+            localStorage.setItem('selectedMemberId', firstMember.name)
             localStorage.setItem('selectedMemberName', firstMember.name)
             console.log('Initial load - set to first member:', firstMember.name)
           }
@@ -457,13 +457,13 @@ export default function LawFirmDashboard() {
                 console.log('Storage change - restoring saved selection by name:', savedMember.name)
                 setSelectedTeamMember(savedMember.name)
                 setUserRole(savedMember.isAdmin ? "admin" : "member")
-                localStorage.setItem('selectedMemberId', savedMember.uniqueId)
+                localStorage.setItem('selectedMemberId', savedMember.name)
                 console.log('Storage change - restored by name:', savedMember.name)
               } else if (savedMemberId) {
-                // Fallback to ID
-                const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+                // Fallback to name
+                const savedMember = allMembers.find(m => m.name === savedMemberId)
                 if (savedMember) {
-                  console.log('Storage change - restoring saved selection by ID:', savedMember.name)
+                  console.log('Storage change - restoring saved selection by name:', savedMember.name)
                   setSelectedTeamMember(savedMember.name)
                   setUserRole(savedMember.isAdmin ? "admin" : "member")
                   localStorage.setItem('selectedMemberName', savedMember.name)
@@ -474,7 +474,7 @@ export default function LawFirmDashboard() {
                   console.log('Storage change - saved member not found, setting to first:', firstMember.name)
                   setSelectedTeamMember(firstMember.name)
                   setUserRole(firstMember.isAdmin ? "admin" : "member")
-                  localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                  localStorage.setItem('selectedMemberId', firstMember.name)
                   localStorage.setItem('selectedMemberName', firstMember.name)
                   console.log('Storage change - set to first:', firstMember.name)
                 }
@@ -484,15 +484,15 @@ export default function LawFirmDashboard() {
                 console.log('Storage change - no saved selection, setting to first member:', firstMember.name)
                 setSelectedTeamMember(firstMember.name)
                 setUserRole(firstMember.isAdmin ? "admin" : "member")
-                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberId', firstMember.name)
                 localStorage.setItem('selectedMemberName', firstMember.name)
                 console.log('Storage change - no saved selection, set to first:', firstMember.name)
               }
             } else if (savedMemberId) {
-              // Only ID available
-              const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+              // Only name available
+              const savedMember = allMembers.find(m => m.name === savedMemberId)
               if (savedMember) {
-                console.log('Storage change - restoring saved selection by ID only:', savedMember.name)
+                console.log('Storage change - restoring saved selection by name only:', savedMember.name)
                 setSelectedTeamMember(savedMember.name)
                 setUserRole(savedMember.isAdmin ? "admin" : "member")
                 localStorage.setItem('selectedMemberName', savedMember.name)
@@ -503,7 +503,7 @@ export default function LawFirmDashboard() {
                 console.log('Storage change - saved member not found, setting to first:', firstMember.name)
                 setSelectedTeamMember(firstMember.name)
                 setUserRole(firstMember.isAdmin ? "admin" : "member")
-                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberId', firstMember.name)
                 localStorage.setItem('selectedMemberName', firstMember.name)
                 console.log('Storage change - set to first:', firstMember.name)
               }
@@ -513,9 +513,9 @@ export default function LawFirmDashboard() {
               console.log('Storage change - no saved selection, setting to first member:', firstMember.name)
               setSelectedTeamMember(firstMember.name)
               setUserRole(firstMember.isAdmin ? "admin" : "member")
-              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
-              localStorage.setItem('selectedMemberName', firstMember.name)
-              console.log('Storage change - no saved selection, set to first:', firstMember.name)
+                              localStorage.setItem('selectedMemberId', firstMember.name)
+                localStorage.setItem('selectedMemberName', firstMember.name)
+                console.log('Storage change - no saved selection, set to first:', firstMember.name)
             }
           } else {
             console.log('Storage change - user already has selection, not overriding:', selectedTeamMember)
@@ -550,8 +550,8 @@ export default function LawFirmDashboard() {
     if (selectedTeamMember) {
       const member = teamMembers.find(m => m.name === selectedTeamMember)
       if (member) {
-        console.log('Persisting user selection to localStorage:', selectedTeamMember, 'with uniqueId:', member.uniqueId)
-        localStorage.setItem('selectedMemberId', member.uniqueId)
+        console.log('Persisting user selection to localStorage:', selectedTeamMember, 'with name:', member.name)
+        localStorage.setItem('selectedMemberId', member.name)
         // Also store the member name for easier restoration
         localStorage.setItem('selectedMemberName', selectedTeamMember)
       }
@@ -1552,12 +1552,13 @@ export default function LawFirmDashboard() {
               if (value) {
                 const member = allTeamMembers.find(m => m.name === value)
                 if (member) {
-                  console.log('User selected team member:', value, 'with uniqueId:', member.uniqueId)
+                  console.log('User selected team member:', value, 'with name:', member.name)
                   setSelectedTeamMember(value)
                   setUserRole(member.isAdmin ? "admin" : "member")
-                  // Store the selected member's unique ID for data filtering
-                  localStorage.setItem('selectedMemberId', member.uniqueId)
-                  console.log('Stored selectedMemberId in localStorage:', member.uniqueId)
+                  // Store the selected member's name for data filtering
+                  localStorage.setItem('selectedMemberId', member.name)
+                  localStorage.setItem('selectedMemberName', member.name)
+                  console.log('Stored selectedMemberId in localStorage:', member.name)
                 }
               } else {
                 console.log('User cleared team member selection')
@@ -1571,7 +1572,7 @@ export default function LawFirmDashboard() {
             </SelectTrigger>
             <SelectContent>
               {allTeamMembers.map((member) => (
-                <SelectItem key={member.uniqueId} value={member.name}>
+                <SelectItem key={member.name} value={member.name}>
                   <div className="flex items-center gap-2">
                     <span>{member.name}</span>
                     <Badge variant="outline" className="text-xs">

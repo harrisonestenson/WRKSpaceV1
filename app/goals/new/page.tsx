@@ -74,17 +74,25 @@ export default function NewGoalPage() {
       // Extract numeric value from target string
       const targetValue = Number.parseFloat(formData.target.replace(/[^\d.]/g, "")) || 100
 
+      // Get the selected team member from localStorage
+      const selectedMemberName = localStorage.getItem('selectedMemberName')
+      const selectedMemberId = localStorage.getItem('selectedMemberId')
+      
+      // Use the actual team member's name if available, otherwise fall back to generic ID
+      const memberId = selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
+
       const goalData = {
         ...formData,
         id: `goal-${Date.now()}`, // Generate a unique ID
         target: targetValue,
         current: 0,
         status: "active",
-        memberId: `${userRole}-user-${Date.now()}`, // Create a unique member ID
+        memberId: memberId, // Use the actual team member's name/ID
         createdAt: new Date().toISOString(),
       }
 
       console.log(`${goalType} goal created:`, goalData)
+      console.log('Using memberId:', memberId)
 
       // Save personal goal to API
       if (goalType === "personal") {

@@ -1,1 +1,71 @@
-{}
+{
+  "admin-user-1754869032831": [
+    {
+      "id": "goal-1754869032831",
+      "name": "test goal Cole",
+      "type": "billable",
+      "frequency": "daily",
+      "target": 4,
+      "current": 0,
+      "status": "active",
+      "description": "Personal goal",
+      "title": "test goal Cole",
+      "tracking": "supported"
+    }
+  ],
+  "admin-user-1754869061089": [
+    {
+      "id": "goal-1754869061089",
+      "name": "harry goal",
+      "type": "billable",
+      "frequency": "daily",
+      "target": 4,
+      "current": 0,
+      "status": "active",
+      "description": "Personal goal",
+      "title": "harry goal",
+      "tracking": "supported"
+    }
+  ],
+  "default-user": [
+    {
+      "id": "test-goal-1",
+      "name": "Test Personal Goal",
+      "type": "Billable / Work Output",
+      "frequency": "weekly",
+      "target": 40,
+      "current": 0,
+      "status": "active",
+      "description": "Test goal for weekly billable hours",
+      "title": "Test Personal Goal",
+      "tracking": "supported"
+    },
+    {
+      "id": "test-goal-2",
+      "name": "Daily Focus Goal",
+      "type": "Time Management",
+      "frequency": "daily",
+      "target": 8,
+      "current": 0,
+      "status": "active",
+      "description": "Daily focus hours target",
+      "title": "Daily Focus Goal",
+      "tracking": "not_supported",
+      "notice": "Live data ingestion is not yet connected for this goal type. Billable and non-billable hour goals are tracked first."
+    }
+  ],
+  "Cole": [
+    {
+      "id": "goal-1754869715235",
+      "name": "coles goal ",
+      "type": "billable",
+      "frequency": "daily",
+      "target": 4,
+      "current": 0,
+      "status": "active",
+      "description": "Personal goal",
+      "title": "coles goal ",
+      "tracking": "supported"
+    }
+  ]
+}
