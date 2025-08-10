@@ -53,12 +53,14 @@ import Link from "next/link"
 
 // Role and goal type suggestions for onboarding
 const roleSuggestions = [
-  { id: "associate", name: "Associate", description: "Junior attorney" },
-  { id: "partner", name: "Partner", description: "Senior attorney" },
-  { id: "paralegal", name: "Paralegal", description: "Legal support" },
-  { id: "admin", name: "Administrator", description: "System administrator" },
-  { id: "intern", name: "Intern", description: "Legal intern" },
-  { id: "member", name: "Team Member", description: "General team member" },
+  { id: "associate", name: "Associate Attorney", description: "Junior attorney with 1-5 years experience" },
+  { id: "senior-associate", name: "Senior Associate", description: "Experienced attorney with 5-8 years experience" },
+  { id: "partner", name: "Partner", description: "Senior attorney with ownership stake" },
+  { id: "paralegal", name: "Paralegal", description: "Legal support professional" },
+  { id: "legal-assistant", name: "Legal Assistant", description: "Administrative legal support" },
+  { id: "intern", name: "Legal Intern", description: "Law student or recent graduate" },
+  { id: "of-counsel", name: "Of Counsel", description: "Experienced attorney in advisory role" },
+  { id: "contract-attorney", name: "Contract Attorney", description: "Temporary or project-based attorney" },
 ]
 
 const goalTypeSuggestions = [
@@ -162,6 +164,13 @@ const streakTemplates = [
   }
 ]
 
+// Function to generate unique IDs for team members
+const generateTeamMemberId = (name: string, teamId: string) => {
+  const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const randomSuffix = Math.random().toString(36).substr(2, 6)
+  return `${sanitizedName}-${teamId}-${randomSuffix}`
+}
+
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
   const initialRole = (searchParams?.get("role") as "admin" | "member") || "member"
@@ -238,6 +247,9 @@ export default function OnboardingPage() {
         title: string;
         role: string;
         expectedBillableHours: number;
+        expectedNonBillablePoints?: number;
+        personalTarget?: string;
+        isAdmin?: boolean;
       }>;
     }>;
     companyGoals: {
@@ -260,6 +272,9 @@ export default function OnboardingPage() {
   
   // Team member expectations state for admin editing - will be populated from teamData
   const [teamMemberExpectations, setTeamMemberExpectations] = useState<any[]>([])
+  
+  // Success message state for team operations
+  const [teamSuccessMessage, setTeamSuccessMessage] = useState("")
 
   // Legal cases state for admin
   const [legalCases, setLegalCases] = useState<any[]>([])
@@ -358,6 +373,17 @@ export default function OnboardingPage() {
         errors.push('At least one team is required')
       }
       
+      // Check if admin is a member of at least one team
+      const adminInAnyTeam = teamData.teams.some((team: any) => 
+        team.members?.some((member: any) => 
+          member.name === userName && member.role === 'admin'
+        )
+      )
+      
+      if (!adminInAnyTeam) {
+        errors.push('You must be a member of at least one team. Use the "Add Me to Team" button to add yourself to a team.')
+      }
+      
       if (!teamData.companyGoals) {
         errors.push('Company goals are required')
       } else {
@@ -367,11 +393,16 @@ export default function OnboardingPage() {
         }
       }
       
-      if (teamMemberExpectations.length === 0) {
-        errors.push('Team member expectations must be set')
+      // Only require team member expectations if there are actual team members beyond the admin
+      const hasTeamMembersBeyondAdmin = teamData.teams.some((team: any) => 
+        team.members && team.members.length > 1
+      )
+      
+      if (hasTeamMembersBeyondAdmin && teamMemberExpectations.length === 0) {
+        errors.push('Team member expectations must be set for additional team members')
       }
       
-      // Validate team member expectations
+      // Validate team member expectations (only for non-admin members)
       teamMemberExpectations.forEach((member, index) => {
         if (!member.name.trim()) {
           errors.push(`Team member ${index + 1} name is required`)
@@ -587,12 +618,14 @@ export default function OnboardingPage() {
       if (team.members && team.members.length > 0) {
         team.members.forEach(member => {
           if (member.name && member.name.trim() !== '') {
+            // Always include the member, but mark if they're the admin
             allMembers.push({
               name: member.name,
               team: team.name,
-              expectedBillableHours: 1500, // Default values
-              expectedNonBillablePoints: 120,
-              personalTarget: "6 hours/day"
+              expectedBillableHours: member.expectedBillableHours || 1500, // Use existing value or default
+              expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
+              personalTarget: member.personalTarget || "6 hours/day",
+              isAdmin: member.isAdmin || false
             })
           }
         })
@@ -818,6 +851,32 @@ export default function OnboardingPage() {
                 <div>
                   <h3 className="text-lg font-semibold">Create or Import Team</h3>
                   <p className="text-muted-foreground">Set up your team structure</p>
+                  {(() => {
+                    const adminInAnyTeam = teamData.teams.some((team: any) => 
+                      team.members?.some((member: any) => 
+                        member.name === userName && member.role === 'admin'
+                      )
+                    )
+                    return adminInAnyTeam ? (
+                      <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>You are a member of {teamData.teams.filter((team: any) => 
+                          team.members?.some((member: any) => 
+                            member.name === userName && member.role === 'admin'
+                          )
+                        ).length} team{teamData.teams.filter((team: any) => 
+                          team.members?.some((member: any) => 
+                            member.name === userName && member.role === 'admin'
+                          )
+                        ).length !== 1 ? 's' : ''}</span>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2 text-sm text-orange-600">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>Don't forget to add yourself to a team using the "Add Me to Team" button</span>
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
               
@@ -842,6 +901,27 @@ export default function OnboardingPage() {
                 
                 <div>
                   <Label className="text-base font-medium">Create Teams</Label>
+                  {teamSuccessMessage && (
+                    <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800 flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        {teamSuccessMessage}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <Crown className="h-4 w-4 inline mr-2" />
+                      <strong>Admin Tip:</strong> Teams can have just you as the admin, or you can add more members. 
+                      The "Add Team (with yourself)" button automatically creates a team with you as the member.
+                    </p>
+                    <div className="mt-2 text-xs text-blue-700">
+                      <strong>Why create teams?</strong> Teams help organize work, track goals, and manage expectations. 
+                      You can start with just yourself and add members later as your organization grows. 
+                      <strong>Even solo teams can set expectations for performance tracking!</strong>
+                    </div>
+                  </div>
                   <div className="space-y-4 mt-2">
                     {teamData.teams.map((team: any, index: number) => (
                       <div key={index} className="p-3 border rounded-lg">
@@ -903,28 +983,72 @@ export default function OnboardingPage() {
                           <div className="space-y-2">
                             {team.members && team.members.map((member: any, memberIndex: number) => (
                               <div key={memberIndex} className="flex items-center gap-2">
-                                <Input
-                                  placeholder="Member name"
-                                  value={member.name || ''}
-                                  onChange={(e) => {
-                                    setTeamData(prev => ({
-                                      ...prev,
-                                      teams: prev.teams.map((t: any, i: number) => 
-                                        i === index ? {
-                                          ...t,
-                                          members: t.members.map((m: any, mi: number) => 
-                                            mi === memberIndex ? { ...m, name: e.target.value } : m
-                                          )
-                                        } : t
-                                      )
-                                    }))
-                                  }}
-                                  className="flex-1"
-                                />
+                                <div className="flex-1 flex items-center gap-2">
+                                  <Input
+                                    placeholder="Member name"
+                                    value={member.name || ''}
+                                    onChange={(e) => {
+                                      setTeamData(prev => ({
+                                        ...prev,
+                                        teams: prev.teams.map((t: any, i: number) => 
+                                          i === index ? {
+                                            ...t,
+                                            members: t.members.map((m: any, mi: number) => 
+                                              mi === memberIndex ? { ...m, name: e.target.value } : m
+                                            )
+                                          } : t
+                                        )
+                                      }))
+                                    }}
+                                    className="flex-1"
+                                  />
+                                  <Select
+                                    value={member.role || 'associate'}
+                                    onValueChange={(value) => {
+                                      setTeamData(prev => ({
+                                        ...prev,
+                                        teams: prev.teams.map((t: any, i: number) => 
+                                          i === index ? {
+                                            ...t,
+                                            members: t.members.map((m: any, mi: number) => 
+                                              mi === memberIndex ? { ...m, role: value } : m
+                                            )
+                                          } : t
+                                        )
+                                      }))
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-32">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {roleSuggestions.map((role) => (
+                                        <SelectItem key={role.id} value={role.id}>
+                                          {role.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {member.isAdmin && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Crown className="h-3 w-3 mr-1" />
+                                      Admin
+                                    </Badge>
+                                  )}
+                                </div>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
+                                    // Prevent admin from removing themselves if they're the only admin in the team
+                                    if (member.isAdmin && member.name === userName) {
+                                      const adminCountInTeam = team.members.filter((m: any) => m.isAdmin).length
+                                      if (adminCountInTeam === 1) {
+                                        alert('You cannot remove yourself from this team as you are the only admin. Please add another admin member first.')
+                                        return
+                                      }
+                                    }
+                                    
                                     setTeamData(prev => ({
                                       ...prev,
                                       teams: prev.teams.map((t: any, i: number) => 
@@ -935,6 +1059,9 @@ export default function OnboardingPage() {
                                       )
                                     }))
                                   }}
+                                  disabled={member.isAdmin && member.name === userName && team.members.filter((m: any) => m.isAdmin).length === 1}
+                                  title={member.isAdmin && member.name === userName && team.members.filter((m: any) => m.isAdmin).length === 1 ? 
+                                    'Cannot remove yourself as the only admin' : 'Remove member'}
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
@@ -944,12 +1071,23 @@ export default function OnboardingPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => {
+                                const newMemberId = generateTeamMemberId(`member-${Date.now()}`, `team-${index}`)
                                 setTeamData(prev => ({
                                   ...prev,
                                   teams: prev.teams.map((t: any, i: number) => 
                                     i === index ? {
                                       ...t,
-                                      members: [...(t.members || []), { name: '', email: '', title: '', role: '', expectedBillableHours: 0 }]
+                                      members: [...(t.members || []), { 
+                                        id: newMemberId,
+                                        name: '', 
+                                        email: '', 
+                                        title: '', 
+                                        role: 'associate', 
+                                        expectedBillableHours: 1500,
+                                        expectedNonBillablePoints: 120,
+                                        personalTarget: "6 hours/day",
+                                        isAdmin: false
+                                      }]
                                     } : t
                                   )
                                 }))
@@ -958,6 +1096,56 @@ export default function OnboardingPage() {
                             >
                               <Plus className="h-4 w-4 mr-2" />
                               Add Team Member
+                            </Button>
+                            
+                            {/* Add Admin to Team Button */}
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                // Check if admin is already in this team
+                                const adminAlreadyInTeam = team.members?.some((member: any) => 
+                                  member.name === userName && member.role === 'admin'
+                                )
+                                
+                                if (adminAlreadyInTeam) {
+                                  alert('You are already a member of this team!')
+                                  return
+                                }
+                                
+                                // Add admin to the team with their profile information
+                                const adminMemberId = generateTeamMemberId(userName || 'admin', `team-${index}`)
+                                setTeamData(prev => ({
+                                  ...prev,
+                                  teams: prev.teams.map((t: any, i: number) => 
+                                    i === index ? {
+                                      ...t,
+                                      members: [...(t.members || []), {
+                                        id: adminMemberId,
+                                        name: userName || 'Admin',
+                                        email: '', // Could be populated from user profile
+                                        title: userTitle || 'Administrator',
+                                        role: selectedRole || 'partner',
+                                        expectedBillableHours: 1500,
+                                        expectedNonBillablePoints: 120,
+                                        personalTarget: "6 hours/day",
+                                        isAdmin: true
+                                      }]
+                                    } : t
+                                  )
+                                }))
+                                
+                                // Show success message
+                                setTeamSuccessMessage(`Successfully added to ${team.name || `Team ${index + 1}`}!`)
+                                setTimeout(() => setTeamSuccessMessage(""), 3000)
+                              }}
+                              className="w-full"
+                              disabled={!userName.trim()}
+                            >
+                              <Crown className="h-4 w-4 mr-2" />
+                              {team.members?.some((member: any) => 
+                                member.name === userName && member.role === 'admin'
+                              ) ? 'Already in Team' : 'Add Me to Team'}
                             </Button>
                           </div>
                         </div>
@@ -968,12 +1156,25 @@ export default function OnboardingPage() {
                       onClick={() => {
                         setTeamData(prev => ({
                           ...prev,
-                          teams: [...prev.teams, { name: '', department: '', members: [] }]
+                          teams: [...prev.teams, { 
+                            name: '', 
+                            department: '', 
+                            members: [{
+                              name: userName || 'Admin',
+                              email: '',
+                              title: userTitle || 'Administrator',
+                              role: 'admin',
+                              expectedBillableHours: 1500,
+                              expectedNonBillablePoints: 120,
+                              personalTarget: "6 hours/day",
+                              isAdmin: true
+                            }]
+                          }]
                         }))
                       }}
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Team
+                      Add Team (with yourself)
                     </Button>
                   </div>
                 </div>
@@ -1214,21 +1415,150 @@ export default function OnboardingPage() {
               
               <div className="space-y-6">
                 {teamMemberExpectations.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <h4 className="text-lg font-medium mb-2">No Team Members Added</h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Go back to the "Create or Import Team" step and add team members to set their expectations.
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setCurrentStep(3)}
-                    >
-                      Back to Team Creation
-                    </Button>
+                  <div className="space-y-6">
+                    <div className="text-center py-4">
+                      <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <h4 className="text-lg font-medium mb-2">Set Your Own Expectations</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        You currently have teams with just yourself as the admin. Let's set expectations for your own performance!
+                      </p>
+                    </div>
+                    
+                    {/* Form for admin to set their own expectations */}
+                    <Card>
+                      <CardContent className="p-4">
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Crown className="h-4 w-4 text-yellow-600" />
+                            <span className="font-medium">Your Expectations</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <Label htmlFor="admin-billable" className="text-xs text-muted-foreground">Billable Hours/Year</Label>
+                              <Input
+                                id="admin-billable"
+                                type="number"
+                                value={teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.expectedBillableHours || 1500}
+                                onChange={(e) => {
+                                  const newValue = parseInt(e.target.value) || 0;
+                                  setTeamData(prev => ({
+                                    ...prev,
+                                    teams: prev.teams.map(team => ({
+                                      ...team,
+                                      members: team.members.map(member => 
+                                        member.isAdmin ? { ...member, expectedBillableHours: newValue } : member
+                                      )
+                                    }))
+                                  }));
+                                }}
+                                className="w-full h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="admin-nonbillable" className="text-xs text-muted-foreground">Non-Billable Points/Year</Label>
+                              <Input
+                                id="admin-nonbillable"
+                                type="number"
+                                value={teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.expectedNonBillablePoints || 120}
+                                onChange={(e) => {
+                                  const newValue = parseInt(e.target.value) || 0;
+                                  setTeamData(prev => ({
+                                    ...prev,
+                                    teams: prev.teams.map(team => ({
+                                      ...team,
+                                      members: team.members.map(member => 
+                                        member.isAdmin ? { ...member, expectedNonBillablePoints: newValue } : member
+                                      )
+                                    }))
+                                  }));
+                                }}
+                                className="w-full h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="admin-target" className="text-xs text-muted-foreground">Personal Target</Label>
+                              <Input
+                                id="admin-target"
+                                value={teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.personalTarget || "6 hours/day"}
+                                onChange={(e) => {
+                                  setTeamData(prev => ({
+                                    ...prev,
+                                    teams: prev.teams.map(team => ({
+                                      ...team,
+                                      members: team.members.map(member => 
+                                        member.isAdmin ? { ...member, personalTarget: e.target.value } : member
+                                      )
+                                    }))
+                                  }));
+                                }}
+                                className="w-full h-8 text-sm"
+                                placeholder="e.g., 6 hours/day"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <div className="flex justify-between">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setCurrentStep(3)}
+                      >
+                        Back to Team Setup
+                      </Button>
+                      <Button 
+                        onClick={() => nextStep()}
+                      >
+                        Continue with Setup
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Show admin's own expectations first */}
+                    {teamData.teams.some(team => team.members?.some(member => member.isAdmin)) && (
+                      <Card className="border-yellow-200 bg-yellow-50/30">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Crown className="h-4 w-4 text-yellow-600" />
+                                <span className="font-medium text-sm">Your Expectations (Admin)</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Team: {teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.name || 'Your Team'}
+                              </div>
+                            </div>
+                            <div className="text-right space-y-3">
+                              <div className="flex items-center gap-4">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Billable Hours/Year</Label>
+                                  <div className="font-medium text-sm">
+                                    {teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.expectedBillableHours || 1500}
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Non-Billable Points/Year</Label>
+                                  <div className="font-medium text-sm">
+                                    {teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.expectedNonBillablePoints || 120}
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Personal Target</Label>
+                                  <div className="font-medium text-sm">
+                                    {teamData.teams.find(t => t.members?.some(m => m.isAdmin))?.members?.find(m => m.isAdmin)?.personalTarget || "6 hours/day"}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                    
+                    {/* Show additional team member expectations */}
                     {teamMemberExpectations.map((user, index) => (
                       <Card key={index}>
                         <CardContent className="p-4">
@@ -1945,7 +2275,21 @@ export default function OnboardingPage() {
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Members: {team.members?.length || 0}
+                          {team.members?.length === 1 && (
+                            <span className="text-blue-600 ml-1">(Just you as admin)</span>
+                          )}
                         </div>
+                        {team.members && team.members.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {team.members.map((member: any, memberIndex: number) => (
+                              <div key={memberIndex} className="flex items-center gap-1">
+                                {member.isAdmin && <Crown className="h-3 w-3 text-yellow-600" />}
+                                <span>{member.name}</span>
+                                {member.isAdmin && <span className="text-yellow-600">(Admin)</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </CardContent>
@@ -1975,6 +2319,54 @@ export default function OnboardingPage() {
                   </CardContent>
                 </Card>
 
+                {/* Admin Team Membership Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Crown className="h-4 w-4" />
+                      Your Team Memberships
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {(() => {
+                      const adminTeams = teamData.teams.filter((team: any) => 
+                        team.members?.some((member: any) => 
+                          member.name === userName && member.role === 'admin'
+                        )
+                      )
+                      
+                      if (adminTeams.length === 0) {
+                        return (
+                          <div className="text-sm text-muted-foreground">
+                            You are not a member of any team yet. Use the "Add Me to Team" button in the team creation step to add yourself to a team.
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div className="space-y-2">
+                          <div className="text-sm text-muted-foreground mb-2">
+                            You are a member of {adminTeams.length} team{adminTeams.length !== 1 ? 's' : ''}:
+                          </div>
+                          {adminTeams.map((team: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded">
+                              <div className="flex items-center gap-2">
+                                <Crown className="h-4 w-4 text-yellow-600" />
+                                <span className="font-medium text-sm">{team.name || `Team ${index + 1}`}</span>
+                                {team.department && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {team.department}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </CardContent>
+                </Card>
+
                 {/* Team Member Expectations Summary */}
                 <Card>
                   <CardHeader>
@@ -1984,25 +2376,34 @@ export default function OnboardingPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <div className="text-sm text-muted-foreground mb-3">
-                      Average expectations across all team members:
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Avg. Billable Hours:</span>
-                      <span className="font-medium">
-                        {teamMemberExpectations.length > 0 
-                          ? Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedBillableHours, 0) / teamMemberExpectations.length)
-                          : 0} hours/year
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Avg. Non-Billable Points:</span>
-                      <span className="font-medium">
-                        {teamMemberExpectations.length > 0 
-                          ? Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedNonBillablePoints, 0) / teamMemberExpectations.length)
-                          : 0} points/year
-                      </span>
-                    </div>
+                    {teamMemberExpectations.length === 0 ? (
+                      <div className="text-center py-4">
+                        <div className="text-sm text-muted-foreground">
+                          No additional team members beyond yourself. This is perfectly fine for solo practice or small teams.
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          You can add team members later and set their expectations when needed.
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-sm text-muted-foreground mb-3">
+                          Average expectations across additional team members:
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Avg. Billable Hours:</span>
+                          <span className="font-medium">
+                            {Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedBillableHours, 0) / teamMemberExpectations.length)} hours/year
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Avg. Non-Billable Points:</span>
+                          <span className="font-medium">
+                            {Math.round(teamMemberExpectations.reduce((sum, m) => sum + m.expectedNonBillablePoints, 0) / teamMemberExpectations.length)} points/year
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -2222,6 +2623,24 @@ export default function OnboardingPage() {
             </div>
             <div className="text-sm text-muted-foreground">
               Step {currentStep} of {totalSteps}
+              {userRole === "admin" && currentStep === 3 && (() => {
+                const adminInAnyTeam = teamData.teams.some((team: any) => 
+                  team.members?.some((member: any) => 
+                    member.name === userName && member.role === 'admin'
+                  )
+                )
+                return adminInAnyTeam ? (
+                  <span className="ml-2 text-green-600 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Team Member
+                  </span>
+                ) : (
+                  <span className="ml-2 text-orange-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Add to Team
+                  </span>
+                )
+              })()}
             </div>
           </div>
           <Progress value={progressPercentage} className="h-2" />
