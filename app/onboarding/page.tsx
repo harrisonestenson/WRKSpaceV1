@@ -53,14 +53,8 @@ import Link from "next/link"
 
 // Role and goal type suggestions for onboarding
 const roleSuggestions = [
-  { id: "associate", name: "Associate Attorney", description: "Junior attorney with 1-5 years experience" },
-  { id: "senior-associate", name: "Senior Associate", description: "Experienced attorney with 5-8 years experience" },
-  { id: "partner", name: "Partner", description: "Senior attorney with ownership stake" },
-  { id: "paralegal", name: "Paralegal", description: "Legal support professional" },
-  { id: "legal-assistant", name: "Legal Assistant", description: "Administrative legal support" },
-  { id: "intern", name: "Legal Intern", description: "Law student or recent graduate" },
-  { id: "of-counsel", name: "Of Counsel", description: "Experienced attorney in advisory role" },
-  { id: "contract-attorney", name: "Contract Attorney", description: "Temporary or project-based attorney" },
+  { id: "admin", name: "Admin", description: "Administrative access and full permissions" },
+  { id: "member", name: "Member", description: "Standard team member with limited permissions" },
 ]
 
 const goalTypeSuggestions = [
@@ -220,7 +214,7 @@ export default function OnboardingPage() {
   const [profilePhoto, setProfilePhoto] = useState("")
   const [userName, setUserName] = useState("")
   const [userTitle, setUserTitle] = useState("")
-  const [selectedRole, setSelectedRole] = useState("")
+  const [selectedRole, setSelectedRole] = useState("admin")
   const [durationOfEmployment, setDurationOfEmployment] = useState("")
   const [yearsOfExperience, setYearsOfExperience] = useState("")
   const [durationOfPosition, setDurationOfPosition] = useState("")
@@ -376,7 +370,7 @@ export default function OnboardingPage() {
       // Check if admin is a member of at least one team
       const adminInAnyTeam = teamData.teams.some((team: any) => 
         team.members?.some((member: any) => 
-          member.name === userName && member.role === 'admin'
+          member.name === userName && member.isAdmin
         )
       )
       
@@ -854,7 +848,7 @@ export default function OnboardingPage() {
                   {(() => {
                     const adminInAnyTeam = teamData.teams.some((team: any) => 
                       team.members?.some((member: any) => 
-                        member.name === userName && member.role === 'admin'
+                        member.name === userName && member.isAdmin
                       )
                     )
                     return adminInAnyTeam ? (
@@ -862,11 +856,11 @@ export default function OnboardingPage() {
                         <CheckCircle className="h-4 w-4" />
                         <span>You are a member of {teamData.teams.filter((team: any) => 
                           team.members?.some((member: any) => 
-                            member.name === userName && member.role === 'admin'
+                            member.name === userName && member.isAdmin
                           )
                         ).length} team{teamData.teams.filter((team: any) => 
                           team.members?.some((member: any) => 
-                            member.name === userName && member.role === 'admin'
+                            member.name === userName && member.isAdmin
                           )
                         ).length !== 1 ? 's' : ''}</span>
                       </div>
@@ -1003,7 +997,7 @@ export default function OnboardingPage() {
                                     className="flex-1"
                                   />
                                   <Select
-                                    value={member.role || 'associate'}
+                                    value={member.isAdmin ? 'admin' : 'member'}
                                     onValueChange={(value) => {
                                       setTeamData(prev => ({
                                         ...prev,
@@ -1011,7 +1005,11 @@ export default function OnboardingPage() {
                                           i === index ? {
                                             ...t,
                                             members: t.members.map((m: any, mi: number) => 
-                                              mi === memberIndex ? { ...m, role: value } : m
+                                              mi === memberIndex ? { 
+                                                ...m, 
+                                                isAdmin: value === 'admin',
+                                                role: value === 'admin' ? 'admin' : 'member'
+                                              } : m
                                             )
                                           } : t
                                         )
@@ -1022,11 +1020,8 @@ export default function OnboardingPage() {
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {roleSuggestions.map((role) => (
-                                        <SelectItem key={role.id} value={role.id}>
-                                          {role.name}
-                                        </SelectItem>
-                                      ))}
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                      <SelectItem value="member">Member</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   {member.isAdmin && (
@@ -1082,7 +1077,7 @@ export default function OnboardingPage() {
                                         name: '', 
                                         email: '', 
                                         title: '', 
-                                        role: 'associate', 
+                                        role: 'member', 
                                         expectedBillableHours: 1500,
                                         expectedNonBillablePoints: 120,
                                         personalTarget: "6 hours/day",
@@ -1105,7 +1100,7 @@ export default function OnboardingPage() {
                               onClick={() => {
                                 // Check if admin is already in this team
                                 const adminAlreadyInTeam = team.members?.some((member: any) => 
-                                  member.name === userName && member.role === 'admin'
+                                  member.name === userName && member.isAdmin
                                 )
                                 
                                 if (adminAlreadyInTeam) {
@@ -1125,7 +1120,7 @@ export default function OnboardingPage() {
                                         name: userName || 'Admin',
                                         email: '', // Could be populated from user profile
                                         title: userTitle || 'Administrator',
-                                        role: selectedRole || 'partner',
+                                        role: 'admin',
                                         expectedBillableHours: 1500,
                                         expectedNonBillablePoints: 120,
                                         personalTarget: "6 hours/day",
@@ -1144,7 +1139,7 @@ export default function OnboardingPage() {
                             >
                               <Crown className="h-4 w-4 mr-2" />
                               {team.members?.some((member: any) => 
-                                member.name === userName && member.role === 'admin'
+                                member.name === userName && member.isAdmin
                               ) ? 'Already in Team' : 'Add Me to Team'}
                             </Button>
                           </div>
@@ -2331,7 +2326,7 @@ export default function OnboardingPage() {
                     {(() => {
                       const adminTeams = teamData.teams.filter((team: any) => 
                         team.members?.some((member: any) => 
-                          member.name === userName && member.role === 'admin'
+                          member.name === userName && member.isAdmin
                         )
                       )
                       
@@ -2626,7 +2621,7 @@ export default function OnboardingPage() {
               {userRole === "admin" && currentStep === 3 && (() => {
                 const adminInAnyTeam = teamData.teams.some((team: any) => 
                   team.members?.some((member: any) => 
-                    member.name === userName && member.role === 'admin'
+                    member.name === userName && member.isAdmin
                   )
                 )
                 return adminInAnyTeam ? (

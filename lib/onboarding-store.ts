@@ -17,7 +17,10 @@ interface OnboardingData {
         email: string
         title: string
         role: string
+        isAdmin?: boolean
         expectedBillableHours: number
+        expectedNonBillablePoints?: number
+        personalTarget?: string
       }>
     }>
     companyGoals: {
@@ -76,6 +79,24 @@ interface OnboardingData {
 class OnboardingStore {
   private data: OnboardingData = {}
 
+  constructor() {
+    // Load data from localStorage on initialization if available
+    this.loadFromLocalStorage()
+  }
+
+  private loadFromLocalStorage() {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedData = localStorage.getItem('onboardingData')
+        if (savedData) {
+          this.data = JSON.parse(savedData)
+        }
+      } catch (error) {
+        console.error('Failed to load onboarding data from localStorage:', error)
+      }
+    }
+  }
+
   setData(newData: Partial<OnboardingData>) {
     this.data = { ...this.data, ...newData }
     
@@ -119,6 +140,26 @@ class OnboardingStore {
 
   getLegalCases() {
     return this.data.legalCases || []
+  }
+
+  // Load data from the onboarding-data API
+  async loadFromAPI() {
+    try {
+      const response = await fetch('/api/onboarding-data')
+      if (response.ok) {
+        const result = await response.json()
+        if (result.data) {
+          this.data = result.data
+          // Also save to localStorage for offline access
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('onboardingData', JSON.stringify(this.data))
+          }
+          console.log('Onboarding store loaded from API successfully')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load onboarding data from API:', error)
+    }
   }
 
   clear() {

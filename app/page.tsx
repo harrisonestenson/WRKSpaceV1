@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale } from "lucide-react"
 
 import Link from "next/link"
+import { onboardingStore } from "@/lib/onboarding-store"
 
 // TypeScript interfaces for dashboard data
 interface DashboardGoal {
@@ -114,7 +115,7 @@ export default function LawFirmDashboard() {
   // Non-billable timer states
   const [isNonBillableTimerRunning, setIsNonBillableTimerRunning] = useState(false)
   const [nonBillableTimerSeconds, setNonBillableTimerSeconds] = useState(0)
-  const [selectedNonBillableTask, setSelectedNonBillableTask] = useState("")
+  const [selectedNonBillableTask, setSelectedNonBillableTask] = useState<string | null>(null)
   const [nonBillableDescription, setNonBillableDescription] = useState("")
   
   // Initialize timer states from localStorage on component mount
@@ -163,7 +164,7 @@ export default function LawFirmDashboard() {
         if (isToday && isLessThan24Hours && timerData.isRunning) {
           setNonBillableTimerSeconds(Math.floor(elapsedMs / 1000))
           setIsNonBillableTimerRunning(true)
-          setSelectedNonBillableTask(timerData.selectedTask || "")
+          setSelectedNonBillableTask(timerData.selectedTask || null)
           setNonBillableDescription(timerData.description || "")
         } else {
           // Clear stale timer
@@ -283,7 +284,7 @@ export default function LawFirmDashboard() {
   const [nonBillableManualDate, setNonBillableManualDate] = useState(new Date().toISOString().split("T")[0])
   const [nonBillableManualStartTime, setNonBillableManualStartTime] = useState("")
   const [nonBillableManualEndTime, setNonBillableManualEndTime] = useState("")
-  const [nonBillableManualSelectedTask, setNonBillableManualSelectedTask] = useState("")
+  const [nonBillableManualSelectedTask, setNonBillableManualSelectedTask] = useState<string | null>(null)
   const [nonBillableManualDescription, setNonBillableManualDescription] = useState("")
 
 
@@ -291,13 +292,275 @@ export default function LawFirmDashboard() {
   // User role state
   const [userRole, setUserRole] = useState<"admin" | "member">("member")
   
+  // Team members state for "View as" functionality
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null)
+  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
+  
   // Check if onboarding is completed
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(false)
   
   useEffect(() => {
-    const savedCompletion = localStorage.getItem('onboardingComplete')
-    setIsOnboardingCompleted(savedCompletion === 'true')
+    const loadOnboardingData = async () => {
+      console.log('Initial load effect running')
+      const savedCompletion = localStorage.getItem('onboardingComplete')
+      setIsOnboardingCompleted(savedCompletion === 'true')
+      
+      // Get team members from onboarding store if available
+      if (savedCompletion === 'true') {
+        // First load fresh data from API
+        await onboardingStore.loadFromAPI()
+        const onboardingData = onboardingStore.getTeamData()
+        console.log('Initial load - onboardingData:', onboardingData)
+        if (onboardingData?.teams) {
+          const allMembers = onboardingData.teams.flatMap((team: any) => 
+            team.members?.map((member: any) => ({
+              ...member,
+              teamName: team.name,
+              isAdmin: member.role === 'admin' || member.isAdmin,
+              uniqueId: `${team.name}-${member.name}-${member.email}` // Create unique ID
+            })) || []
+          )
+          console.log('Initial load - allMembers:', allMembers)
+          setTeamMembers(allMembers)
+          
+          // Set the user's actual role based on their profile from onboarding
+          const profile = onboardingStore.getProfile()
+          if (profile?.role) {
+            setUserRole(profile.role as "admin" | "member")
+          }
+          
+          // Check if user has already selected a team member
+          const savedMemberId = localStorage.getItem('selectedMemberId')
+          const savedMemberName = localStorage.getItem('selectedMemberName')
+          console.log('Initial load - savedMemberId from localStorage:', savedMemberId)
+          console.log('Initial load - savedMemberName from localStorage:', savedMemberName)
+          
+          if (savedMemberName && allMembers.length > 0) {
+            // First try to find by name (more reliable)
+            const savedMember = allMembers.find(m => m.name === savedMemberName)
+            if (savedMember) {
+              // Restore the user's previous selection by name
+              console.log('Initial load - restoring user selection by name:', savedMember.name)
+              setSelectedTeamMember(savedMember.name)
+              setUserRole(savedMember.isAdmin ? "admin" : "member")
+              // Update the stored ID to match current data
+              localStorage.setItem('selectedMemberId', savedMember.uniqueId)
+              console.log('Restored user selection by name:', savedMember.name)
+            } else if (savedMemberId) {
+              // Fallback to finding by ID
+              const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+              if (savedMember) {
+                console.log('Initial load - restoring user selection by ID:', savedMember.name)
+                setSelectedTeamMember(savedMember.name)
+                setUserRole(savedMember.isAdmin ? "admin" : "member")
+                console.log('Restored user selection by ID:', savedMember.name)
+              } else {
+                // Saved member not found, set to first member
+                const firstMember = allMembers[0]
+                console.log('Initial load - saved member not found, setting to first:', firstMember.name)
+                setSelectedTeamMember(firstMember.name)
+                setUserRole(firstMember.isAdmin ? "admin" : "member")
+                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberName', firstMember.name)
+                console.log('Saved member not found, set to first:', firstMember.name)
+              }
+            } else {
+              // No saved selection, set to first member only on initial load
+              const firstMember = allMembers[0]
+              console.log('Initial load - no saved selection, setting to first:', firstMember.name)
+              setSelectedTeamMember(firstMember.name)
+              setUserRole(firstMember.isAdmin ? "admin" : "member")
+              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+              localStorage.setItem('selectedMemberName', firstMember.name)
+              console.log('Initial load - set to first member:', firstMember.name)
+            }
+          } else if (savedMemberId && allMembers.length > 0) {
+            // Only ID available, try to find by ID
+            const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+            if (savedMember) {
+              console.log('Initial load - restoring user selection by ID only:', savedMember.name)
+              setSelectedTeamMember(savedMember.name)
+              setUserRole(savedMember.isAdmin ? "admin" : "member")
+              // Also store the name for future use
+              localStorage.setItem('selectedMemberName', savedMember.name)
+              console.log('Restored user selection by ID only:', savedMember.name)
+            } else {
+              // Saved member not found, set to first member
+              const firstMember = allMembers[0]
+              console.log('Initial load - saved member not found, setting to first:', firstMember.name)
+              setSelectedTeamMember(firstMember.name)
+              setUserRole(firstMember.isAdmin ? "admin" : "member")
+              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+              localStorage.setItem('selectedMemberName', firstMember.name)
+              console.log('Saved member not found, set to first:', firstMember.name)
+            }
+          } else if (allMembers.length > 0) {
+            // No saved selection, set to first member only on initial load
+            const firstMember = allMembers[0]
+            console.log('Initial load - no saved selection, setting to first:', firstMember.name)
+            setSelectedTeamMember(firstMember.name)
+            setUserRole(firstMember.isAdmin ? "admin" : "member")
+            localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+            localStorage.setItem('selectedMemberName', firstMember.name)
+            console.log('Initial load - set to first member:', firstMember.name)
+          }
+        }
+      }
+    }
+    
+    loadOnboardingData()
   }, [])
+
+  // Listen for changes in onboarding completion status
+  useEffect(() => {
+    const handleStorageChange = async () => {
+      console.log('Storage change handler running, current selectedTeamMember:', selectedTeamMember)
+      const savedCompletion = localStorage.getItem('onboardingComplete')
+      setIsOnboardingCompleted(savedCompletion === 'true')
+      
+      // Refresh team members when onboarding is completed
+      if (savedCompletion === 'true') {
+        // First load fresh data from API
+        await onboardingStore.loadFromAPI()
+        const onboardingData = onboardingStore.getTeamData()
+        console.log('Storage change - onboardingData:', onboardingData)
+        if (onboardingData?.teams) {
+          const allMembers = onboardingData.teams.flatMap((team: any) => 
+            team.members?.map((member: any) => ({
+              ...member,
+              teamName: team.name,
+              isAdmin: member.role === 'admin' || member.isAdmin,
+              uniqueId: `${team.name}-${member.name}-${member.email}` // Create unique ID
+            })) || []
+          )
+          console.log('Storage change - allMembers:', allMembers)
+          setTeamMembers(allMembers)
+          
+          // Set the user's actual role based on their profile from onboarding
+          const profile = onboardingStore.getProfile()
+          if (profile?.role) {
+            setUserRole(profile.role as "admin" | "member")
+          }
+          
+          // Only set initial team member if none is currently selected
+          // This prevents overriding user's choice
+          if (!selectedTeamMember && allMembers.length > 0) {
+            // Check if user has a saved selection
+            const savedMemberId = localStorage.getItem('selectedMemberId')
+            const savedMemberName = localStorage.getItem('selectedMemberName')
+            
+            if (savedMemberName) {
+              // Try to restore by name first
+              const savedMember = allMembers.find(m => m.name === savedMemberName)
+              if (savedMember) {
+                console.log('Storage change - restoring saved selection by name:', savedMember.name)
+                setSelectedTeamMember(savedMember.name)
+                setUserRole(savedMember.isAdmin ? "admin" : "member")
+                localStorage.setItem('selectedMemberId', savedMember.uniqueId)
+                console.log('Storage change - restored by name:', savedMember.name)
+              } else if (savedMemberId) {
+                // Fallback to ID
+                const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+                if (savedMember) {
+                  console.log('Storage change - restoring saved selection by ID:', savedMember.name)
+                  setSelectedTeamMember(savedMember.name)
+                  setUserRole(savedMember.isAdmin ? "admin" : "member")
+                  localStorage.setItem('selectedMemberName', savedMember.name)
+                  console.log('Storage change - restored by ID:', savedMember.name)
+                } else {
+                  // Set to first member if saved member not found
+                  const firstMember = allMembers[0]
+                  console.log('Storage change - saved member not found, setting to first:', firstMember.name)
+                  setSelectedTeamMember(firstMember.name)
+                  setUserRole(firstMember.isAdmin ? "admin" : "member")
+                  localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                  localStorage.setItem('selectedMemberName', firstMember.name)
+                  console.log('Storage change - set to first:', firstMember.name)
+                }
+              } else {
+                // No saved selection, set to first member
+                const firstMember = allMembers[0]
+                console.log('Storage change - no saved selection, setting to first member:', firstMember.name)
+                setSelectedTeamMember(firstMember.name)
+                setUserRole(firstMember.isAdmin ? "admin" : "member")
+                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberName', firstMember.name)
+                console.log('Storage change - no saved selection, set to first:', firstMember.name)
+              }
+            } else if (savedMemberId) {
+              // Only ID available
+              const savedMember = allMembers.find(m => m.uniqueId === savedMemberId)
+              if (savedMember) {
+                console.log('Storage change - restoring saved selection by ID only:', savedMember.name)
+                setSelectedTeamMember(savedMember.name)
+                setUserRole(savedMember.isAdmin ? "admin" : "member")
+                localStorage.setItem('selectedMemberName', savedMember.name)
+                console.log('Storage change - restored by ID only:', savedMember.name)
+              } else {
+                // Set to first member if saved member not found
+                const firstMember = allMembers[0]
+                console.log('Storage change - saved member not found, setting to first:', firstMember.name)
+                setSelectedTeamMember(firstMember.name)
+                setUserRole(firstMember.isAdmin ? "admin" : "member")
+                localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+                localStorage.setItem('selectedMemberName', firstMember.name)
+                console.log('Storage change - set to first:', firstMember.name)
+              }
+            } else {
+              // No saved selection, set to first member
+              const firstMember = allMembers[0]
+              console.log('Storage change - no saved selection, setting to first member:', firstMember.name)
+              setSelectedTeamMember(firstMember.name)
+              setUserRole(firstMember.isAdmin ? "admin" : "member")
+              localStorage.setItem('selectedMemberId', firstMember.uniqueId)
+              localStorage.setItem('selectedMemberName', firstMember.name)
+              console.log('Storage change - no saved selection, set to first:', firstMember.name)
+            }
+          } else {
+            console.log('Storage change - user already has selection, not overriding:', selectedTeamMember)
+          }
+        }
+      } else {
+        // Clear team members if onboarding is reset
+        console.log('Storage change - onboarding reset, clearing team members')
+        setTeamMembers([])
+        setSelectedTeamMember(null)
+        localStorage.removeItem('selectedMemberId')
+        // Reset to default role when onboarding is reset
+        setUserRole("member")
+      }
+    }
+
+    // Listen for storage events (when onboarding is completed from another tab/window)
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also check periodically for changes, but much less frequently to avoid interfering with UI interactions
+    // Only check every 30 seconds instead of 5 seconds
+    const interval = setInterval(handleStorageChange, 30000) // Changed from 5000ms to 30000ms
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, []) // Remove selectedTeamMember dependency to prevent interference with user selection
+
+  // Persist user's team member selection to localStorage
+  useEffect(() => {
+    if (selectedTeamMember) {
+      const member = teamMembers.find(m => m.name === selectedTeamMember)
+      if (member) {
+        console.log('Persisting user selection to localStorage:', selectedTeamMember, 'with uniqueId:', member.uniqueId)
+        localStorage.setItem('selectedMemberId', member.uniqueId)
+        // Also store the member name for easier restoration
+        localStorage.setItem('selectedMemberName', selectedTeamMember)
+      }
+    } else {
+      // Clear localStorage when no member is selected
+      localStorage.removeItem('selectedMemberId')
+      localStorage.removeItem('selectedMemberName')
+    }
+  }, [selectedTeamMember, teamMembers])
 
   // Fetch dashboard data
   useEffect(() => {
@@ -306,7 +569,12 @@ export default function LawFirmDashboard() {
         setIsLoadingDashboard(true)
         setDashboardError(null)
         
-        const response = await fetch(`/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`)
+        const selectedMemberId = localStorage.getItem('selectedMemberId')
+        const url = selectedMemberId 
+          ? `/api/dashboard?userId=${encodeURIComponent(selectedMemberId)}&role=${userRole}&timeFrame=monthly`
+          : `/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`
+        
+        const response = await fetch(url)
         const data = await response.json()
         
         if (data.success) {
@@ -325,7 +593,7 @@ export default function LawFirmDashboard() {
     if (userRole) {
       fetchDashboardData()
     }
-  }, [userRole])
+  }, [userRole, selectedTeamMember]) // Re-fetch when team member changes
   
   // Function to reset onboarding
   const resetOnboarding = async () => {
@@ -480,7 +748,12 @@ export default function LawFirmDashboard() {
     const fetchPersonalGoals = async () => {
       try {
         setIsLoadingPersonalGoals(true)
-        const response = await fetch('/api/personal-goals')
+        const selectedMemberId = localStorage.getItem('selectedMemberId')
+        const url = selectedMemberId 
+          ? `/api/personal-goals?memberId=${encodeURIComponent(selectedMemberId)}`
+          : '/api/personal-goals'
+        
+        const response = await fetch(url)
         const data = await response.json()
         
         if (data.success) {
@@ -494,14 +767,19 @@ export default function LawFirmDashboard() {
     }
 
     fetchPersonalGoals()
-  }, [])
+  }, [selectedTeamMember]) // Re-fetch when team member changes
 
   // Fetch legal cases
   useEffect(() => {
     const fetchLegalCases = async () => {
       try {
         setIsLoadingLegalCases(true)
-        const response = await fetch('/api/legal-cases')
+        const selectedMemberId = localStorage.getItem('selectedMemberId')
+        const url = selectedMemberId 
+          ? `/api/legal-cases?memberId=${encodeURIComponent(selectedMemberId)}`
+          : '/api/legal-cases'
+        
+        const response = await fetch(url)
         const data = await response.json()
         
         if (data.success) {
@@ -515,14 +793,19 @@ export default function LawFirmDashboard() {
     }
 
     fetchLegalCases()
-  }, [])
+  }, [selectedTeamMember]) // Re-fetch when team member changes
 
   // Fetch streaks
   useEffect(() => {
     const fetchStreaks = async () => {
       try {
         setIsLoadingStreaks(true)
-        const response = await fetch('/api/streaks')
+        const selectedMemberId = localStorage.getItem('selectedMemberId')
+        const url = selectedMemberId 
+          ? `/api/streaks?memberId=${encodeURIComponent(selectedMemberId)}`
+          : '/api/streaks'
+        
+        const response = await fetch(url)
         const data = await response.json()
         
         if (data.success) {
@@ -536,7 +819,7 @@ export default function LawFirmDashboard() {
     }
 
     fetchStreaks()
-  }, [])
+  }, [selectedTeamMember]) // Re-fetch when team member changes
 
   // Non-billable timer effect
   useEffect(() => {
@@ -884,7 +1167,7 @@ export default function LawFirmDashboard() {
 
     // Reset timer
     setNonBillableTimerSeconds(0)
-    setSelectedNonBillableTask("")
+            setSelectedNonBillableTask(null)
     setNonBillableDescription("")
   }
 
@@ -1072,27 +1355,26 @@ export default function LawFirmDashboard() {
     setManualSelectedCases((prev) => prev.filter((id) => id !== caseId))
   }
 
-    // Manual entry submit
-
+  // Manual entry submit
   const submitManualEntry = async () => {
-     // Fallback to DOM values in case controlled state didn't capture input (Safari/time input quirks)
-     const startRaw = ''
-     const endRaw = ''
-     const descRaw = manualDescription || (typeof document !== 'undefined' ? (document.getElementById('manual-description') as HTMLTextAreaElement | null)?.value || '' : '')
+    // Fallback to DOM values in case controlled state didn't capture input (Safari/time input quirks)
+    const startRaw = ''
+    const endRaw = ''
+    const descRaw = manualDescription || (typeof document !== 'undefined' ? (document.getElementById('manual-description') as HTMLTextAreaElement | null)?.value || '' : '')
 
-     const missing: string[] = []
-     if (manualSelectedCases.length === 0) missing.push('case')
-     // Only require times if duration not chosen
-         if (manualDurationSeconds == null) missing.push('duration')
+    const missing: string[] = []
+    if (manualSelectedCases.length === 0) missing.push('case')
+    // Only require times if duration not chosen
+    if (manualDurationSeconds == null) missing.push('duration')
     if (!descRaw.trim()) missing.push('description')
-     if (missing.length > 0) {
-       console.log('Manual submit missing fields:', { manualSelectedCases, manualStartTime, manualEndTime, startRaw, endRaw, manualDescription: descRaw, manualDurationSeconds })
-       alert(`Please fix missing fields: ${missing.join(', ')}`)
-       return
-     }
+    if (missing.length > 0) {
+      console.log('Manual submit missing fields:', { manualSelectedCases, manualStartTime, manualEndTime, startRaw, endRaw, manualDescription: descRaw, manualDurationSeconds })
+      alert(`Please fix missing fields: ${missing.join(', ')}`)
+      return
+    }
 
-     // Compute duration either from dropdown or from start/end
-         let startDateTime: Date | null = null
+    // Compute duration either from dropdown or from start/end
+    let startDateTime: Date | null = null
     let endDateTime: Date | null = null
     let duration = 0
     if (manualDurationSeconds != null) {
@@ -1189,7 +1471,7 @@ export default function LawFirmDashboard() {
     alert("Non-billable manual time entry submitted successfully!")
 
     // Reset form
-    setNonBillableManualSelectedTask("")
+            setNonBillableManualSelectedTask(null)
     setNonBillableManualDescription("")
     setNonBillableManualStartTime("")
     setNonBillableManualEndTime("")
@@ -1245,26 +1527,102 @@ export default function LawFirmDashboard() {
     )
   }
 
-  const RoleSwitcher = () => (
-    <div className="flex items-center gap-2 mb-4">
-      <Label htmlFor="role-switch" className="text-sm">
-        View as:
-      </Label>
-      <Select value={userRole} onValueChange={(value: "admin" | "member") => setUserRole(value)}>
-        <SelectTrigger className="w-28">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="admin">Admin</SelectItem>
-          <SelectItem value="member">Member</SelectItem>
-        </SelectContent>
-      </Select>
-      <Badge variant="outline" className="text-xs">
-        {userRole === "admin" ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
-        Demo
-      </Badge>
-    </div>
-  )
+  const RoleSwitcher = () => {
+    // Use the teamMembers state that gets populated from onboarding data
+    const allTeamMembers = teamMembers
+    
+    // Debug logging
+    console.log('RoleSwitcher - isOnboardingCompleted:', isOnboardingCompleted)
+    console.log('RoleSwitcher - teamMembers:', teamMembers)
+    console.log('RoleSwitcher - allTeamMembers:', allTeamMembers)
+
+    // If onboarding is completed and we have team members, show team member selector
+    if (isOnboardingCompleted && allTeamMembers.length > 0) {
+      return (
+        <div className="flex items-center gap-2 mb-4">
+          <Label htmlFor="role-switch" className="text-sm">
+            View as:
+          </Label>
+          
+          {/* Team member selector */}
+          <Select 
+            value={selectedTeamMember || ""} 
+            onOpenChange={setIsRoleDropdownOpen}
+            onValueChange={(value) => {
+              if (value) {
+                const member = allTeamMembers.find(m => m.name === value)
+                if (member) {
+                  console.log('User selected team member:', value, 'with uniqueId:', member.uniqueId)
+                  setSelectedTeamMember(value)
+                  setUserRole(member.isAdmin ? "admin" : "member")
+                  // Store the selected member's unique ID for data filtering
+                  localStorage.setItem('selectedMemberId', member.uniqueId)
+                  console.log('Stored selectedMemberId in localStorage:', member.uniqueId)
+                }
+              } else {
+                console.log('User cleared team member selection')
+                setSelectedTeamMember(null)
+                localStorage.removeItem('selectedMemberId')
+              }
+            }}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Select team member..." />
+            </SelectTrigger>
+            <SelectContent>
+              {allTeamMembers.map((member) => (
+                <SelectItem key={member.uniqueId} value={member.name}>
+                  <div className="flex items-center gap-2">
+                    <span>{member.name}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {member.isAdmin ? "Admin" : "Member"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">({member.teamName})</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {selectedTeamMember && (
+            <Badge variant="outline" className="text-xs">
+              {userRole === "admin" ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
+              Viewing as: {selectedTeamMember}
+            </Badge>
+          )}
+        </div>
+      )
+    }
+
+    // Show generic role selector during onboarding
+    return (
+      <div className="flex items-center gap-2 mb-4">
+        <Label htmlFor="role-switch" className="text-sm">
+          View as:
+        </Label>
+        
+        {/* Main role selector - only show during onboarding */}
+        <Select 
+          value={userRole} 
+          onOpenChange={setIsRoleDropdownOpen}
+          onValueChange={(value: "admin" | "member") => setUserRole(value)}
+        >
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="member">Member</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Badge variant="outline" className="text-xs">
+          {userRole === "admin" ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
+          Demo Mode
+        </Badge>
+      </div>
+    )
+  }
 
   const NotificationCenter = () => (
     <DropdownMenu open={showNotificationCenter} onOpenChange={setShowNotificationCenter}>
@@ -1682,7 +2040,7 @@ export default function LawFirmDashboard() {
                     <p className="text-xs text-muted-foreground mb-2">
                       Choose the type of non-billable work you performed
                     </p>
-                    <Select value={selectedNonBillableTask} onValueChange={setSelectedNonBillableTask}>
+                    <Select value={selectedNonBillableTask || ""} onValueChange={setSelectedNonBillableTask}>
                       <SelectTrigger className="text-sm">
                         <SelectValue placeholder="Select a non-billable task..." />
                       </SelectTrigger>
@@ -1865,7 +2223,7 @@ export default function LawFirmDashboard() {
                   </div>
                   <div>
                     <Label className="text-xs">Non-Billable Task *</Label>
-                    <Select value={nonBillableManualSelectedTask} onValueChange={setNonBillableManualSelectedTask}>
+                    <Select value={nonBillableManualSelectedTask || ""} onValueChange={setNonBillableManualSelectedTask}>
                       <SelectTrigger className="text-sm">
                         <SelectValue placeholder="Select task..." />
                       </SelectTrigger>

@@ -2,7 +2,7 @@
   "profile": {
     "name": "Harrison estenson",
     "title": "partner",
-    "role": "partner",
+    "role": "admin",
     "photo": "",
     "productivityPreferences": {
       "morningFocus": false,
@@ -17,46 +17,66 @@
   "teamData": {
     "teams": [
       {
-        "name": "my team ",
-        "department": "Family Law",
+        "name": "fc",
+        "department": "",
         "members": [
           {
-            "name": "zac potter",
+            "name": "Harrison estenson",
+            "email": "",
+            "title": "partner",
+            "role": "admin",
+            "isAdmin": true,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
+          },
+          {
+            "name": "Cole",
             "email": "",
             "title": "",
             "role": "member",
-            "expectedBillableHours": 1500
+            "isAdmin": false,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
           }
         ]
       }
     ],
     "companyGoals": {
-      "weeklyBillable": 10,
-      "monthlyBillable": 100,
-      "annualBillable": 1000
+      "weeklyBillable": 1000,
+      "monthlyBillable": 1000,
+      "annualBillable": 10000
     },
     "defaultGoalTypes": []
   },
   "teamMemberExpectations": [
     {
-      "name": "zac potter",
-      "team": "my team ",
-      "expectedBillableHours": 1800,
+      "name": "Harrison estenson",
+      "team": "fc",
+      "expectedBillableHours": 1500,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Cole",
+      "team": "fc",
+      "expectedBillableHours": 1500,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
     }
   ],
   "streaksConfig": [
     {
-      "name": "Start Work Before 9AM",
-      "category": "time-management",
-      "frequency": "daily",
+      "name": "Maintain CVS Above 90%",
+      "category": "task-management",
+      "frequency": "weekly",
       "rule": {
-        "type": "time-logged-before",
-        "value": "9:00 AM",
-        "description": "User logs time before 9:00 AM"
+        "type": "cvs-threshold",
+        "value": "90",
+        "description": "CVS ≥ 90% for the week"
       },
-      "resetCondition": "missed-entry",
+      "resetCondition": "missed-threshold",
       "visibility": true,
       "active": true
     }
@@ -68,9 +88,9 @@
   },
   "legalCases": [
     {
-      "name": "test case",
+      "name": "case",
       "startDate": "",
-      "id": "case-1754752187924"
+      "id": "case-1754868592362"
     }
   ]
 }

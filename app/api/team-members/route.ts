@@ -1,32 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { onboardingStore } from '@/lib/onboarding-store'
 
 export async function GET() {
   try {
-    // Read onboarding data from file
-    const dataFilePath = path.join(process.cwd(), 'data', 'onboarding-data.json')
-    
-    let onboardingData = null
-    try {
-      if (fs.existsSync(dataFilePath)) {
-        const fileContent = fs.readFileSync(dataFilePath, 'utf-8')
-        onboardingData = JSON.parse(fileContent)
-      }
-    } catch (error) {
-      console.error('Error reading onboarding data file:', error)
-    }
+    // Get team members from onboarding store
+    const onboardingData = onboardingStore.getTeamData()
     
     const registeredTeamMembers = []
     
     // Add admin profile if it exists
-    if (onboardingData?.profile && onboardingData.profile.name) {
+    const profile = onboardingStore.getProfile()
+    if (profile && profile.name) {
       registeredTeamMembers.push({
         id: 'admin-1',
-        name: onboardingData.profile.name,
-        email: `${onboardingData.profile.name.toLowerCase().replace(/\s+/g, '.')}@lawfirm.com`,
-        role: onboardingData.profile.role || 'Admin',
-        title: onboardingData.profile.title || 'Administrator',
+        name: profile.name,
+        email: `${profile.name.toLowerCase().replace(/\s+/g, '.')}@lawfirm.com`,
+        role: profile.role || 'Admin',
+        title: profile.title || 'Administrator',
         team: 'Management',
         status: 'active',
         expectedBillableHours: 2000, // Default for admin
@@ -36,23 +26,29 @@ export async function GET() {
       })
     }
     
-    // Add team member expectations
-    if (onboardingData?.teamMemberExpectations && onboardingData.teamMemberExpectations.length > 0) {
-      const teamMembers = onboardingData.teamMemberExpectations.map((member: any, index: number) => ({
-        id: `member-${index + 1}`,
-        name: member.name,
-        email: `${member.name.toLowerCase().replace(/\s+/g, '.')}@lawfirm.com`, // Generate email
-        role: 'Member', // Default role
-        title: 'Team Member',
-        team: member.team,
-        status: 'active',
-        expectedBillableHours: member.expectedBillableHours,
-        expectedNonBillablePoints: member.expectedNonBillablePoints,
-        personalTarget: member.personalTarget,
-        isAdmin: false
-      }))
-      
-      registeredTeamMembers.push(...teamMembers)
+    // Add team members from teams data
+    if (onboardingData?.teams && onboardingData.teams.length > 0) {
+      onboardingData.teams.forEach((team: any) => {
+        if (team.members && team.members.length > 0) {
+          team.members.forEach((member: any) => {
+            if (member.name && member.name.trim() !== '') {
+              registeredTeamMembers.push({
+                id: `member-${member.name}-${team.name}`,
+                name: member.name,
+                email: member.email || `${member.name.toLowerCase().replace(/\s+/g, '.')}@lawfirm.com`,
+                role: member.role || 'Member',
+                title: member.title || 'Team Member',
+                team: team.name,
+                status: 'active',
+                expectedBillableHours: member.expectedBillableHours || 1500,
+                expectedNonBillablePoints: 120, // Default value
+                personalTarget: "6 hours/day", // Default value
+                isAdmin: member.isAdmin || member.role === 'admin'
+              })
+            }
+          })
+        }
+      })
     }
 
     if (registeredTeamMembers.length > 0) {
@@ -108,29 +104,13 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Store the processed team members in onboarding data file
-    const dataFilePath = path.join(process.cwd(), 'data', 'onboarding-data.json')
-    
-    let existingData: any = {}
-    try {
-      if (fs.existsSync(dataFilePath)) {
-        const fileContent = fs.readFileSync(dataFilePath, 'utf-8')
-        existingData = JSON.parse(fileContent)
-      }
-    } catch (error) {
-      console.error('Error reading existing onboarding data:', error)
+    // Store the processed team members in onboarding store
+    const currentData = onboardingStore.getData()
+    const updatedData = {
+      ...currentData,
+      teamMemberExpectations: processedMembers
     }
-    
-    // Update the team member expectations
-    existingData.teamMemberExpectations = processedMembers
-    
-    // Write back to file
-    try {
-      fs.writeFileSync(dataFilePath, JSON.stringify(existingData, null, 2))
-    } catch (error) {
-      console.error('Error writing onboarding data:', error)
-      return NextResponse.json({ error: 'Failed to save team members' }, { status: 500 })
-    }
+    onboardingStore.setData(updatedData)
 
     return NextResponse.json({ 
       success: true, 

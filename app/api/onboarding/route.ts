@@ -57,13 +57,16 @@ export async function POST(request: NextRequest) {
         teams: teamData.teams.map((team: any) => ({
           name: team.name,
           department: team.department,
-          members: team.members?.map((member: any) => ({
-            name: member.name,
-            email: member.email || '',
-            title: member.title || '',
-            role: member.role || 'member',
-            expectedBillableHours: member.expectedBillableHours || 1500
-          })) || []
+                  members: team.members?.map((member: any) => ({
+          name: member.name,
+          email: member.email || '',
+          title: member.title || '',
+          role: member.role || 'member',
+          isAdmin: member.isAdmin || member.role === 'admin',
+          expectedBillableHours: member.expectedBillableHours || 1500,
+          expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
+          personalTarget: member.personalTarget || "6 hours/day"
+        })) || []
         })),
         companyGoals: {
           weeklyBillable: parseInt(teamData.companyGoals?.weeklyBillable) || 0,

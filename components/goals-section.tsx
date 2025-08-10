@@ -66,8 +66,8 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
   // Form states
   const [personalGoalForm, setPersonalGoalForm] = useState({
     name: "",
-    type: "",
-    frequency: "",
+    type: "billable",
+    frequency: "monthly",
     target: "",
     startDate: "",
     endDate: "",
@@ -76,8 +76,8 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
 
   const [teamGoalForm, setTeamGoalForm] = useState({
     name: "",
-    type: "",
-    frequency: "",
+    type: "revenue",
+    frequency: "monthly",
     target: "",
     startDate: "",
     endDate: "",
@@ -101,8 +101,8 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
     // Reset form
     setPersonalGoalForm({
       name: "",
-      type: "",
-      frequency: "",
+      type: "billable",
+      frequency: "monthly",
       target: "",
       startDate: "",
       endDate: "",
@@ -123,14 +123,38 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
     // Reset form
     setTeamGoalForm({
       name: "",
-      type: "",
-      frequency: "",
+      type: "revenue",
+      frequency: "monthly",
       target: "",
       startDate: "",
       endDate: "",
       notes: "",
     })
     setIsTeamGoalModalOpen(false)
+  }
+
+  const resetPersonalGoalForm = () => {
+    setPersonalGoalForm({
+      name: "",
+      type: "billable",
+      frequency: "monthly",
+      target: "",
+      startDate: "",
+      endDate: "",
+      notes: "",
+    })
+  }
+
+  const resetTeamGoalForm = () => {
+    setTeamGoalForm({
+      name: "",
+      type: "revenue",
+      frequency: "monthly",
+      target: "",
+      startDate: "",
+      endDate: "",
+      notes: "",
+    })
   }
 
   const filteredPersonalGoals = mockPersonalGoals.filter((goal) => {
@@ -491,7 +515,10 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
       {/* Personal Goal Modal */}
       <GoalModal
         isOpen={isPersonalGoalModalOpen}
-        onClose={() => setIsPersonalGoalModalOpen(false)}
+        onClose={() => {
+          setIsPersonalGoalModalOpen(false)
+          resetPersonalGoalForm()
+        }}
         title="Create Personal Goal"
         description="Set a personal goal to track your individual progress and achievements."
         form={personalGoalForm}
@@ -503,7 +530,10 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
       {/* Team Goal Modal */}
       <GoalModal
         isOpen={isTeamGoalModalOpen}
-        onClose={() => setIsTeamGoalModalOpen(false)}
+        onClose={() => {
+          setIsTeamGoalModalOpen(false)
+          resetTeamGoalForm()
+        }}
         title="Create Team Goal"
         description="Set a team-wide goal that all members can work towards together."
         form={teamGoalForm}
