@@ -32,15 +32,33 @@ function loadPersonalGoals(): any {
   } catch (error) {
     console.error('Personal Goals API - Error loading data from file:', error)
   }
-  return null
+  return {}
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = loadPersonalGoals() || []
-
-    // Ensure compatibility field `title` exists for dashboard mapping
-    const normalized = (Array.isArray(data) ? data : []).map((g: any) => ({
+    const { searchParams } = new URL(request.url)
+    const memberId = searchParams.get('memberId')
+    
+    const data = loadPersonalGoals()
+    
+    // If memberId is provided, return only that user's goals
+    if (memberId) {
+      const userGoals = data[memberId] || []
+      const normalized = userGoals.map((g: any) => ({
+        ...g,
+        title: g.title || g.name
+      }))
+      
+      return NextResponse.json({
+        success: true,
+        personalGoals: normalized
+      })
+    }
+    
+    // If no memberId, return all goals (for backward compatibility)
+    const allGoals = Object.values(data).flat() as any[]
+    const normalized = allGoals.map((g: any) => ({
       ...g,
       title: g.title || g.name
     }))
@@ -65,6 +83,9 @@ export async function POST(request: NextRequest) {
     
     let personalGoals = [] as any[]
     const warnings: string[] = []
+    
+    // Get memberId from the request data
+    const memberId = data.memberId || data.userId || 'default-user'
 
     const markSupport = (goal: any, supported: boolean) => ({
       ...goal,
@@ -101,9 +122,16 @@ export async function POST(request: NextRequest) {
 
       const newGoal = markSupport(newGoalBase, supported)
       
-      // Load existing goals and add the new one
-      const existingGoals = loadPersonalGoals() || []
-      personalGoals = [...existingGoals, newGoal]
+      // Load existing goals and add the new one for this specific user
+      const existingData = loadPersonalGoals()
+      const existingUserGoals = existingData[memberId] || []
+      const updatedUserGoals = [...existingUserGoals, newGoal]
+      
+      // Update the data structure to be user-specific
+      personalGoals = {
+        ...existingData,
+        [memberId]: updatedUserGoals
+      }
     } else {
       // Optional: transform free text goals into structured personal goals
       try {
@@ -112,22 +140,31 @@ export async function POST(request: NextRequest) {
           const intents = freeText
             .map((t) => resolveGoalIntentFromText(t, { scope: 'user' }))
             .filter(Boolean) as ReturnType<typeof resolveGoalIntentFromText>[]
-          const existing = loadPersonalGoals() || []
+          const existingData = loadPersonalGoals()
+          const existingUserGoals = existingData[memberId] || []
           const generated = intents.map((i: any) => {
             const goal = mapCanonicalToPersonalGoal(i as any)
             const supported = i.metricKey === 'billable_hours' || i.metricKey === 'non_billable_hours'
             if (!supported) warnings.push(`Goal "${goal.name}" is not yet connected to live data.`)
             return markSupport(goal, supported)
           })
-          personalGoals = [...existing, ...generated]
+          
+          personalGoals = {
+            ...existingData,
+            [memberId]: [...existingUserGoals, ...generated]
+          }
         }
       } catch (e) {
         console.warn('Personal Goals API - freeTextGoals parse skipped:', e)
       }
 
       // This is the old onboarding format (dailyBillable, weeklyBillable, etc.)
+      const existingData = loadPersonalGoals()
+      const existingUserGoals = existingData[memberId] || []
+      const newUserGoals = [...existingUserGoals]
+      
       if (data.dailyBillable > 0) {
-        personalGoals.push(markSupport({
+        newUserGoals.push(markSupport({
           id: 'daily-billable',
           name: 'Daily Billable Hours',
           type: 'Personal Goal',
@@ -140,7 +177,7 @@ export async function POST(request: NextRequest) {
       }
       
       if (data.weeklyBillable > 0) {
-        personalGoals.push(markSupport({
+        newUserGoals.push(markSupport({
           id: 'weekly-billable',
           name: 'Weekly Billable Hours',
           type: 'Personal Goal',
@@ -153,7 +190,7 @@ export async function POST(request: NextRequest) {
       }
       
       if (data.monthlyBillable > 0) {
-        personalGoals.push(markSupport({
+        newUserGoals.push(markSupport({
           id: 'monthly-billable',
           name: 'Monthly Billable Hours',
           type: 'Personal Goal',
@@ -163,6 +200,11 @@ export async function POST(request: NextRequest) {
           status: 'active',
           description: 'Monthly billable hours target'
         }, true))
+      }
+      
+      personalGoals = {
+        ...existingData,
+        [memberId]: newUserGoals
       }
     }
     
@@ -187,11 +229,13 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const goalId = searchParams.get('id')
+    const memberId = searchParams.get('memberId') || 'default-user'
     
     if (goalId) {
-      // Delete a specific goal
-      const existingGoals = loadPersonalGoals() || []
-      const goalIndex = existingGoals.findIndex((goal: any) => goal.id === goalId)
+      // Delete a specific goal for a specific user
+      const existingData = loadPersonalGoals()
+      const existingUserGoals = existingData[memberId] || []
+      const goalIndex = existingUserGoals.findIndex((goal: any) => goal.id === goalId)
       
       if (goalIndex === -1) {
         return NextResponse.json(
@@ -201,8 +245,9 @@ export async function DELETE(request: NextRequest) {
       }
       
       // Remove the specific goal
-      const deletedGoal = existingGoals.splice(goalIndex, 1)[0]
-      savePersonalGoals(existingGoals)
+      const deletedGoal = existingUserGoals.splice(goalIndex, 1)[0]
+      existingData[memberId] = existingUserGoals
+      savePersonalGoals(existingData)
       
       console.log('Personal Goals API - Goal deleted:', deletedGoal)
       
@@ -212,19 +257,16 @@ export async function DELETE(request: NextRequest) {
         deletedGoal
       })
     } else {
-      // Clear all personal goals (existing behavior)
-      console.log('Personal Goals API - Clearing data')
+      // Clear all personal goals for a specific user
+      console.log('Personal Goals API - Clearing data for user:', memberId)
       
-      // Clear the personal goals data by deleting the file
-      const fs = require('fs')
-      if (existsSync(DATA_FILE_PATH)) {
-        fs.unlinkSync(DATA_FILE_PATH)
-        console.log('Personal Goals API - Data file deleted successfully')
-      }
+      const existingData = loadPersonalGoals()
+      delete existingData[memberId]
+      savePersonalGoals(existingData)
       
       return NextResponse.json({
         success: true,
-        message: 'Personal goals cleared successfully'
+        message: 'Personal goals cleared successfully for user'
       })
     }
   } catch (error) {

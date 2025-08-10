@@ -556,6 +556,7 @@ export default function OnboardingPage() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+              memberId: userName || 'default-user',
               dailyBillable: personalGoals.dailyBillable,
               weeklyBillable: personalGoals.weeklyBillable,
               monthlyBillable: personalGoals.monthlyBillable,

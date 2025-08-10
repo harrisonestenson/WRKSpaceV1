@@ -80,7 +80,7 @@ export default function NewGoalPage() {
         target: targetValue,
         current: 0,
         status: "active",
-        userId: "current-user",
+        memberId: `${userRole}-user-${Date.now()}`, // Create a unique member ID
         createdAt: new Date().toISOString(),
       }
 

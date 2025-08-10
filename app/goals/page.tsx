@@ -55,6 +55,9 @@ export default function GoalsDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
   
+  // Create a user identifier for this session
+  const userId = `${userRole}-user-${Date.now()}`
+  
   // State for real data
   const [realGoalsData, setRealGoalsData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -71,8 +74,8 @@ export default function GoalsDashboard() {
         const goalsResponse = await fetch('/api/company-goals')
         const goalsData = await goalsResponse.json()
 
-        // Fetch personal goals data
-        const personalGoalsResponse = await fetch('/api/personal-goals')
+        // Fetch personal goals data for the current user
+        const personalGoalsResponse = await fetch(`/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
         const personalGoalsData = await personalGoalsResponse.json()
 
         // Fetch streaks data
@@ -205,7 +208,7 @@ export default function GoalsDashboard() {
 
     setIsDeleting(goalId)
     try {
-      const response = await fetch(`/api/personal-goals?id=${goalId}`, {
+      const response = await fetch(`/api/personal-goals?id=${goalId}&memberId=${encodeURIComponent(userId)}`, {
         method: 'DELETE',
       })
 
@@ -213,7 +216,7 @@ export default function GoalsDashboard() {
         // Refresh the data
         const fetchRealData = async () => {
           try {
-            const personalGoalsResponse = await fetch('/api/personal-goals')
+            const personalGoalsResponse = await fetch(`/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
             const personalGoalsData = await personalGoalsResponse.json()
             
             const goalsResponse = await fetch('/api/company-goals')

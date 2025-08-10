@@ -221,7 +221,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch personal goals from onboarding
     try {
-      const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals`)
+      const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
       if (personalGoalsResponse.ok) {
         const personalGoalsData = await personalGoalsResponse.json()
         if (personalGoalsData.success && personalGoalsData.personalGoals) {
