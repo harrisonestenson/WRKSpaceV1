@@ -1217,7 +1217,7 @@ export default function LawFirmDashboard() {
     alert(`Time entry submitted for ${selectedCases.length} case(s)!`)
 
     // Refresh personal goals to show updated progress
-    fetchPersonalGoals()
+    // fetchPersonalGoals() // Commented out - function not defined
 
     // Reset form
     setTimerSeconds(0)
@@ -1588,7 +1588,7 @@ export default function LawFirmDashboard() {
      }
 
      // Refresh personal goals to show updated progress
-     fetchPersonalGoals()
+     // fetchPersonalGoals() // Commented out - function not defined
 
      // Reset form
      setManualSelectedCases([])
@@ -2528,8 +2528,8 @@ export default function LawFirmDashboard() {
               </CardContent>
             </Card>
 
-            {/* Personal Goals Section */}
-            <Card className="h-1/3">
+            {/* Personal Goals Section - REMOVED FROM MAIN DASHBOARD */}
+            {/* <Card className="h-1/3">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Target className="h-4 w-4" />
@@ -2573,9 +2573,10 @@ export default function LawFirmDashboard() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card> */}
 
-            {/* Company Goals Section */}
+            {/* Company Goals Section - REMOVED FROM MAIN DASHBOARD */}
+            {/* 
             <Card className="h-1/3">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -2585,7 +2586,6 @@ export default function LawFirmDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Weekly Goal */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Weekly Billable</span>
@@ -2605,7 +2605,6 @@ export default function LawFirmDashboard() {
                     </div>
                   </div>
 
-                  {/* Monthly Goal */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Monthly Billable</span>
@@ -2625,7 +2624,6 @@ export default function LawFirmDashboard() {
                     </div>
                   </div>
 
-                  {/* Annual Goal */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Annual Billable</span>
@@ -2647,6 +2645,7 @@ export default function LawFirmDashboard() {
                 </div>
               </CardContent>
             </Card>
+            */}
 
             {/* Legal Cases Section */}
             <Card className="h-1/3">
