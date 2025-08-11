@@ -26,7 +26,43 @@ function loadPersonalGoals(): any {
   }
 }
 
-// Calculate billable hours for a specific user and time frame
+// Get date range for a given frequency relative to now (same logic as dashboard)
+function getRangeForFrequency(freq: string): { start: Date; end: Date } {
+  const now = new Date()
+  const end = new Date()
+  switch ((freq || '').toLowerCase()) {
+    case 'daily': {
+      const start = new Date(now)
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'weekly': {
+      const start = new Date(now)
+      start.setDate(now.getDate() - now.getDay())
+      start.setHours(0, 0, 0, 0)
+      end.setDate(start.getDate() + 6)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'annual':
+    case 'yearly': {
+      const start = new Date(now.getFullYear(), 0, 1)
+      end.setFullYear(now.getFullYear(), 11, 31)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
+    case 'monthly':
+    default: {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      endOfMonth.setHours(23, 59, 59, 999)
+      return { start, end: endOfMonth }
+    }
+  }
+}
+
+// Calculate billable hours for a specific user and time frame (using dashboard logic)
 function calculateBillableHours(userId: string, timeFrame: string): number {
   try {
     console.log(`🔍 Calculating billable hours for ${userId}, timeFrame: ${timeFrame}`)
@@ -46,50 +82,13 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
     
     console.log(`📊 Found ${timeEntries.length} total time entries`)
     
-    // Calculate date range based on time frame
-    // Use the most recent time entry date as reference, or current date if no entries
-    let referenceDate = new Date()
-    if (timeEntries.length > 0) {
-      const userEntries = timeEntries.filter((entry: any) => entry.userId === userId)
-      if (userEntries.length > 0) {
-        // Find the most recent entry for this user
-        const sortedEntries = userEntries.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        referenceDate = new Date(sortedEntries[0].date)
-      }
-    }
-    
-    let startDate: Date
-    let endDate: Date
-    
-    switch (timeFrame.toLowerCase()) {
-      case 'daily':
-        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate())
-        endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() + 1)
-        break
-      case 'weekly':
-        const dayOfWeek = referenceDate.getDay()
-        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() - daysFromMonday)
-        endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000)
-        break
-      case 'monthly':
-        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1)
-        endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 1)
-        break
-      case 'annual':
-        startDate = new Date(referenceDate.getFullYear(), 0, 1)
-        endDate = new Date(referenceDate.getFullYear() + 1, 0, 1)
-        break
-      default:
-        console.log('❌ Invalid time frame:', timeFrame)
-        return 0
-    }
-    
-    console.log(`📅 Time range: ${startDate.toISOString()} to ${endDate.toISOString()} (reference: ${referenceDate.toISOString()})`)
+    // Use the same date range logic as dashboard
+    const { start, end } = getRangeForFrequency(timeFrame)
+    console.log(`📅 Time range: ${start.toISOString()} to ${end.toISOString()}`)
     
     // Filter entries for this user, billable, and within time range
     const userBillableEntries = timeEntries.filter((entry: any) => {
-      // Normalize user IDs for matching (handle different formats)
+      // Use simple user ID matching like dashboard (but keep normalization for compatibility)
       const normalizedEntryUserId = entry.userId?.toLowerCase().replace(/\s+/g, ' ').trim()
       const normalizedSearchUserId = userId?.toLowerCase().replace(/\s+/g, ' ').trim()
       
@@ -107,7 +106,7 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
       }
       
       const entryDate = new Date(entry.date)
-      const isInRange = entryDate >= startDate && entryDate < endDate
+      const isInRange = entryDate >= start && entryDate <= end
       
       if (isInRange) {
         console.log(`   📝 Entry: ${entry.date} -> ${entry.date}, in range: true`)
@@ -148,9 +147,33 @@ export async function GET(request: NextRequest) {
     console.log('👤 memberId:', memberId)
     
     const data = loadPersonalGoals()
-    const userGoals = data[memberId] || []
     
-    console.log(`📋 Found ${userGoals.length} goals for ${memberId}`)
+    // Normalize memberId to handle different formats (e.g., "zac-potter" -> "Zac Potter")
+    let normalizedMemberId = memberId
+    let userGoals = data[memberId] || []
+    
+    // If no goals found, try to find by normalized name
+    if (userGoals.length === 0) {
+      // Try to find by converting hyphens to spaces and capitalizing
+      const possibleNames = [
+        memberId,
+        memberId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        memberId.replace(/-/g, ' '),
+        memberId.replace(/-/g, ' ').toLowerCase(),
+        memberId.replace(/-/g, ' ').toUpperCase()
+      ]
+      
+      for (const name of possibleNames) {
+        if (data[name] && data[name].length > 0) {
+          normalizedMemberId = name
+          userGoals = data[name]
+          console.log(`🔄 Found goals using normalized name: "${name}" instead of "${memberId}"`)
+          break
+        }
+      }
+    }
+    
+    console.log(`📋 Found ${userGoals.length} goals for ${normalizedMemberId}`)
     
     // Update progress for billable hour goals
     const updatedGoals = userGoals.map((goal: any) => {
@@ -171,7 +194,7 @@ export async function GET(request: NextRequest) {
           console.log(`🎯 Updating billable goal: ${goal.name}`)
           
           try {
-            const currentHours = calculateBillableHours(memberId, goal.frequency)
+            const currentHours = calculateBillableHours(normalizedMemberId, goal.frequency)
             console.log(`📊 Calculated hours: ${currentHours}`)
             
             const progress = goal.target > 0 ? Math.min((currentHours / goal.target) * 100, 100) : 0

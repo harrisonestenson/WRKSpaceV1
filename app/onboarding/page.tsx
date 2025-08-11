@@ -2954,14 +2954,79 @@ export default function OnboardingPage() {
             <Button 
               variant="outline" 
               className="w-full"
-              onClick={() => {
-                console.log('Clearing onboarding completion')
-                localStorage.removeItem('onboardingComplete')
-                setIsOnboardingComplete(false)
-                router.push('/role-select')
+              onClick={async () => {
+                const confirmed = confirm(
+                  '⚠️ WARNING: This will completely reset all onboarding data and clear:\n\n' +
+                  '• All personal goals and progress\n' +
+                  '• Company goals and settings\n' +
+                  '• Team structures and member data\n' +
+                  '• Legal cases and time entries\n' +
+                  '• All streaks and achievements\n\n' +
+                  'This action cannot be undone. Are you sure you want to start fresh with a new company setup?'
+                )
+                
+                if (!confirmed) return
+                
+                console.log('🧹 Resetting onboarding - clearing all data for new company setup')
+                
+                try {
+                  // Clear all data files via API endpoints
+                  await Promise.all([
+                    fetch('/api/onboarding-data', { method: 'DELETE' }),
+                    fetch('/api/personal-goals', { method: 'DELETE' }),
+                    fetch('/api/company-goals', { method: 'DELETE' }),
+                    fetch('/api/legal-cases', { method: 'DELETE' }),
+                    fetch('/api/streaks', { method: 'DELETE' })
+                  ])
+                  
+                  // Clear onboarding store
+                  if (typeof window !== 'undefined') {
+                    const { onboardingStore } = await import('@/lib/onboarding-store')
+                    onboardingStore.resetAll()
+                  }
+                  
+                  // Clear all localStorage items
+                  const keysToRemove = [
+                    'onboardingComplete',
+                    'onboardingData',
+                    'currentUserId',
+                    'selectedMemberId',
+                    'selectedMemberName',
+                    'userRole',
+                    'userName',
+                    'userTitle'
+                  ]
+                  
+                  keysToRemove.forEach(key => localStorage.removeItem(key))
+                  
+                  // Reset local state
+                  setIsOnboardingComplete(false)
+                  setCurrentStep(1)
+                  setUserRole('admin')
+                  setUserName('')
+                  setUserTitle('')
+                  setTeamData({
+                    teams: [],
+                    companyGoals: { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 },
+                    defaultGoalTypes: [],
+                    userExpectations: []
+                  })
+                  setPersonalGoals({
+                    dailyBillable: 8,
+                    weeklyBillable: 40,
+                    monthlyBillable: 160,
+                    customGoals: []
+                  })
+                  
+                  console.log('✅ Onboarding reset complete - all data cleared for new company setup')
+                  router.push('/role-select')
+                } catch (error) {
+                  console.error('❌ Error resetting onboarding:', error)
+                  alert('Error resetting onboarding. Please try again.')
+                }
               }}
             >
-              Reset Onboarding
+              Reset Onboarding (New Company)
             </Button>
           </div>
         </div>

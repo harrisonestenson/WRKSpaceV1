@@ -146,7 +146,7 @@ export default function DataDashboard() {
   const [caseTimeType, setCaseTimeType] = useState("all")
   const [caseSortBy, setCaseSortBy] = useState("hours")
   const [selectedUser, setSelectedUser] = useState("all")
-  const [adminDateRange, setAdminDateRange] = useState("last30days")
+  const [adminDateRange, setAdminDateRange] = useState("monthly")
   
   // Metrics section state
   const [metricsActiveTab, setMetricsActiveTab] = useState("time-trends")
@@ -193,6 +193,10 @@ export default function DataDashboard() {
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
   const [billableComparisonPeriod, setBillableComparisonPeriod] = useState("weekly")
+  
+  // Dashboard data state
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
 
   // Fetch team members and onboarding data on component mount
   useEffect(() => {
@@ -243,6 +247,46 @@ export default function DataDashboard() {
 
     fetchOnboardingData()
   }, [])
+  
+  // Fetch dashboard data when user or time frame changes
+  useEffect(() => {
+    console.log('🔄 Dashboard useEffect triggered:', { selectedUser, adminDateRange })
+    
+    const fetchDashboardData = async () => {
+      console.log('🔄 fetchDashboardData called with:', { selectedUser, adminDateRange })
+      if (!selectedUser) {
+        console.log('❌ Skipping fetch - no user selected')
+        return
+      }
+      
+      // If user is "all", fetch team-wide data, otherwise fetch user-specific data
+      const isTeamView = selectedUser === 'all'
+      
+      try {
+        setIsLoadingDashboard(true)
+        const url = isTeamView 
+          ? `/api/dashboard?userId=all&role=admin&timeFrame=${adminDateRange}`
+          : `/api/dashboard?userId=${encodeURIComponent(selectedUser)}&role=admin&timeFrame=${adminDateRange}`
+        console.log('🌐 Fetching dashboard data:', url)
+        
+        const response = await fetch(url)
+        const data = await response.json()
+        
+        if (data.success) {
+          setDashboardData(data.dashboardData)
+          console.log('✅ Dashboard data loaded:', data.dashboardData)
+        } else {
+          console.error('❌ Failed to fetch dashboard data:', data)
+        }
+      } catch (error) {
+        console.error('❌ Error fetching dashboard data:', error)
+      } finally {
+        setIsLoadingDashboard(false)
+      }
+    }
+    
+    fetchDashboardData()
+  }, [selectedUser, adminDateRange])
   
   // Live session state
   const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
@@ -2694,16 +2738,16 @@ export default function DataDashboard() {
               
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Date Range:</span>
+                <span className="text-sm font-medium">Time Frame:</span>
                 <Select value={adminDateRange} onValueChange={setAdminDateRange}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="last7days">Last 7 Days</SelectItem>
-                    <SelectItem value="last30days">Last 30 Days</SelectItem>
-                    <SelectItem value="last90days">Last 90 Days</SelectItem>
-                    <SelectItem value="custom">Custom Range</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="annual">Annual</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2829,19 +2873,19 @@ export default function DataDashboard() {
                 <DashboardCard
                   title="My Time Log"
                   icon={Clock}
-                  stats={`${mockTimeEntries.length} recent entries`}
+                  stats={`${dashboardData?.timeEntries?.length || 0} recent entries`}
                   onClick={() => setActiveSection("time-log")}
                 />
                 <DashboardCard
                   title="Case Breakdown"
                   icon={BarChart3}
-                  stats={`${mockCaseBreakdown.length} active cases`}
+                  stats={`${dashboardData?.legalCases?.length || 0} active cases`}
                   onClick={() => setActiveSection("case-breakdown")}
                 />
                 <DashboardCard
                   title="Goal History"
                   icon={Target}
-                  stats={`${mockGoalHistory.length} personal goals`}
+                  stats={`${dashboardData?.goals?.length || 0} personal goals`}
                   onClick={() => setActiveSection("goal-history")}
                 />
             </div>
@@ -2889,8 +2933,21 @@ export default function DataDashboard() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Total Billable Hours</p>
                         <p className="text-2xl font-bold">
-                          {mockTimeEntries.reduce((acc, entry) => acc + entry.billableHours, 0).toFixed(1)}h
+                          {isLoadingDashboard ? 'Loading...' : 
+                           dashboardData?.summary?.totalBillableHours?.toFixed(1) || '0.0'}h
                         </p>
+                        <p className="text-xs text-muted-foreground">
+                          User: {selectedUser} | TimeFrame: {adminDateRange} | Loading: {isLoadingDashboard ? 'Yes' : 'No'}
+                        </p>
+                        {dashboardData && (
+                          <p className="text-xs text-muted-foreground">
+                            Data: {JSON.stringify({
+                              hasData: !!dashboardData,
+                              summary: !!dashboardData?.summary,
+                              billableHours: dashboardData?.summary?.totalBillableHours
+                            })}
+                          </p>
+                        )}
                       </div>
                       <div className="p-3 rounded-full bg-green-100 text-green-600">
                         <DollarSign className="h-6 w-6" />
@@ -2904,7 +2961,10 @@ export default function DataDashboard() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Goal Completion</p>
                         <p className="text-2xl font-bold">
-                          {mockGoalHistory.filter(g => g.status === "met").length}/{mockGoalHistory.length}
+                          {dashboardData?.summary?.goalCompletionRate ? 
+                            `${Math.round(dashboardData.summary.goalCompletionRate)}%` : 
+                            '0/0'
+                          }
                         </p>
                       </div>
                       <div className="p-3 rounded-full bg-blue-100 text-blue-600">

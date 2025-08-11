@@ -220,19 +220,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch personal goals from onboarding
+    let personalGoalsBillableHours = 0
     try {
       const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
       if (personalGoalsResponse.ok) {
         const personalGoalsData = await personalGoalsResponse.json()
         if (personalGoalsData.success && personalGoalsData.personalGoals) {
           const personalGoalEntries = personalGoalsData.personalGoals.map((goal: any) => {
-            // Compute actual/progress only for billable-hours style goals
+            // Use the values already calculated by the personal goals API
             const isBillable = ((goal.title || goal.name || '').toLowerCase().includes('billable') && !((goal.title || goal.name || '').toLowerCase().includes('non-billable')))
-            let actual = goal.actual || goal.current || 0
-            if (isBillable) {
-              const hrs = computeHoursForFrequency(allEntries, goal.frequency || 'monthly', { userId })
-              actual = hrs.billableHours
+            let actual = goal.current || 0 // Use the API-calculated value
+            
+            // For billable goals, track the total for dashboard summary consistency
+            if (isBillable && goal.frequency === timeFrame) {
+              personalGoalsBillableHours = actual
             }
+            
             const target = goal.target
             return {
               id: goal.id,
@@ -308,7 +311,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate summary based on selected timeFrame and time entries
+    // Use the same calculation method as personal goals to ensure consistency
     const frameTotals = computeHoursForFrequency(allEntries, timeFrame, { userId })
+    
     // For averageDailyHours, approximate by dividing totalHours by number of days in range
     const { start, end } = getRangeForFrequency(timeFrame)
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
@@ -317,8 +322,12 @@ export async function GET(request: NextRequest) {
     const completedGoals = dashboardData.goals.filter(goal => goal.progress >= 100).length
     const goalCompletionRate = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0
 
+    // Ensure the summary uses the same billable hours calculation as personal goals
+    // This ensures consistency between dashboard summary and personal goals display
+    const summaryBillableHours = personalGoalsBillableHours > 0 ? personalGoalsBillableHours : frameTotals.billableHours
+    
     dashboardData.summary = {
-      totalBillableHours: frameTotals.billableHours,
+      totalBillableHours: summaryBillableHours,
       totalNonBillableHours: frameTotals.nonBillableHours,
       goalCompletionRate,
       averageDailyHours: Math.round((frameTotals.totalHours / days) * 100) / 100,
