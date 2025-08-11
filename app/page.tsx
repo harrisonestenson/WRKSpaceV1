@@ -513,12 +513,49 @@ export default function LawFirmDashboard() {
               console.log('Storage change - no saved selection, setting to first member:', firstMember.name)
               setSelectedTeamMember(firstMember.name)
               setUserRole(firstMember.isAdmin ? "admin" : "member")
-                              localStorage.setItem('selectedMemberId', firstMember.name)
-                localStorage.setItem('selectedMemberName', firstMember.name)
-                console.log('Storage change - no saved selection, set to first:', firstMember.name)
+              localStorage.setItem('selectedMemberId', firstMember.name)
+              localStorage.setItem('selectedMemberName', firstMember.name)
+              console.log('Storage change - no saved selection, set to first:', firstMember.name)
             }
           } else {
             console.log('Storage change - user already has selection, not overriding:', selectedTeamMember)
+          }
+        } else {
+          // No team data from store, try direct API
+          console.log('Storage change - no team data from store, trying direct API...')
+          try {
+            const response = await fetch('/api/onboarding-data')
+            if (response.ok) {
+              const apiData = await response.json()
+              console.log('Storage change - direct API response:', apiData)
+              
+              if (apiData.data?.teamData?.teams) {
+                const allMembers = apiData.data.teamData.teams.flatMap((team: any) => 
+                  team.members?.map((member: any) => ({
+                    ...member,
+                    teamName: team.name,
+                    isAdmin: member.role === 'admin' || member.isAdmin,
+                    uniqueId: `${team.name}-${member.name}-${member.email}`
+                  })) || []
+                )
+                console.log('Storage change - allMembers from direct API:', allMembers)
+                setTeamMembers(allMembers)
+                
+                // Set initial team member if none selected
+                if (!selectedTeamMember && allMembers.length > 0) {
+                  const firstMember = allMembers[0]
+                  console.log('Storage change - setting first member from direct API:', firstMember.name)
+                  setSelectedTeamMember(firstMember.name)
+                  setUserRole(firstMember.isAdmin ? "admin" : "member")
+                  localStorage.setItem('selectedMemberId', firstMember.name)
+                  localStorage.setItem('selectedMemberName', firstMember.name)
+                }
+              }
+            } else {
+              console.error('Storage change - direct API call failed:', response.status, response.statusText)
+            }
+          } catch (error) {
+            console.error('Storage change - error in direct API call:', error)
           }
         }
       } else {
@@ -562,38 +599,120 @@ export default function LawFirmDashboard() {
     }
   }, [selectedTeamMember, teamMembers])
 
+  // Function to fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoadingDashboard(true)
+      setDashboardError(null)
+      
+      const selectedMemberId = localStorage.getItem('selectedMemberId')
+      const url = selectedMemberId 
+        ? `/api/dashboard?userId=${encodeURIComponent(selectedMemberId)}&role=${userRole}&timeFrame=monthly`
+        : `/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`
+      
+      const response = await fetch(url)
+      const data = await response.json()
+      
+      if (data.success) {
+        setDashboardData(data.dashboardData)
+      } else {
+        setDashboardError('Failed to fetch dashboard data')
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+      setDashboardError('Failed to fetch dashboard data')
+    } finally {
+      setIsLoadingDashboard(false)
+    }
+  }
+
   // Fetch dashboard data
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setIsLoadingDashboard(true)
-        setDashboardError(null)
-        
-        const selectedMemberId = localStorage.getItem('selectedMemberId')
-        const url = selectedMemberId 
-          ? `/api/dashboard?userId=${encodeURIComponent(selectedMemberId)}&role=${userRole}&timeFrame=monthly`
-          : `/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`
-        
-        const response = await fetch(url)
-        const data = await response.json()
-        
-        if (data.success) {
-          setDashboardData(data.dashboardData)
-        } else {
-          setDashboardError('Failed to fetch dashboard data')
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error)
-        setDashboardError('Failed to fetch dashboard data')
-      } finally {
-        setIsLoadingDashboard(false)
-      }
-    }
-
     if (userRole) {
       fetchDashboardData()
     }
   }, [userRole, selectedTeamMember]) // Re-fetch when team member changes
+
+  // Additional effect to ensure team members are loaded when component mounts
+  useEffect(() => {
+    const ensureTeamMembersLoaded = async () => {
+      console.log('Ensuring team members are loaded...')
+      const savedCompletion = localStorage.getItem('onboardingComplete')
+
+      if (savedCompletion === 'true' && teamMembers.length === 0) {
+        console.log('Onboarding completed but no team members, loading from AF')
+        try {
+          // Try to load from API first
+          await onboardingStore.loadFromAPI()
+          const onboardingData = onboardingStore.getTeamData()
+          console.log('Additional load - onboardingData from API:', onboardingData)
+          
+          if (onboardingData?.teams) {
+            const allMembers = onboardingData.teams.flatMap((team: any) => 
+              team.members?.map((member: any) => ({
+                ...member,
+                teamName: team.name,
+                isAdmin: member.role === 'admin' || member.isAdmin,
+                uniqueId: `${team.name}-${member.name}-${member.email}`
+              })) || []
+            )
+            console.log('Additional load - allMembers from API:', allMembers)
+            setTeamMembers(allMembers)
+            
+            // Set initial team member if none selected
+            if (!selectedTeamMember && allMembers.length > 0) {
+              const firstMember = allMembers[0]
+              console.log('Additional load - setting first member from API:', firstMember.name)
+              setSelectedTeamMember(firstMember.name)
+              setUserRole(firstMember.isAdmin ? "admin" : "member")
+              localStorage.setItem('selectedMemberId', firstMember.name)
+              localStorage.setItem('selectedMemberName', firstMember.name)
+            }
+          } else {
+            // Fallback: try to load directly from the API endpoint
+            console.log('No team data from store, trying direct API call...')
+            const response = await fetch('/api/onboarding-data')
+            if (response.ok) {
+              const apiData = await response.json()
+              console.log('Direct API response:', apiData)
+              
+              if (apiData.data?.teamData?.teams) {
+                const allMembers = apiData.data.teamData.teams.flatMap((team: any) => 
+                  team.members?.map((member: any) => ({
+                    ...member,
+                    teamName: team.name,
+                    isAdmin: member.role === 'admin' || member.isAdmin,
+                    uniqueId: `${team.name}-${member.name}-${member.email}`
+                  })) || []
+                )
+                console.log('Direct API - allMembers:', allMembers)
+                setTeamMembers(allMembers)
+                
+                // Set initial team member if none selected
+                if (!selectedTeamMember && allMembers.length > 0) {
+                  const firstMember = allMembers[0]
+                  console.log('Direct API - setting first member:', firstMember.name)
+                  setSelectedTeamMember(firstMember.name)
+                  setUserRole(firstMember.isAdmin ? "admin" : "member")
+                  localStorage.setItem('selectedMemberId', firstMember.name)
+                  localStorage.setItem('selectedMemberName', firstMember.name)
+                }
+              }
+            } else {
+              console.error('Direct API call failed:', response.status, response.statusText)
+            }
+          }
+        } catch (error) {
+          console.error('Error in ensureTeamMembersLoaded:', error)
+        }
+      }
+    }
+    
+    // Run after a short delay to ensure other effects have run
+    const timer = setTimeout(ensureTeamMembersLoaded, 1000)
+    
+    return () => clearTimeout(timer)
+  }, [teamMembers.length, selectedTeamMember])
   
   // Function to reset onboarding
   const resetOnboarding = async () => {
@@ -1559,11 +1678,17 @@ export default function LawFirmDashboard() {
                   localStorage.setItem('selectedMemberId', member.name)
                   localStorage.setItem('selectedMemberName', member.name)
                   console.log('Stored selectedMemberId in localStorage:', member.name)
+                  
+                  // Force a refresh of dashboard data for the selected member
+                  setTimeout(() => {
+                    fetchDashboardData()
+                  }, 100)
                 }
               } else {
                 console.log('User cleared team member selection')
                 setSelectedTeamMember(null)
                 localStorage.removeItem('selectedMemberId')
+                localStorage.removeItem('selectedMemberName')
               }
             }}
           >
@@ -1578,7 +1703,7 @@ export default function LawFirmDashboard() {
                     <Badge variant="outline" className="text-xs">
                       {member.isAdmin ? "Admin" : "Member"}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">({member.teamName})</span>
+                    <span className="text-xs text-muted-foreground">({member.teamName || 'Team'})</span>
                   </div>
                 </SelectItem>
               ))}
