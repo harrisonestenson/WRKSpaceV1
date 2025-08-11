@@ -91,10 +91,10 @@ export default function GoalsDashboard() {
           fetch('/api/time-entries?userId=all&timeFrame=weekly'),
           fetch('/api/time-entries?userId=all&timeFrame=monthly'),
           fetch('/api/time-entries?userId=all&timeFrame=annual'),
-          fetch('/api/time-entries?userId=default-user&timeFrame=daily'),
-          fetch('/api/time-entries?userId=default-user&timeFrame=weekly'),
-          fetch('/api/time-entries?userId=default-user&timeFrame=monthly'),
-          fetch('/api/time-entries?userId=default-user&timeFrame=annual'),
+          fetch(`/api/time-entries?userId=${encodeURIComponent(userId)}&timeFrame=daily`),
+          fetch(`/api/time-entries?userId=${encodeURIComponent(userId)}&timeFrame=weekly`),
+          fetch(`/api/time-entries?userId=${encodeURIComponent(userId)}&timeFrame=monthly`),
+          fetch(`/api/time-entries?userId=${encodeURIComponent(userId)}&timeFrame=annual`),
         ])
         const [weeklyAll, monthlyAll, annualAll, dailyUser, weeklyUser, monthlyUser, annualUser] = await Promise.all([
           weeklyAllRes.json(), monthlyAllRes.json(), annualAllRes.json(), dailyUserRes.json(), weeklyUserRes.json(), monthlyUserRes.json(), annualUserRes.json()
@@ -118,7 +118,8 @@ export default function GoalsDashboard() {
             const title = (goal.title || goal.name || '').toLowerCase()
             const isBillable = title.includes('billable') && !title.includes('non-billable')
             const freq = (goal.frequency || '').toLowerCase()
-            const current = isBillable ? (personalBillableMap[freq] ?? (goal.current || 0)) : (goal.current || 0)
+            // Prioritize the personal goals API data since it already calculates correct hours
+            const current = isBillable ? (goal.current || 0) : (goal.current || 0)
             return {
               id: goal.id,
               name: goal.name,

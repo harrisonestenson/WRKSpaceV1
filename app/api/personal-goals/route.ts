@@ -89,7 +89,20 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
     
     // Filter entries for this user, billable, and within time range
     const userBillableEntries = timeEntries.filter((entry: any) => {
-      if (entry.userId !== userId || !entry.billable) {
+      // Normalize user IDs for matching (handle different formats)
+      const normalizedEntryUserId = entry.userId?.toLowerCase().replace(/\s+/g, ' ').trim()
+      const normalizedSearchUserId = userId?.toLowerCase().replace(/\s+/g, ' ').trim()
+      
+      // Check if user IDs match (allowing for variations)
+      const userIdMatches = (
+        normalizedEntryUserId === normalizedSearchUserId ||
+        normalizedEntryUserId?.includes(normalizedSearchUserId) ||
+        normalizedSearchUserId?.includes(normalizedEntryUserId) ||
+        // Handle "Harrison E" vs "Harrison Estenson" variations
+        (normalizedEntryUserId?.startsWith('harrison') && normalizedSearchUserId?.startsWith('harrison'))
+      )
+      
+      if (!userIdMatches || !entry.billable) {
         return false
       }
       
