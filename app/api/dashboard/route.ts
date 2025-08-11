@@ -60,10 +60,12 @@ interface DashboardData {
 function readTimeEntries(): any[] {
   try {
     const p = path.join(process.cwd(), 'data', 'time-entries.json')
+    
     if (fs.existsSync(p)) {
       const raw = fs.readFileSync(p, 'utf8')
       const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : []
+      const entries = Array.isArray(parsed) ? parsed : []
+      return entries
     }
   } catch (e) {
     console.warn('Dashboard - read time entries failed:', e)
@@ -75,6 +77,24 @@ function readTimeEntries(): any[] {
 function getRangeForFrequency(freq: string): { start: Date; end: Date } {
   const now = new Date()
   const end = new Date()
+  
+  // Handle relative time frames
+  if (freq.toLowerCase().includes('30 days') || freq.toLowerCase().includes('last 30')) {
+    const start = new Date(now)
+    start.setDate(now.getDate() - 30)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(23, 59, 59, 999)
+    return { start, end }
+  }
+  
+  if (freq.toLowerCase().includes('7 days') || freq.toLowerCase().includes('last 7')) {
+    const start = new Date(now)
+    start.setDate(now.getDate() - 7)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(23, 59, 59, 999)
+    return { start, end }
+  }
+  
   switch ((freq || '').toLowerCase()) {
     case 'daily': {
       const start = new Date(now)
@@ -90,6 +110,12 @@ function getRangeForFrequency(freq: string): { start: Date; end: Date } {
       end.setHours(23, 59, 59, 999)
       return { start, end }
     }
+    case 'monthly': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end.setMonth(now.getMonth() + 1, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    }
     case 'annual':
     case 'yearly': {
       const start = new Date(now.getFullYear(), 0, 1)
@@ -97,12 +123,12 @@ function getRangeForFrequency(freq: string): { start: Date; end: Date } {
       end.setHours(23, 59, 59, 999)
       return { start, end }
     }
-    case 'monthly':
     default: {
+      // Default to monthly if unknown
       const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      endOfMonth.setHours(23, 59, 59, 999)
-      return { start, end: endOfMonth }
+      end.setMonth(now.getMonth() + 1, 0)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
     }
   }
 }
@@ -111,14 +137,19 @@ function getRangeForFrequency(freq: string): { start: Date; end: Date } {
 function computeHoursForFrequency(entries: any[], freq: string, opts?: { userId?: string | 'all' }) {
   const { start, end } = getRangeForFrequency(freq)
   const userId = opts?.userId ?? 'all'
+  
   const inRange = entries.filter((e: any) => {
     const d = new Date(e.date)
     const byUser = userId === 'all' || e.userId === userId
-    return d >= start && d <= end && byUser
+    const inDateRange = d >= start && d <= end
+    
+    return inDateRange && byUser
   })
+  
   const billableHours = inRange.filter((e: any) => e.billable).reduce((s: number, e: any) => s + e.duration / 3600, 0)
   const nonBillableHours = inRange.filter((e: any) => !e.billable).reduce((s: number, e: any) => s + e.duration / 3600, 0)
   const totalHours = billableHours + nonBillableHours
+  
   return {
     billableHours: Math.round(billableHours * 100) / 100,
     nonBillableHours: Math.round(nonBillableHours * 100) / 100,
@@ -132,8 +163,6 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId') || 'mock-user-id'
     const userRole = searchParams.get('role') || 'member'
     const timeFrame = searchParams.get('timeFrame') || 'monthly'
-
-    console.log('Dashboard API - Request:', { userId, userRole, timeFrame })
 
     // Fetch real data from onboarding process
     let dashboardData: DashboardData = {
