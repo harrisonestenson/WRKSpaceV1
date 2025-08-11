@@ -152,6 +152,7 @@ export default function DataDashboard() {
   const [metricsActiveTab, setMetricsActiveTab] = useState("time-trends")
   const [isTeamView, setIsTeamView] = useState(false)
   const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(true)
   
   // Time entries state
   const [mockTimeEntries, setMockTimeEntries] = useState<any[]>(() => {
@@ -193,7 +194,7 @@ export default function DataDashboard() {
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
   const [billableComparisonPeriod, setBillableComparisonPeriod] = useState("weekly")
 
-  // Fetch team members on component mount
+  // Fetch team members and onboarding data on component mount
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
@@ -206,10 +207,41 @@ export default function DataDashboard() {
         }
       } catch (error) {
         console.error('Error fetching team members:', error)
+      } finally {
+        setIsLoadingTeamMembers(false)
       }
     }
 
-    fetchTeamMembers()
+    const fetchOnboardingData = async () => {
+      try {
+        const response = await fetch('/api/onboarding-data')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data?.teamData?.teams) {
+            // Extract team member names from onboarding data
+            const onboardingTeamMembers = data.data.teamData.teams.flatMap((team: any) => 
+              team.members.map((member: any) => ({
+                id: member.name.toLowerCase().replace(/\s+/g, '-'),
+                name: member.name,
+                role: member.role,
+                title: member.title,
+                isAdmin: member.isAdmin
+              }))
+            )
+            console.log('Setting team members from onboarding data:', onboardingTeamMembers)
+            setTeamMembers(onboardingTeamMembers)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching onboarding data:', error)
+        // Fallback to team-members API if onboarding data fails
+        fetchTeamMembers()
+      } finally {
+        setIsLoadingTeamMembers(false)
+      }
+    }
+
+    fetchOnboardingData()
   }, [])
   
   // Live session state
@@ -2118,20 +2150,26 @@ export default function DataDashboard() {
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Select User:</span>
-                  <Select value="all" onValueChange={() => {}}>
+                  {/* Debug info */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      Debug: selectedUser = "{selectedUser}"
+                    </span>
+                  )}
+                  <Select value={selectedUser} onValueChange={setSelectedUser}>
                     <SelectTrigger className="w-48">
-                      <SelectValue />
+                      <SelectValue placeholder="fc (Team View)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Users (Team View)</SelectItem>
-                                              {teamMembers.map((member: any) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            <div className="flex items-center gap-2">
-                              <span>{member.avatar || '👤'}</span>
-                              <span>{member.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
+                      <SelectItem value="all">fc (Team View)</SelectItem>
+                      {teamMembers.map((member: any) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{member.name}</span>
+                            <span className="text-muted-foreground">({member.role})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2638,13 +2676,13 @@ export default function DataDashboard() {
                 <span className="text-sm font-medium">Select User:</span>
                 <Select value={selectedUser} onValueChange={setSelectedUser}>
                   <SelectTrigger className="w-48">
-                    <SelectValue />
+                    <SelectValue placeholder="All Users (Team View)" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">fc (Team View)</SelectItem>
                     {teamMembers.map((member: any) => (
                       <SelectItem key={member.id} value={member.id}>
                         <div className="flex items-center gap-2">
-                          <span>{member.avatar || '👤'}</span>
                           <span>{member.name}</span>
                           <span className="text-muted-foreground">({member.role})</span>
                         </div>
@@ -2768,7 +2806,7 @@ export default function DataDashboard() {
                   <DashboardCard
                     title="Team Time Log"
                     icon={Clock}
-                    stats={`${teamMembers.length} team members`}
+                    stats={isLoadingTeamMembers ? "Loading..." : `${teamMembers.length} team members`}
                     onClick={() => setActiveSection("time-log")}
                   />
                   <DashboardCard
