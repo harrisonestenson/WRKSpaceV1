@@ -5,6 +5,7 @@ import { mapCanonicalToPersonalGoal, resolveGoalIntentFromText } from '@/lib/goa
 
 // File-based storage for personal goals (in production, this would be a database)
 const DATA_FILE_PATH = join(process.cwd(), 'data', 'personal-goals.json')
+const TIME_ENTRIES_FILE_PATH = join(process.cwd(), 'data', 'time-entries.json')
 
 // Ensure data directory exists
 const dataDir = join(process.cwd(), 'data')
@@ -35,21 +36,123 @@ function loadPersonalGoals(): any {
   return {}
 }
 
+// Simple function to calculate billable hours for a user and time frame
+function calculateBillableHours(userId: string, timeFrame: string): number {
+  try {
+    console.log(`🔍 Calculating billable hours for ${userId}, timeFrame: ${timeFrame}`)
+    
+    if (!existsSync(TIME_ENTRIES_FILE_PATH)) {
+      console.log('❌ Time entries file not found')
+      return 0
+    }
+    
+    const timeEntries = JSON.parse(readFileSync(TIME_ENTRIES_FILE_PATH, 'utf8'))
+    if (!Array.isArray(timeEntries)) {
+      console.log('❌ Time entries is not an array')
+      return 0
+    }
+    
+    console.log(`📊 Found ${timeEntries.length} total time entries`)
+    
+    // For daily, just get today's entries
+    const today = new Date()
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    
+    // Filter entries for this user, billable, and today
+    const userBillableEntries = timeEntries.filter((entry: any) => {
+      const entryDate = new Date(entry.date)
+      const entryDateOnly = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate())
+      const isToday = entryDateOnly.getTime() === todayOnly.getTime()
+      const isUser = entry.userId === userId
+      const isBillable = entry.billable
+      
+      if (isUser && isBillable) {
+        console.log(`   📝 Entry: ${entry.date} -> ${entryDateOnly.toISOString()}, today: ${todayOnly.toISOString()}, isToday: ${isToday}`)
+      }
+      
+      return isUser && isBillable && isToday
+    })
+    
+    console.log(`✅ Found ${userBillableEntries.length} matching entries for ${userId}`)
+    
+    // Calculate total hours
+    const totalHours = userBillableEntries.reduce((sum: number, entry: any) => {
+      return sum + (entry.duration / 3600)
+    }, 0)
+    
+    const roundedHours = Math.round(totalHours * 100) / 100
+    console.log(`💰 Total billable hours: ${roundedHours}`)
+    
+    return roundedHours
+  } catch (error) {
+    console.error('❌ Error calculating billable hours:', error)
+    return 0
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
+    console.log('🚀 Personal Goals API - GET request received')
     const { searchParams } = new URL(request.url)
     const memberId = searchParams.get('memberId')
+    console.log('👤 memberId:', memberId)
     
     const data = loadPersonalGoals()
     
-    // If memberId is provided, return only that user's goals
+    // If memberId is provided, return only that user's goals with updated progress
     if (memberId) {
       const userGoals = data[memberId] || []
-      const normalized = userGoals.map((g: any) => ({
+      console.log(`📋 Found ${userGoals.length} goals for ${memberId}`)
+      
+             // Update progress for billable hour goals
+       const updatedGoals = userGoals.map((goal: any) => {
+         try {
+           // Check both type and name fields for billable goals
+           const goalType = (goal.type || '').toLowerCase()
+           const goalName = (goal.name || goal.title || '').toLowerCase()
+           
+           const isBillableGoal = (
+             goalType.includes('billable') || goalName.includes('billable')
+           ) && !(
+             goalType.includes('non-billable') || goalName.includes('non-billable')
+           )
+           
+           console.log(`🎯 Goal "${goal.name}": type="${goal.type}", isBillableGoal=${isBillableGoal}, frequency=${goal.frequency}`)
+           
+           if (isBillableGoal && goal.frequency) {
+             console.log(`🎯 Updating billable goal: ${goal.name}`)
+             
+             try {
+               const currentHours = calculateBillableHours(memberId, goal.frequency)
+               console.log(`📊 Calculated hours: ${currentHours}`)
+               
+               const progress = goal.target > 0 ? Math.min((currentHours / goal.target) * 100, 100) : 0
+               console.log(`📊 Goal "${goal.name}": current=${currentHours}, target=${goal.target}, progress=${progress}%`)
+               
+               return {
+                 ...goal,
+                 current: currentHours,
+                 progress: Math.round(progress * 10) / 10
+               }
+             } catch (calcError) {
+               console.error(`❌ Error calculating hours for goal "${goal.name}":`, calcError)
+               return goal
+             }
+           }
+           
+           return goal
+         } catch (goalError) {
+           console.error(`❌ Error processing goal "${goal.name}":`, goalError)
+           return goal
+         }
+       })
+      
+      const normalized = updatedGoals.map((g: any) => ({
         ...g,
         title: g.title || g.name
       }))
       
+      console.log('✅ Returning updated goals')
       return NextResponse.json({
         success: true,
         personalGoals: normalized
@@ -68,7 +171,7 @@ export async function GET(request: NextRequest) {
       personalGoals: normalized
     })
   } catch (error) {
-    console.error('Error fetching personal goals:', error)
+    console.error('❌ Error fetching personal goals:', error)
     return NextResponse.json(
       { error: 'Failed to fetch personal goals' },
       { status: 500 }
