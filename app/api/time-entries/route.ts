@@ -33,8 +33,8 @@ function writeStore(entries: any[]) {
   }
 }
 
-function getTimeFrameDateRange(timeFrame: string, startDate?: string, endDate?: string) {
-  const now = new Date()
+function getTimeFrameDateRange(timeFrame: string, startDate?: string, endDate?: string, referenceDate?: Date) {
+  const now = referenceDate || new Date()
   if (startDate && endDate) return { start: new Date(startDate), end: new Date(endDate) }
   switch (timeFrame) {
     case 'weekly': {
@@ -69,7 +69,7 @@ function getTimeFrameDateRange(timeFrame: string, startDate?: string, endDate?: 
 }
 
 // Recompute and update user's personal billable-hours goals (daily/weekly/monthly/annual)
-function updatePersonalBillableGoals(userId: string) {
+function updatePersonalBillableGoals(userId: string, entryDate?: string) {
   try {
     const goalsPath = join(process.cwd(), 'data', 'personal-goals.json')
     if (!existsSync(goalsPath)) return
@@ -90,7 +90,9 @@ function updatePersonalBillableGoals(userId: string) {
     }
     
     const calcHours = (tf: string) => {
-      const { start, end } = getTimeFrameDateRange(tf)
+      // Use the entry date if provided, otherwise use current date
+      const referenceDate = entryDate ? new Date(entryDate) : new Date()
+      const { start, end } = getTimeFrameDateRange(tf, undefined, undefined, referenceDate)
       const pick = allEntries.filter((e: any) => {
         const d = new Date(e.date)
         return e.userId === userId && e.billable && d >= start && d <= end
@@ -239,8 +241,13 @@ export async function POST(request: NextRequest) {
     all.push(newEntry)
     writeStore(all)
 
-    // Update user's personal billable goals' current values
-    try { updatePersonalBillableGoals(userId) } catch {}
+    // Update user's personal billable goals' current values immediately
+    try { 
+      updatePersonalBillableGoals(userId, newEntry.date) 
+      console.log(`Time Entries API - Personal goals updated for ${userId} after logging ${Math.round((newEntry.duration / 3600) * 100) / 100} hours`)
+    } catch (error) {
+      console.error(`Time Entries API - Error updating personal goals for ${userId}:`, error)
+    }
 
     return NextResponse.json({ 
       success: true, 

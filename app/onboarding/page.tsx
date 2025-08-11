@@ -307,14 +307,30 @@ export default function OnboardingPage() {
     status: string;
   }>>([])
   
+  // Personal goals state
+  const [personalGoals, setPersonalGoals] = useState({
+    dailyBillable: 8,
+    weeklyBillable: 40,
+    monthlyBillable: 160,
+    customGoals: []
+  })
+  
   // Remove authentication check - just proceed with onboarding
   useEffect(() => {
     // Set loading to false immediately since we're not checking auth
     setIsLoading(false)
   }, [])
+  
+  // Update localStorage user ID whenever userName changes
+  useEffect(() => {
+    if (userName.trim()) {
+      localStorage.setItem('currentUserId', userName.trim())
+      console.log('Onboarding - Updated currentUserId to:', userName.trim())
+    }
+  }, [userName])
 
   // Calculate total steps based on role
-  const totalSteps = userRole === "admin" ? 8 : 5
+  const totalSteps = userRole === "admin" ? 11 : 6
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -354,6 +370,11 @@ export default function OnboardingPage() {
     
     if (!selectedRole) {
       errors.push('Role selection is required')
+    }
+    
+    // Personal goals validation
+    if (personalGoals.dailyBillable <= 0 || personalGoals.weeklyBillable <= 0 || personalGoals.monthlyBillable <= 0) {
+      errors.push('Personal billable hour targets must be greater than 0')
     }
     
     // Admin-specific validation
@@ -435,6 +456,7 @@ export default function OnboardingPage() {
         streaksConfig,
         teamMemberExpectations,
         legalCases,
+        personalGoals,
       }
 
       console.log('Sending onboarding data:', onboardingData)
@@ -483,6 +505,48 @@ export default function OnboardingPage() {
         }
       } catch (error) {
         console.error('Error saving user preferences:', error)
+      }
+
+      // Clear any existing personal goals to ensure fresh start
+      try {
+        const clearResponse = await fetch('/api/personal-goals', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (clearResponse.ok) {
+          console.log('Existing personal goals cleared successfully')
+        }
+      } catch (error) {
+        console.error('Error clearing existing personal goals:', error)
+        // Don't fail the onboarding for these errors
+      }
+
+      // Save personal goals for all users
+      try {
+        const personalGoalsResponse = await fetch('/api/personal-goals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            memberId: userName,
+            dailyBillable: personalGoals.dailyBillable,
+            weeklyBillable: personalGoals.weeklyBillable,
+            monthlyBillable: personalGoals.monthlyBillable,
+            customGoals: personalGoals.customGoals
+          }),
+        })
+        
+        if (personalGoalsResponse.ok) {
+          const personalGoalsData = await personalGoalsResponse.json()
+          console.log('Personal goals saved:', personalGoalsData)
+        }
+      } catch (error) {
+        console.error('Error saving personal goals:', error)
+        // Don't fail the onboarding for these errors
       }
 
       // If admin, also save team expectations and streaks separately
@@ -1293,12 +1357,73 @@ export default function OnboardingPage() {
                   <Target className="h-8 w-8 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Team Goals</h3>
-                  <p className="text-muted-foreground">Submit your team contribution goals</p>
+                  <h3 className="text-lg font-semibold">Personal Goals Setup</h3>
+                  <p className="text-muted-foreground">Set your personal billable hour targets and performance goals</p>
                 </div>
               </div>
               
               <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="daily-billable">Daily Billable Goal</Label>
+                    <Input
+                      id="daily-billable"
+                      type="number"
+                      placeholder="8"
+                      value={personalGoals.dailyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        dailyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per day</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="weekly-billable">Weekly Billable Goal</Label>
+                    <Input
+                      id="weekly-billable"
+                      type="number"
+                      placeholder="40"
+                      value={personalGoals.weeklyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        weeklyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per week</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="monthly-billable">Monthly Billable Goal</Label>
+                    <Input
+                      id="monthly-billable"
+                      type="number"
+                      placeholder="160"
+                      value={personalGoals.monthlyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        monthlyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per month</p>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Target className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="text-sm">
+                      <div className="font-medium text-blue-800">Personal Goal Benefits</div>
+                      <div className="text-blue-700 mt-1">
+                        Setting personal goals helps you track progress, maintain consistency, and achieve your professional targets. 
+                        These goals will be automatically updated based on your time entries.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div>
                   <Label className="text-base font-medium">Submit Team Goals</Label>
                   <Textarea
@@ -1326,12 +1451,189 @@ export default function OnboardingPage() {
                     These will be sent to your admin for approval
                   </p>
                 </div>
+              </div>
+            </div>
+          )
+        }
+        
+      case 5:
+        if (userRole === "admin") {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Target className="h-8 w-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Set Personal Goals</h3>
+                  <p className="text-muted-foreground">Define your own performance targets and goals</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="admin-daily-billable">Daily Billable Goal</Label>
+                    <Input
+                      id="admin-daily-billable"
+                      type="number"
+                      placeholder="8"
+                      value={personalGoals.dailyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        dailyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per day</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="admin-weekly-billable">Weekly Billable Goal</Label>
+                    <Input
+                      id="admin-weekly-billable"
+                      type="number"
+                      placeholder="40"
+                      value={personalGoals.weeklyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        weeklyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per week</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="admin-monthly-billable">Monthly Billable Goal</Label>
+                    <Input
+                      id="admin-monthly-billable"
+                      type="number"
+                      placeholder="160"
+                      value={personalGoals.monthlyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        monthlyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per month</p>
+                  </div>
+                </div>
                 
-                <div className="text-center py-4">
-                  <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h4 className="text-lg font-medium mb-2">Personal Goals</h4>
-                  <p className="text-sm text-muted-foreground">
-                    You can set your personal billable hour targets and other goals in the Goals dashboard after completing onboarding.
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Target className="h-5 w-5 text-purple-600 mt-0.5" />
+                    <div className="text-sm">
+                      <div className="font-medium text-purple-800">Admin Personal Goals</div>
+                      <div className="text-purple-700 mt-1">
+                        As an admin, you can set your own performance targets. These goals will help you lead by example 
+                        and maintain consistency in your own work patterns.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        } else {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Target className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Personal Goals Setup</h3>
+                  <p className="text-muted-foreground">Set your personal billable hour targets and performance goals</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="daily-billable">Daily Billable Goal</Label>
+                    <Input
+                      id="daily-billable"
+                      type="number"
+                      placeholder="8"
+                      value={personalGoals.dailyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        dailyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per day</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="weekly-billable">Weekly Billable Goal</Label>
+                    <Input
+                      id="weekly-billable"
+                      type="number"
+                      placeholder="40"
+                      value={personalGoals.weeklyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        weeklyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per week</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="monthly-billable">Monthly Billable Goal</Label>
+                    <Input
+                      id="monthly-billable"
+                      type="number"
+                      placeholder="160"
+                      value={personalGoals.monthlyBillable}
+                      onChange={(e) => setPersonalGoals(prev => ({ 
+                        ...prev, 
+                        monthlyBillable: parseInt(e.target.value) || 0 
+                      }))}
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Hours per month</p>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <Target className="h-5 w-5 text-blue-600 mt-0.5" />
+                    <div className="text-sm">
+                      <div className="font-medium text-blue-800">Personal Goal Benefits</div>
+                      <div className="text-blue-700 mt-1">
+                        Setting personal goals helps you track progress, maintain consistency, and achieve your professional targets. 
+                        These goals will be automatically updated based on your time entries.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-base font-medium">Submit Team Goals</Label>
+                  <Textarea
+                    placeholder="e.g., Contribute 50 hours to Smith v. Jones case"
+                    className="mt-2"
+                    rows={3}
+                    value={teamGoals.length > 0 ? teamGoals[0]?.description || '' : ''}
+                    onChange={(e) => {
+                      const goalText = e.target.value
+                      if (goalText.trim()) {
+                        setTeamGoals([{
+                          name: 'Team Contribution Goal',
+                          description: goalText,
+                          targetHours: 50,
+                          currentHours: 0,
+                          deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+                          status: 'active'
+                        }])
+                      } else {
+                        setTeamGoals([])
+                      }
+                    }}
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    These will be sent to your admin for approval
                   </p>
                 </div>
               </div>
@@ -1339,7 +1641,96 @@ export default function OnboardingPage() {
           )
         }
         
-      case 5:
+      case 6:
+        if (userRole === "admin") {
+          return null // Admin doesn't need this step
+        } else {
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Review Your Setup</h3>
+                  <p className="text-muted-foreground">Review your configuration before completing</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Profile Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Profile Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Name:</span>
+                      <span className="font-medium">{userName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Title:</span>
+                      <span className="font-medium">{userTitle}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Role:</span>
+                      <span className="font-medium">{selectedRole}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Personal Goals Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Your Personal Goals
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Daily Billable:</span>
+                      <span className="font-medium">{personalGoals.dailyBillable} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Weekly Billable:</span>
+                      <span className="font-medium">{personalGoals.weeklyBillable} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Monthly Billable:</span>
+                      <span className="font-medium">{personalGoals.monthlyBillable} hours</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Team Goals Summary */}
+                {teamGoals.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Team Goals
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {teamGoals.map((goal, index) => (
+                        <div key={index} className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Goal:</span>
+                          <span className="font-medium">{goal.description}</span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )
+        }
+        
+      case 8:
         if (userRole === "admin") {
           return (
             <div className="space-y-6">
@@ -1742,7 +2133,7 @@ export default function OnboardingPage() {
           )
         }
         
-      case 6:
+      case 9:
         if (userRole === "admin") {
           return (
             <div className="space-y-6">
@@ -2000,7 +2391,7 @@ export default function OnboardingPage() {
           )
         }
         
-      case 7:
+      case 10:
         if (userRole === "admin") {
           return (
             <div className="space-y-6">
@@ -2147,7 +2538,7 @@ export default function OnboardingPage() {
           )
         }
         
-      case 8:
+      case 11:
         if (userRole === "admin") {
           return (
             <div className="space-y-6">
@@ -2255,6 +2646,30 @@ export default function OnboardingPage() {
                     <div className="flex justify-between">
                       <span className="text-sm text-muted-foreground">Annual Billable:</span>
                       <span className="font-medium">{teamData.companyGoals?.annualBillable || 0} hours</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Personal Goals Summary */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Your Personal Goals
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Daily Billable:</span>
+                      <span className="font-medium">{personalGoals.dailyBillable} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Weekly Billable:</span>
+                      <span className="font-medium">{personalGoals.weeklyBillable} hours</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Monthly Billable:</span>
+                      <span className="font-medium">{personalGoals.monthlyBillable} hours</span>
                     </div>
                   </CardContent>
                 </Card>

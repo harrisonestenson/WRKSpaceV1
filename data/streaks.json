@@ -1,15 +1,15 @@
 [
   {
-    "id": "maintain-cvs-above-90",
-    "name": "Maintain CVS Above 90%",
-    "category": "task-management",
-    "frequency": "weekly",
+    "id": "start-work-early",
+    "name": "Start Work Before 9AM",
+    "category": "time-management",
+    "frequency": "daily",
     "rule": {
-      "type": "cvs-threshold",
-      "value": "90",
-      "description": "CVS ≥ 90% for the week"
+      "type": "time-logged-before",
+      "value": "9:00 AM",
+      "description": "User logs time before 9:00 AM"
     },
-    "resetCondition": "missed-threshold",
+    "resetCondition": "missed-entry",
     "visibility": true,
     "active": true
   }

@@ -47,35 +47,45 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
     console.log(`📊 Found ${timeEntries.length} total time entries`)
     
     // Calculate date range based on time frame
-    const now = new Date()
+    // Use the most recent time entry date as reference, or current date if no entries
+    let referenceDate = new Date()
+    if (timeEntries.length > 0) {
+      const userEntries = timeEntries.filter((entry: any) => entry.userId === userId)
+      if (userEntries.length > 0) {
+        // Find the most recent entry for this user
+        const sortedEntries = userEntries.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        referenceDate = new Date(sortedEntries[0].date)
+      }
+    }
+    
     let startDate: Date
     let endDate: Date
     
     switch (timeFrame.toLowerCase()) {
       case 'daily':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate())
+        endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() + 1)
         break
       case 'weekly':
-        const dayOfWeek = now.getDay()
+        const dayOfWeek = referenceDate.getDay()
         const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday)
+        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate() - daysFromMonday)
         endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000)
         break
       case 'monthly':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        startDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1)
+        endDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 1)
         break
       case 'annual':
-        startDate = new Date(now.getFullYear(), 0, 1)
-        endDate = new Date(now.getFullYear() + 1, 0, 1)
+        startDate = new Date(referenceDate.getFullYear(), 0, 1)
+        endDate = new Date(referenceDate.getFullYear() + 1, 0, 1)
         break
       default:
         console.log('❌ Invalid time frame:', timeFrame)
         return 0
     }
     
-    console.log(`📅 Time range: ${startDate.toISOString()} to ${endDate.toISOString()}`)
+    console.log(`📅 Time range: ${startDate.toISOString()} to ${endDate.toISOString()} (reference: ${referenceDate.toISOString()})`)
     
     // Filter entries for this user, billable, and within time range
     const userBillableEntries = timeEntries.filter((entry: any) => {
@@ -154,11 +164,29 @@ export async function GET(request: NextRequest) {
             const progress = goal.target > 0 ? Math.min((currentHours / goal.target) * 100, 100) : 0
             console.log(`📊 Goal "${goal.name}": current=${currentHours}, target=${goal.target}, progress=${progress}%`)
             
-            return {
+            // Update the goal with new current value
+            const updatedGoal = {
               ...goal,
               current: currentHours,
               progress: Math.round(progress * 10) / 10
             }
+            
+            // Update the stored goals file with the new current value
+            try {
+              const storedGoals = loadPersonalGoals()
+              if (storedGoals[memberId]) {
+                const goalIndex = storedGoals[memberId].findIndex((g: any) => g.id === goal.id)
+                if (goalIndex !== -1) {
+                  storedGoals[memberId][goalIndex] = updatedGoal
+                  savePersonalGoals(storedGoals)
+                  console.log(`💾 Updated stored goal "${goal.name}" with current value: ${currentHours}`)
+                }
+              }
+            } catch (saveError) {
+              console.error(`❌ Error saving updated goal "${goal.name}":`, saveError)
+            }
+            
+            return updatedGoal
           } catch (calcError) {
             console.error(`❌ Error calculating hours for goal "${goal.name}":`, calcError)
             return goal
@@ -202,7 +230,12 @@ export async function POST(request: NextRequest) {
     
     // Load existing data
     const existingData = loadPersonalGoals()
-    const existingUserGoals = existingData[memberId] || []
+    
+    // Clear any existing goals for this user to ensure fresh start
+    if (existingData[memberId]) {
+      console.log(`Personal Goals API - Clearing existing goals for user: ${memberId}`)
+      delete existingData[memberId]
+    }
     
     // Create new billable hour goals
     const newUserGoals = []
@@ -256,7 +289,7 @@ export async function POST(request: NextRequest) {
       newUserGoals.push(...customGoals)
     }
     
-    // Update the data
+    // Update the data with new goals
     const updatedData = {
       ...existingData,
       [memberId]: newUserGoals
@@ -264,6 +297,8 @@ export async function POST(request: NextRequest) {
     
     // Save to file
     savePersonalGoals(updatedData)
+    
+    console.log(`Personal Goals API - Successfully created ${newUserGoals.length} goals for user: ${memberId}`)
     
     return NextResponse.json({
       success: true,
@@ -284,10 +319,10 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const goalId = searchParams.get('id')
-    const memberId = searchParams.get('memberId') || 'default-user'
+    const memberId = searchParams.get('memberId')
     
-    if (goalId) {
-      // Delete a specific goal
+    if (goalId && memberId) {
+      // Delete a specific goal for a specific user
       const existingData = loadPersonalGoals()
       const existingUserGoals = existingData[memberId] || []
       const goalIndex = existingUserGoals.findIndex((goal: any) => goal.id === goalId)
@@ -308,15 +343,33 @@ export async function DELETE(request: NextRequest) {
         message: 'Personal goal deleted successfully',
         deletedGoal
       })
-    } else {
-      // Clear all goals for a user
+    } else if (memberId) {
+      // Clear all goals for a specific user
       const existingData = loadPersonalGoals()
       delete existingData[memberId]
       savePersonalGoals(existingData)
       
+      console.log(`Personal Goals API - Cleared all goals for user: ${memberId}`)
+      
       return NextResponse.json({
         success: true,
         message: 'All personal goals cleared successfully'
+      })
+    } else {
+      // Clear all personal goals for all users (used during onboarding reset)
+      const existingData = loadPersonalGoals()
+      const clearedUsers = Object.keys(existingData)
+      
+      // Clear all data
+      Object.keys(existingData).forEach(key => delete existingData[key])
+      savePersonalGoals(existingData)
+      
+      console.log(`Personal Goals API - Cleared all personal goals for ${clearedUsers.length} users`)
+      
+      return NextResponse.json({
+        success: true,
+        message: 'All personal goals cleared successfully',
+        clearedUsers
       })
     }
   } catch (error) {

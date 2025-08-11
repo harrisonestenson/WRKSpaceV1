@@ -62,6 +62,42 @@ export async function POST(request: NextRequest) {
       }
     }
     
+    // If personal goals are included in the onboarding data, also update the personal goals API
+    if (data.personalGoals && data.profile?.name) {
+      try {
+        // Clear any existing personal goals first to ensure fresh start
+        const clearResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        
+        if (clearResponse.ok) {
+          console.log('Onboarding Data API - Cleared existing personal goals')
+        }
+        
+        // Now create new personal goals with the exact user name
+        const response = await fetch(`${request.nextUrl.origin}/api/personal-goals`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memberId: data.profile.name, // Use exact name from profile
+            dailyBillable: data.personalGoals.dailyBillable,
+            weeklyBillable: data.personalGoals.weeklyBillable,
+            monthlyBillable: data.personalGoals.monthlyBillable,
+            customGoals: data.personalGoals.customGoals
+          })
+        })
+        
+        if (response.ok) {
+          console.log(`Onboarding Data API - Personal goals synchronized successfully for user: ${data.profile.name}`)
+        } else {
+          console.log('Onboarding Data API - Failed to synchronize personal goals')
+        }
+      } catch (error) {
+        console.log('Onboarding Data API - Error synchronizing personal goals:', error)
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       message: 'Onboarding data stored successfully'

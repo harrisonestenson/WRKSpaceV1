@@ -1,25 +1,37 @@
 {
-  "Harrison estenson": [
+  "Harrison E": [
     {
       "id": "daily-billable",
       "name": "Daily Billable Hours",
       "type": "Personal Goal",
       "frequency": "daily",
-      "target": 8,
-      "current": 10,
+      "target": 7,
+      "current": 1,
       "status": "active",
-      "description": "Daily billable hours target"
+      "description": "Daily billable hours target",
+      "progress": 14.3
     },
     {
       "id": "weekly-billable",
       "name": "Weekly Billable Hours",
       "type": "Personal Goal",
       "frequency": "weekly",
-      "target": 40,
-      "current": 10,
+      "target": 35,
+      "current": 1,
       "status": "active",
-      "description": "Weekly billable hours target"
+      "description": "Weekly billable hours target",
+      "progress": 2.9
+    },
+    {
+      "id": "monthly-billable",
+      "name": "Monthly Billable Hours",
+      "type": "Personal Goal",
+      "frequency": "monthly",
+      "target": 160,
+      "current": 1,
+      "status": "active",
+      "description": "Monthly billable hours target",
+      "progress": 0.6
     }
-  ],
-  "Cole": []
+  ]
 }
