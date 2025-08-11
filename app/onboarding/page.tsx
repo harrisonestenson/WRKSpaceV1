@@ -298,11 +298,6 @@ export default function OnboardingPage() {
   })
   
   // Team member-specific state
-  const [personalGoals, setPersonalGoals] = useState({
-    dailyBillable: 0,
-    weeklyBillable: 0,
-    monthlyBillable: 0,
-  })
   const [teamGoals, setTeamGoals] = useState<Array<{
     name: string;
     description: string;
@@ -319,7 +314,7 @@ export default function OnboardingPage() {
   }, [])
 
   // Calculate total steps based on role
-  const totalSteps = userRole === "admin" ? 8 : 6
+  const totalSteps = userRole === "admin" ? 8 : 5
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -437,7 +432,6 @@ export default function OnboardingPage() {
           notificationSettings,
         },
         teamData,
-        personalGoals,
         streaksConfig,
         teamMemberExpectations,
         legalCases,
@@ -547,38 +541,16 @@ export default function OnboardingPage() {
         }
       }
 
-      // If team member, save personal goals
-      if (userRole === 'member') {
-        try {
-          const personalGoalsResponse = await fetch('/api/personal-goals', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              memberId: userName || 'default-user',
-              dailyBillable: personalGoals.dailyBillable,
-              weeklyBillable: personalGoals.weeklyBillable,
-              monthlyBillable: personalGoals.monthlyBillable,
-              teamGoals: teamGoals,
-              customGoals: []
-            }),
-          })
-          
-          if (personalGoalsResponse.ok) {
-            const personalGoalsData = await personalGoalsResponse.json()
-            console.log('Personal goals saved:', personalGoalsData)
-          }
-        } catch (error) {
-          console.error('Error saving personal goals:', error)
-        }
-      }
+
         
         setIsOnboardingComplete(true)
         console.log('Set onboarding complete to true')
         
         // Save completion state to localStorage
         localStorage.setItem('onboardingComplete', 'true')
+        
+        // Save current user ID for tracking purposes
+        localStorage.setItem('currentUserId', userName)
         
         // Redirect to main dashboard after successful onboarding
         setTimeout(() => {
@@ -1321,48 +1293,12 @@ export default function OnboardingPage() {
                   <Target className="h-8 w-8 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Set Personal Goals</h3>
-                  <p className="text-muted-foreground">Define your personal targets</p>
+                  <h3 className="text-lg font-semibold">Team Goals</h3>
+                  <p className="text-muted-foreground">Submit your team contribution goals</p>
                 </div>
               </div>
               
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="daily-billable">Daily Billable Goal</Label>
-                    <Input
-                      id="daily-billable"
-                      type="number"
-                      placeholder="0"
-                      value={personalGoals.dailyBillable}
-                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, dailyBillable: parseInt(e.target.value) || 0 }))}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="weekly-billable-personal">Weekly Billable Goal</Label>
-                    <Input
-                      id="weekly-billable-personal"
-                      type="number"
-                      placeholder="0"
-                      value={personalGoals.weeklyBillable}
-                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, weeklyBillable: parseInt(e.target.value) || 0 }))}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="monthly-billable-personal">Monthly Billable Goal</Label>
-                    <Input
-                      id="monthly-billable-personal"
-                      type="number"
-                      placeholder="0"
-                      value={personalGoals.monthlyBillable}
-                      onChange={(e) => setPersonalGoals(prev => ({ ...prev, monthlyBillable: parseInt(e.target.value) || 0 }))}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                
                 <div>
                   <Label className="text-base font-medium">Submit Team Goals</Label>
                   <Textarea
@@ -1388,6 +1324,14 @@ export default function OnboardingPage() {
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     These will be sent to your admin for approval
+                  </p>
+                </div>
+                
+                <div className="text-center py-4">
+                  <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h4 className="text-lg font-medium mb-2">Personal Goals</h4>
+                  <p className="text-sm text-muted-foreground">
+                    You can set your personal billable hour targets and other goals in the Goals dashboard after completing onboarding.
                   </p>
                 </div>
               </div>

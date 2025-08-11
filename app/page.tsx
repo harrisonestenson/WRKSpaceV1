@@ -71,16 +71,6 @@ interface DashboardData {
   }
 }
 
-// Empty data - will be populated from database
-const mockCases: any[] = []
-
-const currentUser = {
-  name: "",
-  team: "",
-  personalGoal: { current: 0, target: 0, period: "" },
-  teamGoal: { current: 0, target: 0, period: "" },
-}
-
 export default function LawFirmDashboard() {
   const router = useRouter()
   
@@ -88,6 +78,14 @@ export default function LawFirmDashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true)
   const [dashboardError, setDashboardError] = useState<string | null>(null)
+  
+  // User ID state - get from onboarding store or localStorage
+  const [currentUserId, setCurrentUserId] = useState<string>('default-user')
+  
+  // Legal cases state
+  const [legalCases, setLegalCases] = useState<any[]>([])
+  
+
   
   // Check if user has selected a role
   useEffect(() => {
@@ -105,6 +103,38 @@ export default function LawFirmDashboard() {
       setUserRole(role as "admin" | "member")
     }
   }, [router])
+
+  // Initialize user ID and fetch personal goals when component mounts
+  useEffect(() => {
+    const savedUserId = localStorage.getItem('currentUserId')
+    if (savedUserId && savedUserId !== currentUserId) {
+      console.log('🔄 Updating currentUserId from localStorage:', savedUserId)
+      setCurrentUserId(savedUserId)
+    }
+  }, [])
+
+  // Get current user ID from onboarding store or localStorage
+  const getCurrentUserId = () => {
+    try {
+      // First try to get from onboarding store
+      const onboardingData = onboardingStore.getData()
+      if (onboardingData.profile?.name) {
+        return onboardingData.profile.name
+      }
+      
+      // Fallback to localStorage
+      const savedUserId = localStorage.getItem('currentUserId')
+      if (savedUserId) {
+        return savedUserId
+      }
+      
+      // Final fallback
+      return 'default-user'
+    } catch (error) {
+      console.warn('Error getting user ID:', error)
+      return 'default-user'
+    }
+  }
 
   // Timer states
   const [isTimerRunning, setIsTimerRunning] = useState(false)
@@ -608,7 +638,7 @@ export default function LawFirmDashboard() {
       const selectedMemberId = localStorage.getItem('selectedMemberId')
       const url = selectedMemberId 
         ? `/api/dashboard?userId=${encodeURIComponent(selectedMemberId)}&role=${userRole}&timeFrame=monthly`
-        : `/api/dashboard?userId=mock-user-id&role=${userRole}&timeFrame=monthly`
+        : `/api/dashboard?userId=${encodeURIComponent(currentUserId)}&role=${userRole}&timeFrame=monthly`
       
       const response = await fetch(url)
       const data = await response.json()
@@ -818,8 +848,6 @@ export default function LawFirmDashboard() {
   const [personalGoals, setPersonalGoals] = useState<any[]>([])
   const [isLoadingPersonalGoals, setIsLoadingPersonalGoals] = useState(true)
 
-  // Legal cases state
-  const [legalCases, setLegalCases] = useState<any[]>([])
   const [isLoadingLegalCases, setIsLoadingLegalCases] = useState(true)
 
   // Streaks state
@@ -868,15 +896,20 @@ export default function LawFirmDashboard() {
       try {
         setIsLoadingPersonalGoals(true)
         const selectedMemberId = localStorage.getItem('selectedMemberId')
-        const url = selectedMemberId 
-          ? `/api/personal-goals?memberId=${encodeURIComponent(selectedMemberId)}`
-          : '/api/personal-goals'
+        const userId = selectedMemberId || currentUserId
+        console.log('🔍 Fetching personal goals for user:', userId)
+        
+        const url = `/api/personal-goals?memberId=${encodeURIComponent(userId)}`
+        console.log('🔍 Personal goals URL:', url)
         
         const response = await fetch(url)
         const data = await response.json()
         
         if (data.success) {
+          console.log('✅ Personal goals fetched:', data.personalGoals)
           setPersonalGoals(data.personalGoals || [])
+        } else {
+          console.error('❌ Personal goals API error:', data)
         }
       } catch (error) {
         console.error('Error fetching personal goals:', error)
@@ -886,7 +919,7 @@ export default function LawFirmDashboard() {
     }
 
     fetchPersonalGoals()
-  }, [selectedTeamMember]) // Re-fetch when team member changes
+  }, [currentUserId, selectedTeamMember]) // Re-fetch when user ID or team member changes
 
   // Fetch legal cases
   useEffect(() => {
@@ -1130,7 +1163,7 @@ export default function LawFirmDashboard() {
       return
     }
 
-    const selectedCaseDetails = mockCases.filter((case_) => selectedCases.includes(case_.id.toString()))
+    const selectedCaseDetails = legalCases.filter((case_) => selectedCases.includes(case_.id.toString()))
     const timeEntry = {
       cases: selectedCaseDetails,
       description: workDescription,
@@ -1145,7 +1178,7 @@ export default function LawFirmDashboard() {
     try {
       const now = new Date()
       const payloads = selectedCases.map((caseId) => ({
-        userId: 'mock-user-id',
+        userId: currentUserId,
         caseId,
         date: now.toISOString(),
         duration: timerSeconds,
@@ -1182,6 +1215,9 @@ export default function LawFirmDashboard() {
     }))
     
     alert(`Time entry submitted for ${selectedCases.length} case(s)!`)
+
+    // Refresh personal goals to show updated progress
+    fetchPersonalGoals()
 
     // Reset form
     setTimerSeconds(0)
@@ -1300,7 +1336,7 @@ export default function LawFirmDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: 'mock-user-id', // Replace with actual user ID
+          userId: currentUserId,
           action: 'clock-in',
           timestamp: new Date().toISOString()
         })
@@ -1363,7 +1399,7 @@ export default function LawFirmDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: 'mock-user-id', // Replace with actual user ID
+          userId: currentUserId,
           action: 'clock-out',
           sessionId: currentSessionId,
           timestamp: clockOutTime
@@ -1520,7 +1556,7 @@ export default function LawFirmDashboard() {
      // Persist to backend: create one entry per selected case
      try {
        const payloads = manualSelectedCases.map((caseId) => ({
-         userId: 'mock-user-id',
+         userId: currentUserId,
          caseId,
          date: (startDateTime || new Date(manualDate)).toISOString(),
          startTime: startDateTime ? startDateTime.toISOString() : undefined,
@@ -1550,6 +1586,9 @@ export default function LawFirmDashboard() {
        alert('Failed to store time entry. Please try again.')
        return
      }
+
+     // Refresh personal goals to show updated progress
+     fetchPersonalGoals()
 
      // Reset form
      setManualSelectedCases([])

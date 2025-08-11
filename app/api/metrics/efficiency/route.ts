@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // }
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || 'mock-user-id'
+    const userId = searchParams.get('userId') || 'default-user'
     const timeFrame = searchParams.get('timeFrame') || 'monthly'
 
     console.log('Efficiency API - Request:', {

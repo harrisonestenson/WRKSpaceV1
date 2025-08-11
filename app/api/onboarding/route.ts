@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing
     const body = await request.json()
-    const { profile, teamData, personalGoals, streaksConfig, teamMemberExpectations, legalCases } = body
+    const { profile, teamData, streaksConfig, teamMemberExpectations, legalCases } = body
 
     console.log('Onboarding API - Received data:', {
       profile: profile.name,
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         visibility: streak.visibility,
         active: streak.active
       })) || [],
-      personalGoals: personalGoals || {},
+
       legalCases: legalCases || []
     }
 

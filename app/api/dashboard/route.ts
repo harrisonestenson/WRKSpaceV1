@@ -129,7 +129,7 @@ function computeHoursForFrequency(entries: any[], freq: string, opts?: { userId?
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId') || 'mock-user-id'
+    const userId = searchParams.get('userId') || 'default-user'
     const userRole = searchParams.get('role') || 'member'
     const timeFrame = searchParams.get('timeFrame') || 'monthly'
 

@@ -91,10 +91,10 @@ export default function GoalsDashboard() {
           fetch('/api/time-entries?userId=all&timeFrame=weekly'),
           fetch('/api/time-entries?userId=all&timeFrame=monthly'),
           fetch('/api/time-entries?userId=all&timeFrame=annual'),
-          fetch('/api/time-entries?userId=mock-user-id&timeFrame=daily'),
-          fetch('/api/time-entries?userId=mock-user-id&timeFrame=weekly'),
-          fetch('/api/time-entries?userId=mock-user-id&timeFrame=monthly'),
-          fetch('/api/time-entries?userId=mock-user-id&timeFrame=annual'),
+          fetch('/api/time-entries?userId=default-user&timeFrame=daily'),
+          fetch('/api/time-entries?userId=default-user&timeFrame=weekly'),
+          fetch('/api/time-entries?userId=default-user&timeFrame=monthly'),
+          fetch('/api/time-entries?userId=default-user&timeFrame=annual'),
         ])
         const [weeklyAll, monthlyAll, annualAll, dailyUser, weeklyUser, monthlyUser, annualUser] = await Promise.all([
           weeklyAllRes.json(), monthlyAllRes.json(), annualAllRes.json(), dailyUserRes.json(), weeklyUserRes.json(), monthlyUserRes.json(), annualUserRes.json()
@@ -234,10 +234,10 @@ export default function GoalsDashboard() {
               fetch('/api/time-entries?userId=all&timeFrame=weekly'),
               fetch('/api/time-entries?userId=all&timeFrame=monthly'),
               fetch('/api/time-entries?userId=all&timeFrame=annual'),
-              fetch('/api/time-entries?userId=mock-user-id&timeFrame=daily'),
-              fetch('/api/time-entries?userId=mock-user-id&timeFrame=weekly'),
-              fetch('/api/time-entries?userId=mock-user-id&timeFrame=monthly'),
-              fetch('/api/time-entries?userId=mock-user-id&timeFrame=annual'),
+              fetch('/api/time-entries?userId=default-user&timeFrame=daily'),
+              fetch('/api/time-entries?userId=default-user&timeFrame=weekly'),
+              fetch('/api/time-entries?userId=default-user&timeFrame=monthly'),
+              fetch('/api/time-entries?userId=default-user&timeFrame=annual'),
             ])
             const [weeklyAll, monthlyAll, annualAll, dailyUser, weeklyUser, monthlyUser, annualUser] = await Promise.all([
               weeklyAllRes.json(), monthlyAllRes.json(), annualAllRes.json(), dailyUserRes.json(), weeklyUserRes.json(), monthlyUserRes.json(), annualUserRes.json()

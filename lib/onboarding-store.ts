@@ -50,25 +50,7 @@ interface OnboardingData {
     visibility: boolean
     active: boolean
   }>
-  personalGoals?: {
-    dailyBillable: number
-    weeklyBillable: number
-    monthlyBillable: number
-    teamGoals?: Array<{
-      name: string
-      description: string
-      targetHours: number
-      currentHours: number
-      deadline: string
-      status: string
-    }>
-    customGoals?: Array<{
-      name: string
-      description: string
-      type: string
-      status: string
-    }>
-  }
+
   legalCases?: Array<{
     id: string
     name: string
@@ -134,9 +116,7 @@ class OnboardingStore {
     return this.data.streaksConfig || []
   }
 
-  getPersonalGoals() {
-    return this.data.personalGoals
-  }
+
 
   getLegalCases() {
     return this.data.legalCases || []

@@ -76,13 +76,19 @@ function updatePersonalBillableGoals(userId: string) {
 
     const rawGoals = readFileSync(goalsPath, 'utf8')
     const goals = JSON.parse(rawGoals)
-    if (!Array.isArray(goals)) return
+    
+    // Check if goals exist for this user
+    if (!goals[userId] || !Array.isArray(goals[userId])) {
+      console.log(`Time Entries API - No goals found for user: ${userId}`)
+      return
+    }
 
     const allEntries = readStore()
     const isBillableGoal = (g: any) => {
       const t = (g?.title || g?.name || '').toLowerCase()
       return t.includes('billable') && !t.includes('non-billable')
     }
+    
     const calcHours = (tf: string) => {
       const { start, end } = getTimeFrameDateRange(tf)
       const pick = allEntries.filter((e: any) => {
@@ -100,7 +106,8 @@ function updatePersonalBillableGoals(userId: string) {
       annual: calcHours('annual')
     }
 
-    const updated = goals.map((g: any) => {
+    // Update only this user's goals
+    const updatedUserGoals = goals[userId].map((g: any) => {
       if (!isBillableGoal(g)) return g
       const freq = (g.frequency || '').toLowerCase()
       const curr = currentByFreq[freq]
@@ -110,8 +117,10 @@ function updatePersonalBillableGoals(userId: string) {
       return g
     })
 
-    writeFileSync(goalsPath, JSON.stringify(updated, null, 2))
-    console.log('Time Entries API - Personal billable goals updated:', currentByFreq)
+    // Update the goals structure
+    goals[userId] = updatedUserGoals
+    writeFileSync(goalsPath, JSON.stringify(goals, null, 2))
+    console.log(`Time Entries API - Personal billable goals updated for ${userId}:`, currentByFreq)
   } catch (e) {
     console.warn('Time Entries API - update personal goals skipped:', e)
   }
