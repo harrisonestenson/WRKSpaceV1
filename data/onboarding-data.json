@@ -1,6 +1,6 @@
 {
   "profile": {
-    "name": "Harrison E",
+    "name": "Zac Potter",
     "title": "Partner",
     "role": "admin",
     "photo": "",
@@ -17,25 +17,15 @@
   "teamData": {
     "teams": [
       {
-        "name": "Macks Team",
-        "department": "",
+        "name": "ZacsTeam",
+        "department": "Litigation",
         "members": [
           {
-            "name": "Harrison E",
+            "name": "Zac Potter",
             "email": "",
             "title": "Partner",
             "role": "admin",
             "isAdmin": true,
-            "expectedBillableHours": 1500,
-            "expectedNonBillablePoints": 120,
-            "personalTarget": "6 hours/day"
-          },
-          {
-            "name": "Sam",
-            "email": "",
-            "title": "",
-            "role": "member",
-            "isAdmin": false,
             "expectedBillableHours": 1500,
             "expectedNonBillablePoints": 120,
             "personalTarget": "6 hours/day"
@@ -44,23 +34,16 @@
       }
     ],
     "companyGoals": {
-      "weeklyBillable": 50,
-      "monthlyBillable": 500,
-      "annualBillable": 5000
+      "weeklyBillable": 100,
+      "monthlyBillable": 1000,
+      "annualBillable": 10000
     },
     "defaultGoalTypes": []
   },
   "teamMemberExpectations": [
     {
-      "name": "Harrison E",
-      "team": "Macks Team",
-      "expectedBillableHours": 1500,
-      "expectedNonBillablePoints": 120,
-      "personalTarget": "6 hours/day"
-    },
-    {
-      "name": "Sam",
-      "team": "Macks Team",
+      "name": "Zac Potter",
+      "team": "ZacsTeam",
       "expectedBillableHours": 1500,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
@@ -68,24 +51,24 @@
   ],
   "streaksConfig": [
     {
-      "name": "Start Work Before 9AM",
+      "name": "Average 8 Hours Logged Daily",
       "category": "time-management",
-      "frequency": "daily",
+      "frequency": "weekly",
       "rule": {
-        "type": "time-logged-before",
-        "value": "9:00 AM",
-        "description": "User logs time before 9:00 AM"
+        "type": "weekly-average-hours",
+        "value": "8",
+        "description": "Weekly daily average ≥ 8 hours"
       },
-      "resetCondition": "missed-entry",
+      "resetCondition": "missed-threshold",
       "visibility": true,
       "active": true
     }
   ],
   "legalCases": [
     {
-      "name": "Case 1",
+      "name": "case",
       "startDate": "",
-      "id": "case-1754947562595"
+      "id": "case-1754954171820"
     }
   ]
 }

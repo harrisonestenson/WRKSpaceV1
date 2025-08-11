@@ -1,15 +1,15 @@
 [
   {
-    "id": "start-work-early",
-    "name": "Start Work Before 9AM",
+    "id": "average-8-hours-daily",
+    "name": "Average 8 Hours Logged Daily",
     "category": "time-management",
-    "frequency": "daily",
+    "frequency": "weekly",
     "rule": {
-      "type": "time-logged-before",
-      "value": "9:00 AM",
-      "description": "User logs time before 9:00 AM"
+      "type": "weekly-average-hours",
+      "value": "8",
+      "description": "Weekly daily average ≥ 8 hours"
     },
-    "resetCondition": "missed-entry",
+    "resetCondition": "missed-threshold",
     "visibility": true,
     "active": true
   }

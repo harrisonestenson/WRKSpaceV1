@@ -976,12 +976,15 @@ export default function OnboardingPage() {
                             placeholder="Team name"
                             value={team.name || ''}
                             onChange={(e) => {
-                              setTeamData(prev => ({
-                                ...prev,
-                                teams: prev.teams.map((t: any, i: number) => 
-                                  i === index ? { ...t, name: e.target.value } : t
-                                )
-                              }))
+                              const teamName = e.target.value.trim()
+                              if (teamName) { // Only update if name is not empty
+                                setTeamData(prev => ({
+                                  ...prev,
+                                  teams: prev.teams.map((t: any, i: number) => 
+                                    i === index ? { ...t, name: teamName } : t
+                                  )
+                                }))
+                              }
                             }}
                           />
                           <Select
@@ -999,7 +1002,7 @@ export default function OnboardingPage() {
                               <SelectValue placeholder="Department" />
                             </SelectTrigger>
                             <SelectContent>
-                              {departmentSuggestions.map((dept) => (
+                              {departmentSuggestions.filter(dept => dept && dept.trim() !== '').map((dept) => (
                                 <SelectItem key={dept} value={dept}>
                                   {dept}
                                 </SelectItem>
@@ -1012,24 +1015,27 @@ export default function OnboardingPage() {
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Team Members</Label>
                           <div className="space-y-2">
-                            {team.members && team.members.map((member: any, memberIndex: number) => (
+                            {team.members && team.members.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any, memberIndex: number) => (
                               <div key={memberIndex} className="flex items-center gap-2">
                                 <div className="flex-1 flex items-center gap-2">
                                   <Input
                                     placeholder="Member name"
                                     value={member.name || ''}
                                     onChange={(e) => {
-                                      setTeamData(prev => ({
-                                        ...prev,
-                                        teams: prev.teams.map((t: any, i: number) => 
-                                          i === index ? {
-                                            ...t,
-                                            members: t.members.map((m: any, mi: number) => 
-                                              mi === memberIndex ? { ...m, name: e.target.value } : m
-                                            )
-                                          } : t
-                                        )
-                                      }))
+                                      const memberName = e.target.value.trim()
+                                      if (memberName) { // Only update if name is not empty
+                                        setTeamData(prev => ({
+                                          ...prev,
+                                          teams: prev.teams.map((t: any, i: number) => 
+                                            i === index ? {
+                                              ...t,
+                                              members: t.members.map((m: any, mi: number) => 
+                                                mi === memberIndex ? { ...m, name: memberName } : m
+                                              )
+                                            } : t
+                                          )
+                                        }))
+                                      }
                                     }}
                                     className="flex-1"
                                   />
@@ -1189,8 +1195,8 @@ export default function OnboardingPage() {
                         setTeamData(prev => ({
                           ...prev,
                           teams: [...prev.teams, { 
-                            name: '', 
-                            department: '', 
+                            name: `Team ${prev.teams.length + 1}`, 
+                            department: 'Litigation', 
                             members: [{
                               name: userName || 'Admin',
                               email: '',
@@ -1914,7 +1920,7 @@ export default function OnboardingPage() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {teamData.teams.map((team, teamIndex) => (
+                                    {teamData.teams.filter(team => team && team.name && team.name.trim() !== '').map((team, teamIndex) => (
                                       <SelectItem key={teamIndex} value={team.name}>
                                         {team.name}
                                       </SelectItem>

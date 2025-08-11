@@ -1,26 +1,26 @@
 {
-  "Harrison E": [
+  "Zac Potter": [
     {
       "id": "daily-billable",
       "name": "Daily Billable Hours",
       "type": "Personal Goal",
       "frequency": "daily",
-      "target": 7,
-      "current": 16,
+      "target": 8,
+      "current": 1,
       "status": "active",
       "description": "Daily billable hours target",
-      "progress": 100
+      "progress": 12.5
     },
     {
       "id": "weekly-billable",
       "name": "Weekly Billable Hours",
       "type": "Personal Goal",
       "frequency": "weekly",
-      "target": 35,
-      "current": 16,
+      "target": 50,
+      "current": 1,
       "status": "active",
       "description": "Weekly billable hours target",
-      "progress": 45.7
+      "progress": 2
     },
     {
       "id": "monthly-billable",
@@ -28,10 +28,10 @@
       "type": "Personal Goal",
       "frequency": "monthly",
       "target": 160,
-      "current": 17,
+      "current": 1,
       "status": "active",
       "description": "Monthly billable hours target",
-      "progress": 10.6
+      "progress": 0.6
     }
   ]
 }
