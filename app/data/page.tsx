@@ -189,6 +189,36 @@ export default function DataDashboard() {
       console.log('Cleared all time entries')
     }
   }
+
+  // Function to refresh time entries from API
+  const refreshTimeEntries = async () => {
+    try {
+      console.log('🔄 Refreshing time entries from API...')
+      const response = await fetch('/api/time-entries?userId=all&timeFrame=monthly')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.timeEntries) {
+          // Transform API data to match the expected format
+          const transformedEntries = data.timeEntries.map((entry: any) => ({
+            id: entry.id,
+            date: new Date(entry.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+            clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+            clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+            totalHours: entry.duration ? entry.duration / 3600 : 0,
+            billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
+            notes: entry.description || '',
+            status: entry.status || 'completed',
+            isOfficeSession: false, // Default to false for API entries
+            userId: entry.userId
+          }))
+          setMockTimeEntries(transformedEntries)
+          console.log('✅ Refreshed time entries:', transformedEntries)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing time entries:', error)
+    }
+  }
   
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
@@ -246,6 +276,40 @@ export default function DataDashboard() {
     }
 
     fetchOnboardingData()
+  }, [])
+  
+  // Fetch time entries from API to ensure "Work Hours" column shows latest data
+  useEffect(() => {
+    const fetchTimeEntries = async () => {
+      try {
+        // Fetch time entries for all users to get the latest data
+        const response = await fetch('/api/time-entries?userId=all&timeFrame=monthly')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.timeEntries) {
+            // Transform API data to match the expected format
+            const transformedEntries = data.timeEntries.map((entry: any) => ({
+              id: entry.id,
+              date: new Date(entry.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+              clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+              clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+              totalHours: entry.duration ? entry.duration / 3600 : 0,
+              billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
+              notes: entry.description || '',
+              status: entry.status || 'completed',
+              isOfficeSession: false, // Default to false for API entries
+              userId: entry.userId
+            }))
+            setMockTimeEntries(transformedEntries)
+            console.log('Fetched and transformed time entries for Work Hours column:', transformedEntries)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching time entries:', error)
+      }
+    }
+
+    fetchTimeEntries() // Fetch latest time entries from API
   }, [])
   
   // Fetch dashboard data when user or time frame changes
@@ -716,7 +780,7 @@ export default function DataDashboard() {
   const getDailyBillableHours = (date: string) => {
     // Calculate billable hours for this specific date
     const dayEntries = mockTimeEntries.filter(entry => entry.date === date)
-    return dayEntries.reduce((acc, entry) => {
+    const totalHours = dayEntries.reduce((acc, entry) => {
       if (entry.billable) {
         // Convert duration from seconds to hours (same as daily goals API)
         const hours = entry.duration ? entry.duration / 3600 : 0
@@ -724,6 +788,13 @@ export default function DataDashboard() {
       }
       return acc
     }, 0)
+    
+    // Log for debugging
+    if (dayEntries.length > 0) {
+      console.log(`📊 Work Hours for ${date}: ${dayEntries.length} entries, ${totalHours.toFixed(1)}h total`)
+    }
+    
+    return totalHours
   }
 
   const toggleRowExpansion = (id: number) => {
@@ -948,9 +1019,13 @@ export default function DataDashboard() {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
               </Button>
+              <Button variant="outline" onClick={refreshTimeEntries}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Time Entries
+              </Button>
               <Button variant="outline" onClick={() => window.location.reload()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+                Refresh Page
               </Button>
             </>
           )}
