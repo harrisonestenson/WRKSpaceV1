@@ -6,10 +6,10 @@
       "type": "Personal Goal",
       "frequency": "daily",
       "target": 8,
-      "current": 1,
+      "current": 0,
       "status": "active",
       "description": "Daily billable hours target",
-      "progress": 12.5
+      "progress": 0
     },
     {
       "id": "weekly-billable",
