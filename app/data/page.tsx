@@ -295,6 +295,8 @@ export default function DataDashboard() {
               clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
               totalHours: entry.duration ? entry.duration / 3600 : 0,
               billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
+              duration: entry.duration, // Keep original duration for Work Hours calculation
+              billable: entry.billable, // Keep original billable flag
               notes: entry.description || '',
               status: entry.status || 'completed',
               isOfficeSession: false, // Default to false for API entries
@@ -310,7 +312,7 @@ export default function DataDashboard() {
     }
 
     fetchTimeEntries() // Fetch latest time entries from API
-  }, [])
+  }, []) // Empty dependency array - run once on mount
   
   // Fetch dashboard data when user or time frame changes
   useEffect(() => {
@@ -775,27 +777,9 @@ export default function DataDashboard() {
     }
     
     fetchDailyBillableHours()
-  }, [])
+  }, [mockTimeEntries]) // Refresh when time entries change
   
-  const getDailyBillableHours = (date: string) => {
-    // Calculate billable hours for this specific date
-    const dayEntries = mockTimeEntries.filter(entry => entry.date === date)
-    const totalHours = dayEntries.reduce((acc, entry) => {
-      if (entry.billable) {
-        // Convert duration from seconds to hours (same as daily goals API)
-        const hours = entry.duration ? entry.duration / 3600 : 0
-        return acc + hours
-      }
-      return acc
-    }, 0)
-    
-    // Log for debugging
-    if (dayEntries.length > 0) {
-      console.log(`📊 Work Hours for ${date}: ${dayEntries.length} entries, ${totalHours.toFixed(1)}h total`)
-    }
-    
-    return totalHours
-  }
+  // getDailyBillableHours function removed - now using dailyBillableHours state from API
 
   const toggleRowExpansion = (id: number) => {
     const newExpanded = new Set(expandedRows)
@@ -1191,7 +1175,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getDailyBillableHours(liveSession.clockInTime.toISOString().split('T')[0]).toFixed(1)}h
+                              {dailyBillableHours.toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1242,7 +1226,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getDailyBillableHours(liveBillableTimer.startTime.toISOString().split('T')[0]).toFixed(1)}h
+                              {dailyBillableHours.toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1293,7 +1277,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getDailyBillableHours(liveNonBillableTimer.startTime.toISOString().split('T')[0]).toFixed(1)}h
+                              {dailyBillableHours.toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1352,7 +1336,7 @@ export default function DataDashboard() {
                             </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
                             <TableCell className="font-medium text-green-600">
-                              {getDailyBillableHours(entry.date).toFixed(1)}h
+                              {dailyBillableHours.toFixed(1)}h
                             </TableCell>
                             <TableCell>
                               {editingEntry === entry.id ? (
