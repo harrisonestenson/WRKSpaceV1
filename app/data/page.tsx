@@ -155,41 +155,8 @@ export default function DataDashboard() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(true)
   
-  // Time entries state
-  const [mockTimeEntries, setMockTimeEntries] = useState<any[]>(() => {
-    // Load time entries from localStorage on component mount
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('timeEntries')
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved)
-          console.log('Loaded time entries from localStorage:', parsed)
-          return parsed
-        } catch (error) {
-          console.error('Error loading time entries from localStorage:', error)
-          return []
-        }
-      }
-    }
-    return []
-  })
-
-  // Helper function to save time entries to localStorage
-  const saveTimeEntries = (entries: any[]) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('timeEntries', JSON.stringify(entries))
-      console.log('Saved time entries to localStorage:', entries)
-    }
-  }
-
-  // Helper function to clear all time entries (for testing)
-  const clearTimeEntries = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('timeEntries')
-      setMockTimeEntries([])
-      console.log('Cleared all time entries')
-    }
-  }
+  // Time entries state - now using real API data only
+  const [timeEntries, setTimeEntries] = useState<any[]>([])
 
   // Function to refresh time entries from API
   const refreshTimeEntries = async () => {
@@ -212,7 +179,7 @@ export default function DataDashboard() {
             isOfficeSession: false, // Default to false for API entries
             userId: entry.userId
           }))
-          setMockTimeEntries(transformedEntries)
+          setTimeEntries(transformedEntries)
           console.log('✅ Refreshed time entries:', transformedEntries)
         }
       }
@@ -303,7 +270,7 @@ export default function DataDashboard() {
               isOfficeSession: false, // Default to false for API entries
               userId: entry.userId
             }))
-            setMockTimeEntries(transformedEntries)
+            setTimeEntries(transformedEntries)
             console.log('Fetched and transformed time entries for Work Hours column:', transformedEntries)
           }
         }
@@ -499,7 +466,7 @@ export default function DataDashboard() {
       entries.unshift(testEntry)
       localStorage.setItem('timeEntries', JSON.stringify(entries))
       console.log('Added test entry to localStorage')
-      setMockTimeEntries(entries)
+      setTimeEntries(entries)
     }
   }, [])
   
@@ -521,7 +488,7 @@ export default function DataDashboard() {
     
     const handleAddWorkHours = (event: CustomEvent) => {
       console.log('Received addWorkHours event:', event.detail)
-      addWorkHoursToToday(event.detail.billableHours, event.detail.description)
+      // This function is no longer needed - work hours are now handled by the real API
     }
     
     const handleStartLiveTimer = (event: CustomEvent) => {
@@ -680,7 +647,7 @@ export default function DataDashboard() {
 
   // Calculate today's summary
   const today = new Date().toISOString().split('T')[0]
-  const todayEntries = mockTimeEntries.filter(entry => entry.date === today)
+  const todayEntries = timeEntries.filter(entry => entry.date === today)
   const todayBillableHours = todayEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
   const todayTotalHours = todayEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
   const todayBillablePercentage = todayTotalHours > 0 ? (todayBillableHours / todayTotalHours) * 100 : 0
@@ -719,7 +686,7 @@ export default function DataDashboard() {
   // Get entries for selected time period
   const getPeriodEntries = (period: string) => {
     const { start, end } = getDateRange(period)
-    return mockTimeEntries.filter(entry => entry.date >= start && entry.date <= end)
+    return timeEntries.filter(entry => entry.date >= start && entry.date <= end)
   }
 
   // Calculate period summary
@@ -740,19 +707,19 @@ export default function DataDashboard() {
   }
 
   // Calculate totals for selected date range
-  const totalLoggedHours = mockTimeEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
-  const totalBillableHours = mockTimeEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
-  const averagePerDay = mockTimeEntries.length > 0 ? totalLoggedHours / mockTimeEntries.length : 0
+  const totalLoggedHours = timeEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
+  const totalBillableHours = timeEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
+  const averagePerDay = timeEntries.length > 0 ? totalLoggedHours / timeEntries.length : 0
 
   // Calculate averages for table columns
-  const averageTotalHours = mockTimeEntries.length > 0 ? totalLoggedHours / mockTimeEntries.length : 0
-  const averageBillableHours = mockTimeEntries.length > 0 ? totalBillableHours / mockTimeEntries.length : 0
-  const averageWorkDay = mockTimeEntries.length > 0 ? (mockTimeEntries.reduce((acc, entry) => {
+  const averageTotalHours = timeEntries.length > 0 ? totalLoggedHours / timeEntries.length : 0
+  const averageBillableHours = timeEntries.length > 0 ? totalBillableHours / timeEntries.length : 0
+  const averageWorkDay = timeEntries.length > 0 ? (timeEntries.reduce((acc, entry) => {
     const clockIn = new Date(`2000-01-01T${entry.clockIn}:00`)
     const clockOut = new Date(`2000-01-01T${entry.clockOut}:00`)
     const workHours = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60)
     return acc + workHours
-  }, 0) / mockTimeEntries.length) : 0
+  }, 0) / timeEntries.length) : 0
 
   // Fetch historical daily billable hours for Work Hours column
   const [historicalDailyHours, setHistoricalDailyHours] = useState<{[key: string]: {[userId: string]: number}}>({})
@@ -820,26 +787,24 @@ export default function DataDashboard() {
 
   const handleSaveEdit = () => {
     if (editingEntry !== null) {
-      setMockTimeEntries(prev => {
+      setTimeEntries(prev => {
         const newEntries = prev.map(entry => 
           entry.id === editingEntry 
             ? { ...entry, notes: editNotes }
             : entry
         )
-        saveTimeEntries(newEntries)
         return newEntries
       })
-    setEditingEntry(null)
-    setEditNotes("")
+      setEditingEntry(null)
+      setEditNotes("")
       console.log(`Saved notes for entry ${editingEntry}: ${editNotes}`)
     }
   }
 
   const handleDeleteEntry = (entryId: number) => {
     if (confirm('Are you sure you want to delete this time entry?')) {
-      setMockTimeEntries(prev => {
+      setTimeEntries(prev => {
         const newEntries = prev.filter(entry => entry.id !== entryId)
-        saveTimeEntries(newEntries)
         return newEntries
       })
       console.log(`Deleted entry ${entryId}`)
@@ -852,47 +817,9 @@ export default function DataDashboard() {
     alert(`Exporting time log as ${format.toUpperCase()}...`)
   }
   
-  // Function to add work hours to today's entry
-  const addWorkHoursToToday = (billableHours: number, description: string) => {
-    const today = new Date().toISOString().split('T')[0]
-    
-    setMockTimeEntries(prev => {
-    // Find today's entry (prefer office session if it exists)
-      const todayEntry = prev.find(entry => entry.date === today)
-    
-      let newEntries
-    if (todayEntry) {
-      // Update existing entry
-        newEntries = prev.map(entry => 
-          entry.date === today 
-            ? {
-                ...entry,
-                billableHours: entry.billableHours + billableHours,
-                totalHours: entry.totalHours + billableHours,
-                notes: entry.notes + ` | ${description}`
-              }
-            : entry
-        )
-    } else {
-      // Create new entry for today (remote work only)
-      const newEntry = {
-        id: `work-${Date.now()}`,
-        date: today,
-        clockIn: "-",
-        clockOut: "-",
-        totalHours: billableHours,
-        billableHours: billableHours,
-        notes: description,
-        status: "completed",
-        isOfficeSession: false
-      }
-        newEntries = [newEntry, ...prev]
-    }
-      
-      saveTimeEntries(newEntries)
-      return newEntries
-    })
-  }
+
+
+
   
   // Live session management
   const startLiveSession = (clockInTime: Date) => {
@@ -939,11 +866,10 @@ export default function DataDashboard() {
       console.log('Creating completed entry:', completedEntry)
       
       // Add to mock time entries (in a real app, this would go to database)
-                setMockTimeEntries(prev => {
+                setTimeEntries(prev => {
             console.log('Previous entries count:', prev.length)
             const newEntries = [completedEntry, ...prev]
             console.log('New entries count:', newEntries.length)
-            saveTimeEntries(newEntries)
             return newEntries
           })
       
@@ -1013,10 +939,6 @@ export default function DataDashboard() {
           </Button>
           {process.env.NODE_ENV === 'development' && (
             <>
-              <Button variant="outline" onClick={clearTimeEntries}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Clear All
-              </Button>
               <Button variant="outline" onClick={async () => {
                 try {
                   const response = await fetch('/api/daily-rollover', { method: 'POST' })
@@ -1133,7 +1055,7 @@ export default function DataDashboard() {
               <FileText className="h-5 w-5" />
               Time Entries
                   </span>
-            <Badge variant="outline">{mockTimeEntries.length} entries</Badge>
+            <Badge variant="outline">{timeEntries.length} entries</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1316,7 +1238,7 @@ export default function DataDashboard() {
                       )}
                       
                       {/* Regular time entries */}
-                      {mockTimeEntries.map((entry) => (
+                      {timeEntries.map((entry) => (
                         <React.Fragment key={entry.id}>
                           <TableRow className={`hover:bg-muted/50 ${entry.isOfficeSession ? 'bg-blue-50' : ''} ${entry.isOfficeSession && entry.billableHours > 0 ? 'border-l-4 border-l-green-500' : ''}`}>
                             <TableCell>
@@ -1478,11 +1400,11 @@ export default function DataDashboard() {
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Average Clock In</p>
               <p className="text-2xl font-bold">
-                {mockTimeEntries.length > 0 ? 
-                  new Date(mockTimeEntries.reduce((acc, entry) => {
+                {timeEntries.length > 0 ? 
+                  new Date(timeEntries.reduce((acc, entry) => {
                     const time = new Date(`2000-01-01T${entry.clockIn}:00`)
                     return acc + time.getTime()
-                  }, 0) / mockTimeEntries.length).toLocaleTimeString('en-US', { 
+                  }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
                     hour: '2-digit', 
                     minute: '2-digit',
                     hour12: false 
@@ -1493,11 +1415,11 @@ export default function DataDashboard() {
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Average Clock Out</p>
               <p className="text-2xl font-bold">
-                {mockTimeEntries.length > 0 ? 
-                  new Date(mockTimeEntries.reduce((acc, entry) => {
+                {timeEntries.length > 0 ? 
+                  new Date(timeEntries.reduce((acc, entry) => {
                     const time = new Date(`2000-01-01T${entry.clockOut}:00`)
                     return acc + time.getTime()
-                  }, 0) / mockTimeEntries.length).toLocaleTimeString('en-US', { 
+                  }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
                     hour: '2-digit', 
                     minute: '2-digit',
                     hour12: false 
