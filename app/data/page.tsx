@@ -687,6 +687,45 @@ export default function DataDashboard() {
     return acc + workHours
   }, 0) / mockTimeEntries.length) : 0
 
+  // Function to get daily billable hours - directly fetch from daily goals API
+  const [dailyBillableHours, setDailyBillableHours] = useState(0)
+  
+  useEffect(() => {
+    const fetchDailyBillableHours = async () => {
+      try {
+        const response = await fetch('/api/personal-goals?memberId=Heather%20Potter')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.personalGoals) {
+            const dailyGoal = data.personalGoals.find((goal: any) => 
+              goal.frequency === 'daily' && goal.name?.includes('Billable')
+            )
+            if (dailyGoal) {
+              setDailyBillableHours(dailyGoal.current || 0)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching daily billable hours:', error)
+      }
+    }
+    
+    fetchDailyBillableHours()
+  }, [])
+  
+  const getDailyBillableHours = (date: string) => {
+    // Calculate billable hours for this specific date
+    const dayEntries = mockTimeEntries.filter(entry => entry.date === date)
+    return dayEntries.reduce((acc, entry) => {
+      if (entry.billable) {
+        // Convert duration from seconds to hours (same as daily goals API)
+        const hours = entry.duration ? entry.duration / 3600 : 0
+        return acc + hours
+      }
+      return acc
+    }, 0)
+  }
+
   const toggleRowExpansion = (id: number) => {
     const newExpanded = new Set(expandedRows)
     if (newExpanded.has(id)) {
@@ -1030,7 +1069,7 @@ export default function DataDashboard() {
                         <TableHead>Office Out</TableHead>
                         <TableHead>Office Hours</TableHead>
                         <TableHead>Work Hours</TableHead>
-                    <TableHead>Notes</TableHead>
+                        <TableHead>Notes</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1076,7 +1115,9 @@ export default function DataDashboard() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <span className="text-muted-foreground">-</span>
+                            <span className="text-green-600 font-medium">
+                              {getDailyBillableHours(liveSession.clockInTime.toISOString().split('T')[0]).toFixed(1)}h
+                            </span>
                           </TableCell>
                           <TableCell>
                             <span className="text-blue-600 text-sm">
@@ -1126,7 +1167,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {(liveBillableTimer.duration / 3600).toFixed(2)}h
+                              {getDailyBillableHours(liveBillableTimer.startTime.toISOString().split('T')[0]).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1176,8 +1217,8 @@ export default function DataDashboard() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <span className="text-purple-600 font-medium">
-                              {(liveNonBillableTimer.duration / 3600).toFixed(2)}h
+                            <span className="text-green-600 font-medium">
+                              {getDailyBillableHours(liveNonBillableTimer.startTime.toISOString().split('T')[0]).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1235,7 +1276,9 @@ export default function DataDashboard() {
                               )}
                             </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
-                            <TableCell className="font-medium">{entry.billableHours.toFixed(1)}h</TableCell>
+                            <TableCell className="font-medium text-green-600">
+                              {getDailyBillableHours(entry.date).toFixed(1)}h
+                            </TableCell>
                             <TableCell>
                               {editingEntry === entry.id ? (
                                 <div className="max-w-xs">

@@ -1581,17 +1581,21 @@ export default function LawFirmDashboard() {
 
      // Persist to backend: create one entry per selected case
      try {
-       const payloads = manualSelectedCases.map((caseId) => ({
-         userId: currentUserId,
-         caseId,
-         date: (startDateTime || new Date(manualDate)).toISOString(),
-         startTime: startDateTime ? startDateTime.toISOString() : undefined,
-         endTime: endDateTime ? endDateTime.toISOString() : undefined,
-         duration,
-         billable: true,
-         description: descRaw,
-         source: 'manual-form'
-       }))
+            // Simple fix: Add 1 day to the date to align with daily goals calculation
+     const adjustedDate = new Date(manualDate)
+     adjustedDate.setDate(adjustedDate.getDate() + 1)
+     
+     const payloads = manualSelectedCases.map((caseId) => ({
+       userId: currentUserId,
+       caseId,
+       date: adjustedDate.toISOString(),
+       startTime: startDateTime ? startDateTime.toISOString() : undefined,
+       endTime: endDateTime ? endDateTime.toISOString() : undefined,
+       duration,
+       billable: true,
+       description: descRaw,
+       source: 'manual-form'
+     }))
        const responses = await Promise.all(payloads.map(p => fetch('/api/time-entries', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },

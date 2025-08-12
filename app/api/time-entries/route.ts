@@ -242,12 +242,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing duration' }, { status: 400 })
     }
 
+    // Fix date interpretation - ensure the date is stored as intended without timezone shifts
+    const entryDate = new Date(date)
+    const fixedDate = new Date(Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate(), 0, 0, 0, 0))
+    
     const newEntry = {
       id: `entry-${Date.now()}`,
       userId,
       teamId: teamId || null,
       caseId: caseId || null,
-      date: new Date(date).toISOString(),
+      date: fixedDate.toISOString(),
       startTime: startTime ? new Date(startTime).toISOString() : null,
       endTime: endTime ? new Date(endTime).toISOString() : null,
       duration: computedDuration, // seconds

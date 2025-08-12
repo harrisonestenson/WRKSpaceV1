@@ -1,10 +1,10 @@
 [
   {
-    "id": "entry-1755007112720",
+    "id": "entry-1755025887399",
     "userId": "Heather Potter",
     "teamId": null,
     "caseId": "case-1755007095448",
-    "date": "2025-08-11T04:00:00.000Z",
+    "date": "2025-08-12T00:00:00.000Z",
     "startTime": "2025-08-11T04:00:00.000Z",
     "endTime": "2025-08-11T05:00:00.000Z",
     "duration": 3600,
@@ -14,25 +14,7 @@
     "nonBillableTaskId": null,
     "points": null,
     "source": "manual-form",
-    "createdAt": "2025-08-12T13:58:32.720Z",
-    "updatedAt": "2025-08-12T13:58:32.720Z"
-  },
-  {
-    "id": "entry-1755007128300",
-    "userId": "Heather Potter",
-    "teamId": null,
-    "caseId": "case-1755007095448",
-    "date": "2025-08-12T04:00:00.000Z",
-    "startTime": "2025-08-12T04:00:00.000Z",
-    "endTime": "2025-08-12T05:00:00.000Z",
-    "duration": 3600,
-    "billable": true,
-    "description": "test",
-    "status": "COMPLETED",
-    "nonBillableTaskId": null,
-    "points": null,
-    "source": "manual-form",
-    "createdAt": "2025-08-12T13:58:48.300Z",
-    "updatedAt": "2025-08-12T13:58:48.300Z"
+    "createdAt": "2025-08-12T19:11:27.399Z",
+    "updatedAt": "2025-08-12T19:11:27.399Z"
   }
 ]

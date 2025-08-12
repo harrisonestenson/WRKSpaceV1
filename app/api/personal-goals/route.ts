@@ -28,35 +28,35 @@ function loadPersonalGoals(): any {
 
 // Get date range for a given frequency relative to now (same logic as dashboard)
 function getRangeForFrequency(freq: string): { start: Date; end: Date } {
+  // Get current UTC date to avoid timezone issues
   const now = new Date()
-  const end = new Date()
+  const utcNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  
   switch ((freq || '').toLowerCase()) {
     case 'daily': {
-      const start = new Date(now)
-      start.setHours(0, 0, 0, 0)
-      end.setHours(23, 59, 59, 999)
+      // Use UTC to avoid timezone issues
+      const start = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate(), 0, 0, 0, 0))
+      const end = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate(), 23, 59, 59, 999))
       return { start, end }
     }
     case 'weekly': {
-      const start = new Date(now)
-      start.setDate(now.getDate() - now.getDay())
-      start.setHours(0, 0, 0, 0)
-      end.setDate(start.getDate() + 6)
-      end.setHours(23, 59, 59, 999)
+      // Use UTC to avoid timezone issues
+      const start = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), utcNow.getUTCDate() - utcNow.getUTCDay(), 0, 0, 0, 0))
+      const end = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), start.getUTCDate() + 6, 23, 59, 59, 999))
       return { start, end }
     }
     case 'annual':
     case 'yearly': {
-      const start = new Date(now.getFullYear(), 0, 1)
-      end.setFullYear(now.getFullYear(), 11, 31)
-      end.setHours(23, 59, 59, 999)
+      // Use UTC to avoid timezone issues
+      const start = new Date(Date.UTC(utcNow.getUTCFullYear(), 0, 1, 0, 0, 0, 0))
+      const end = new Date(Date.UTC(utcNow.getUTCFullYear(), 11, 31, 23, 59, 59, 999))
       return { start, end }
     }
     case 'monthly':
     default: {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      endOfMonth.setHours(23, 59, 59, 999)
+      // Use UTC to avoid timezone issues
+      const start = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth(), 1, 0, 0, 0, 0))
+      const endOfMonth = new Date(Date.UTC(utcNow.getUTCFullYear(), utcNow.getUTCMonth() + 1, 0, 23, 59, 59, 999))
       return { start, end: endOfMonth }
     }
   }
