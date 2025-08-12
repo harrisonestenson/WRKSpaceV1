@@ -1539,14 +1539,14 @@ export default function LawFirmDashboard() {
   // Manual entry submit
   const submitManualEntry = async () => {
     // Fallback to DOM values in case controlled state didn't capture input (Safari/time input quirks)
-    const startRaw = manualStartTime || (typeof document !== 'undefined' ? (document.getElementById('manual-start') as HTMLInputElement | null)?.value || '' : '')
-    const endRaw = manualEndTime || (typeof document !== 'undefined' ? (document.getElementById('manual-end') as HTMLInputElement | null)?.value || '' : '')
+    const startRaw = ''
+    const endRaw = ''
     const descRaw = manualDescription || (typeof document !== 'undefined' ? (document.getElementById('manual-description') as HTMLTextAreaElement | null)?.value || '' : '')
 
     const missing: string[] = []
     if (manualSelectedCases.length === 0) missing.push('case')
-    // Require either duration OR start/end times
-    if (manualDurationSeconds == null && (!startRaw || !endRaw)) missing.push('duration or start/end times')
+    // Only require times if duration not chosen
+    if (manualDurationSeconds == null) missing.push('duration')
     if (!descRaw.trim()) missing.push('description')
     if (missing.length > 0) {
       console.log('Manual submit missing fields:', { manualSelectedCases, manualStartTime, manualEndTime, startRaw, endRaw, manualDescription: descRaw, manualDurationSeconds })
@@ -1565,25 +1565,6 @@ export default function LawFirmDashboard() {
       duration = manualDurationSeconds
       endDateTime = new Date(startDateTime)
       endDateTime.setSeconds(endDateTime.getSeconds() + duration)
-    } else if (startRaw && endRaw) {
-      // Calculate duration from start/end times
-      const baseDate = new Date(manualDate)
-      const startTime = parseTimeToDate(manualDate, startRaw)
-      const endTime = parseTimeToDate(manualDate, endRaw)
-      
-      if (!startTime || !endTime) {
-        alert('Invalid time format. Please use format like "9:00 AM" or "2:30 PM"')
-        return
-      }
-      
-      if (endTime <= startTime) {
-        alert('End time must be after start time')
-        return
-      }
-      
-      startDateTime = startTime
-      endDateTime = endTime
-      duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
     }
 
      const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
@@ -2374,7 +2355,7 @@ export default function LawFirmDashboard() {
 
 
                 <div>
-                  <Label className="text-xs">Or pick a Duration (alternative to start/end times)</Label>
+                  <Label className="text-xs">Or pick a Duration</Label>
                   <Select onValueChange={(v) => setManualDurationSeconds(parseInt(v, 10))}>
                     <SelectTrigger className="text-sm w-full">
                       <SelectValue placeholder="Select duration (optional)" />
@@ -2405,34 +2386,6 @@ export default function LawFirmDashboard() {
                     className="text-sm"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="manual-start" className="text-xs">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="manual-start"
-                      type="time"
-                      value={manualStartTime}
-                      onChange={(e) => setManualStartTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manual-end" className="text-xs">
-                      End Time
-                    </Label>
-                    <Input
-                      id="manual-end"
-                      type="time"
-                      value={manualEndTime}
-                      onChange={(e) => setManualEndTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Time format: 12-hour clock (e.g., 9:00 AM, 2:30 PM)</p>
 
                 <Button onClick={submitManualEntry} className="w-full" size="sm">
                   Submit Entry

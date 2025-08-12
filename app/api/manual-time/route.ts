@@ -57,11 +57,6 @@ function parseTimeToDate(baseDate: Date, timeInput: string): Date | null {
   hours = parseInt(match[1] || '0', 10)
   minutes = parseInt(match[2] || '0', 10)
 
-  // Validate hours and minutes ranges
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-    return null
-  }
-
   if (pm && hours < 12) hours += 12
   if (am && hours === 12) hours = 0
 
@@ -73,52 +68,25 @@ function parseTimeToDate(baseDate: Date, timeInput: string): Date | null {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userId, caseId, date, start, end, description, duration } = body || {}
+    const { userId, caseId, date, start, end, description } = body || {}
 
-    if (!userId || !caseId || !date || !description) {
+    if (!userId || !caseId || !date || !start || !end || !description) {
       return NextResponse.json({
-        error: 'Missing required fields: userId, caseId, date, description'
-      }, { status: 400 })
-    }
-
-    // Require either duration OR start/end times
-    if (!duration && (!start || !end)) {
-      return NextResponse.json({
-        error: 'Missing required fields: duration OR (start AND end times)'
+        error: 'Missing required fields: userId, caseId, date, start, end, description'
       }, { status: 400 })
     }
 
     const base = parseDateOnly(date)
     if (!base) return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
 
-    let startDateTime: Date
-    let endDateTime: Date
-    let calculatedDuration: number
-
-    if (duration) {
-      // Duration-based entry: anchor at midnight, only duration matters
-      startDateTime = new Date(base)
-      startDateTime.setHours(0, 0, 0, 0)
-      calculatedDuration = duration
-      endDateTime = new Date(startDateTime)
-      endDateTime.setSeconds(endDateTime.getSeconds() + calculatedDuration)
-    } else {
-      // Time range-based entry: calculate duration from start/end times
-      const startTime = parseTimeToDate(base, start)
-      const endTime = parseTimeToDate(base, end)
-      
-      if (!startTime || !endTime) {
-        return NextResponse.json({ error: 'Invalid time format. Use format like "9:00 AM" or "2:30 PM"' }, { status: 400 })
-      }
-
-      if (endTime <= startTime) {
-        return NextResponse.json({ error: 'End must be after start' }, { status: 400 })
-      }
-
-      startDateTime = startTime
-      endDateTime = endTime
-      calculatedDuration = Math.max(0, Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000))
+    const startDateTime = parseTimeToDate(base, start)
+    const endDateTime = parseTimeToDate(base, end)
+    if (!startDateTime || !endDateTime) {
+      return NextResponse.json({ error: 'Invalid time format' }, { status: 400 })
     }
+
+    const duration = Math.max(0, Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000))
+    if (duration <= 0) return NextResponse.json({ error: 'End must be after start' }, { status: 400 })
 
     const newEntry = {
       id: `entry-${Date.now()}`,
@@ -128,7 +96,7 @@ export async function POST(request: NextRequest) {
       date: base.toISOString(),
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
-      duration: calculatedDuration,
+      duration,
       billable: true,
       description,
       status: 'COMPLETED',

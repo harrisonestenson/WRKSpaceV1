@@ -173,35 +173,6 @@ export default function DataDashboard() {
     return []
   })
 
-  // Work hours calculation state
-  const [calculatedWorkHours, setCalculatedWorkHours] = useState<{[key: string]: number}>({})
-
-  // Helper function to calculate work hours for an office session
-  const calculateWorkHoursForSession = async (userId: string, officeStart: Date, officeEnd: Date, date: string) => {
-    try {
-      const response = await fetch(`/api/work-hours?userId=${encodeURIComponent(userId)}&officeStart=${officeStart.toISOString()}&officeEnd=${officeEnd.toISOString()}&date=${date}`)
-      
-      if (response.ok) {
-        const result = await response.json()
-        return result.workHours
-      } else {
-        console.error('Failed to calculate work hours:', response.statusText)
-        return 0
-      }
-    } catch (error) {
-      console.error('Error calculating work hours:', error)
-      return 0
-    }
-  }
-
-  // Helper function to get work hours for a specific entry
-  const getWorkHoursForEntry = (entry: any) => {
-    if (!entry.isOfficeSession) return entry.billableHours || 0
-    
-    const key = `${entry.id}-${entry.date}`
-    return calculatedWorkHours[key] || 0
-  }
-
   // Helper function to save time entries to localStorage
   const saveTimeEntries = (entries: any[]) => {
     if (typeof window !== 'undefined') {
@@ -210,7 +181,14 @@ export default function DataDashboard() {
     }
   }
 
-
+  // Helper function to clear all time entries (for testing)
+  const clearTimeEntries = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('timeEntries')
+      setMockTimeEntries([])
+      console.log('Cleared all time entries')
+    }
+  }
   
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
@@ -430,14 +408,31 @@ export default function DataDashboard() {
     return () => clearInterval(interval)
   }, [liveSession])
 
-  // Initialize time entries on mount
+  // Test localStorage on mount
   useEffect(() => {
-    console.log('Initializing time entries...')
+    console.log('Testing localStorage...')
+    const testEntry = {
+      id: 'test-entry',
+      date: new Date().toISOString().split('T')[0],
+      clockIn: '12:00 PM',
+      clockOut: '01:00 PM',
+      totalHours: 1.0,
+      billableHours: 0,
+      notes: 'Test entry',
+      status: 'completed',
+      isOfficeSession: true
+    }
     
-    // Clear any existing test data
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('timeEntries')
-      console.log('Cleared existing time entries from localStorage')
+    const existingEntries = localStorage.getItem('timeEntries')
+    const entries = existingEntries ? JSON.parse(existingEntries) : []
+    console.log('Current entries in localStorage:', entries)
+    
+    // Add test entry if none exist
+    if (entries.length === 0) {
+      entries.unshift(testEntry)
+      localStorage.setItem('timeEntries', JSON.stringify(entries))
+      console.log('Added test entry to localStorage')
+      setMockTimeEntries(entries)
     }
   }, [])
   
@@ -909,10 +904,16 @@ export default function DataDashboard() {
             )}
           </Button>
           {process.env.NODE_ENV === 'development' && (
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <>
+              <Button variant="outline" onClick={clearTimeEntries}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear All
+              </Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </>
           )}
           <Button variant="outline" onClick={() => setActiveSection(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1034,6 +1035,15 @@ export default function DataDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
+                      {/* Debug info */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="bg-yellow-50 text-xs text-yellow-800">
+                            Debug: Live session state = {liveSession ? 'ACTIVE' : 'NULL'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
                       {/* Live session row */}
                       {liveSession && (
                         <TableRow key="live-session" className="bg-blue-50 hover:bg-blue-100">
@@ -1225,15 +1235,7 @@ export default function DataDashboard() {
                               )}
                             </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
-                            <TableCell className="font-medium">
-                              {entry.isOfficeSession ? (
-                                <span className="text-blue-600">
-                                  {getWorkHoursForEntry(entry).toFixed(1)}h
-                                </span>
-                              ) : (
-                                `${entry.billableHours.toFixed(1)}h`
-                              )}
-                            </TableCell>
+                            <TableCell className="font-medium">{entry.billableHours.toFixed(1)}h</TableCell>
                             <TableCell>
                               {editingEntry === entry.id ? (
                                 <div className="max-w-xs">
@@ -2205,7 +2207,7 @@ export default function DataDashboard() {
                     <SelectContent>
                       <SelectItem value="all">fc (Team View)</SelectItem>
                       {teamMembers.map((member: any) => (
-                        <SelectItem key={member.id} value={member.name}>
+                        <SelectItem key={member.id} value={member.id}>
                           <div className="flex items-center gap-2">
                             <span>{member.name}</span>
                             <span className="text-muted-foreground">({member.role})</span>
@@ -2682,46 +2684,6 @@ export default function DataDashboard() {
     )
   }
 
-  // Calculate work hours for all office sessions
-  useEffect(() => {
-    const calculateAllWorkHours = async () => {
-      const workHoursMap: {[key: string]: number} = {}
-      
-      for (const entry of mockTimeEntries) {
-        if (entry.isOfficeSession && entry.clockIn && entry.clockOut) {
-          try {
-            // Parse clock in/out times
-            const clockIn = new Date(entry.clockIn)
-            const clockOut = new Date(entry.clockOut)
-            
-            if (!isNaN(clockIn.getTime()) && !isNaN(clockOut.getTime())) {
-              // Use selectedUser directly since dropdown now uses member.name
-              const userIdToSend = selectedUser === 'all' ? 'Heather Potter' : selectedUser
-              
-              const workHours = await calculateWorkHoursForSession(
-                userIdToSend,
-                clockIn,
-                clockOut,
-                entry.date
-              )
-              
-              const key = `${entry.id}-${entry.date}`
-              workHoursMap[key] = workHours
-            }
-          } catch (error) {
-            console.error('Error calculating work hours for entry:', entry.id, error)
-          }
-        }
-      }
-      
-      setCalculatedWorkHours(workHoursMap)
-    }
-
-    if (mockTimeEntries.length > 0) {
-      calculateAllWorkHours()
-    }
-  }, [mockTimeEntries, selectedUser])
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -2763,7 +2725,7 @@ export default function DataDashboard() {
                   <SelectContent>
                     <SelectItem value="all">fc (Team View)</SelectItem>
                     {teamMembers.map((member: any) => (
-                      <SelectItem key={member.id} value={member.name}>
+                      <SelectItem key={member.id} value={member.id}>
                         <div className="flex items-center gap-2">
                           <span>{member.name}</span>
                           <span className="text-muted-foreground">({member.role})</span>
