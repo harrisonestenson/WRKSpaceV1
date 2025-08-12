@@ -442,33 +442,7 @@ export default function DataDashboard() {
     return () => clearInterval(interval)
   }, [liveSession])
 
-  // Test localStorage on mount
-  useEffect(() => {
-    console.log('Testing localStorage...')
-    const testEntry = {
-      id: 'test-entry',
-      date: new Date().toISOString().split('T')[0],
-      clockIn: '12:00 PM',
-      clockOut: '01:00 PM',
-      totalHours: 1.0,
-      billableHours: 0,
-      notes: 'Test entry',
-      status: 'completed',
-      isOfficeSession: true
-    }
-    
-    const existingEntries = localStorage.getItem('timeEntries')
-    const entries = existingEntries ? JSON.parse(existingEntries) : []
-    console.log('Current entries in localStorage:', entries)
-    
-    // Add test entry if none exist
-    if (entries.length === 0) {
-      entries.unshift(testEntry)
-      localStorage.setItem('timeEntries', JSON.stringify(entries))
-      console.log('Added test entry to localStorage')
-      setTimeEntries(entries)
-    }
-  }, [])
+
   
   // Listen for clock in/out events from main dashboard
   useEffect(() => {

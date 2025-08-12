@@ -145,7 +145,9 @@ export async function GET(request: NextRequest) {
       const d = new Date(e.date)
       const inRange = d >= range.start && d <= range.end
       const byUser = userId === 'all' || e.userId === userId
-      return inRange && byUser
+      // Only show clock in/out entries, not manual time entries
+      const isClockEntry = !e.source || e.source !== 'manual-form'
+      return inRange && byUser && isClockEntry
     })
 
     const totalHours = filtered.reduce((sum, e: any) => sum + (e.duration / 3600), 0)
