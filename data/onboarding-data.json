@@ -1,7 +1,7 @@
 {
   "profile": {
-    "name": "Zac Potter",
-    "title": "Partner",
+    "name": "Heather Potter",
+    "title": "partner",
     "role": "admin",
     "photo": "",
     "productivityPreferences": {
@@ -17,13 +17,13 @@
   "teamData": {
     "teams": [
       {
-        "name": "ZacsTeam",
+        "name": "Team 1",
         "department": "Litigation",
         "members": [
           {
-            "name": "Zac Potter",
+            "name": "Heather Potter",
             "email": "",
-            "title": "Partner",
+            "title": "partner",
             "role": "admin",
             "isAdmin": true,
             "expectedBillableHours": 1500,
@@ -34,16 +34,16 @@
       }
     ],
     "companyGoals": {
-      "weeklyBillable": 100,
-      "monthlyBillable": 1000,
-      "annualBillable": 10000
+      "weeklyBillable": 500,
+      "monthlyBillable": 5000,
+      "annualBillable": 50000
     },
     "defaultGoalTypes": []
   },
   "teamMemberExpectations": [
     {
-      "name": "Zac Potter",
-      "team": "ZacsTeam",
+      "name": "Heather Potter",
+      "team": "Team 1",
       "expectedBillableHours": 1500,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
@@ -51,24 +51,24 @@
   ],
   "streaksConfig": [
     {
-      "name": "Average 8 Hours Logged Daily",
+      "name": "Start Work Before 9AM",
       "category": "time-management",
-      "frequency": "weekly",
+      "frequency": "daily",
       "rule": {
-        "type": "weekly-average-hours",
-        "value": "8",
-        "description": "Weekly daily average ≥ 8 hours"
+        "type": "time-logged-before",
+        "value": "9:00 AM",
+        "description": "User logs time before 9:00 AM"
       },
-      "resetCondition": "missed-threshold",
+      "resetCondition": "missed-entry",
       "visibility": true,
       "active": true
     }
   ],
   "legalCases": [
     {
-      "name": "case",
+      "name": "mycase2",
       "startDate": "",
-      "id": "case-1754954171820"
+      "id": "case-1755007095448"
     }
   ]
 }

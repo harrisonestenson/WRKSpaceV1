@@ -2961,11 +2961,13 @@ export default function DataDashboard() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Goal Completion</p>
                         <p className="text-2xl font-bold">
-                          {dashboardData?.summary?.goalCompletionRate ? 
-                            `${Math.round(dashboardData.summary.goalCompletionRate)}%` : 
-                            '0/0'
-                          }
+                          {dashboardData?.summary?.goalCompletionCounts?.display || '0/0'}
                         </p>
+                        {dashboardData?.summary?.goalCompletionRate !== undefined && (
+                          <p className="text-sm text-muted-foreground">
+                            {Math.round(dashboardData.summary.goalCompletionRate)}% complete
+                          </p>
+                        )}
                       </div>
                       <div className="p-3 rounded-full bg-blue-100 text-blue-600">
                         <Target className="h-6 w-6" />

@@ -51,6 +51,11 @@ interface DashboardData {
     totalBillableHours: number
     totalNonBillableHours: number
     goalCompletionRate: number
+    goalCompletionCounts: {
+      completed: number
+      total: number
+      display: string
+    }
     averageDailyHours: number
     activeCases: number
   }
@@ -147,6 +152,11 @@ export async function GET(request: NextRequest) {
         totalBillableHours: 0,
         totalNonBillableHours: 0,
         goalCompletionRate: 0,
+        goalCompletionCounts: {
+          completed: 0,
+          total: 0,
+          display: '0/0'
+        },
         averageDailyHours: 0,
         activeCases: 0
       }
@@ -318,9 +328,69 @@ export async function GET(request: NextRequest) {
     const { start, end } = getRangeForFrequency(timeFrame)
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
 
-    const totalGoals = dashboardData.goals.length
-    const completedGoals = dashboardData.goals.filter(goal => goal.progress >= 100).length
-    const goalCompletionRate = totalGoals > 0 ? (completedGoals / totalGoals) * 100 : 0
+    // Calculate goal completion rate based on personal goals within the time frame
+    let totalPersonalGoals = 0
+    let completedPersonalGoals = 0
+    
+    try {
+      // Get personal goals for the specific user
+      const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
+      if (personalGoalsResponse.ok) {
+        const personalGoalsData = await personalGoalsResponse.json()
+        if (personalGoalsData.success && personalGoalsData.personalGoals) {
+          const personalGoals = personalGoalsData.personalGoals
+          
+          // Calculate goals based on time frame
+          personalGoals.forEach((goal: any) => {
+            const goalFrequency = goal.frequency?.toLowerCase()
+            let shouldCountGoal = false
+            
+            // Determine if this goal should be counted for the current time frame
+            switch (timeFrame.toLowerCase()) {
+              case 'daily':
+                // Count daily goals only
+                shouldCountGoal = goalFrequency === 'daily'
+                break
+              case 'weekly':
+                // Count daily goals from the week + weekly goal
+                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly'
+                break
+              case 'monthly':
+                // Count daily goals from the month + weekly goals + monthly goal
+                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+                break
+              case 'annual':
+              case 'yearly':
+                // Count all goal types
+                shouldCountGoal = true
+                break
+              default:
+                // Default to monthly logic
+                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+            }
+            
+            if (shouldCountGoal) {
+              totalPersonalGoals++
+              // Check if goal is completed (progress >= 100%)
+              if (goal.progress >= 100) {
+                completedPersonalGoals++
+              }
+            }
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating personal goal completion:', error)
+    }
+    
+    // Calculate completion rate
+    const goalCompletionRate = totalPersonalGoals > 0 ? (completedPersonalGoals / totalPersonalGoals) * 100 : 0
+    
+    // Log goal completion calculation for debugging
+    console.log(`🎯 Goal Completion Calculation for ${userId}, timeFrame: ${timeFrame}`)
+    console.log(`📊 Total Personal Goals: ${totalPersonalGoals}`)
+    console.log(`✅ Completed Goals: ${completedPersonalGoals}`)
+    console.log(`📈 Completion Rate: ${goalCompletionRate}%`)
 
     // Ensure the summary uses the same billable hours calculation as personal goals
     // This ensures consistency between dashboard summary and personal goals display
@@ -330,6 +400,11 @@ export async function GET(request: NextRequest) {
       totalBillableHours: summaryBillableHours,
       totalNonBillableHours: frameTotals.nonBillableHours,
       goalCompletionRate,
+      goalCompletionCounts: {
+        completed: completedPersonalGoals,
+        total: totalPersonalGoals,
+        display: `${completedPersonalGoals}/${totalPersonalGoals}`
+      },
       averageDailyHours: Math.round((frameTotals.totalHours / days) * 100) / 100,
       activeCases: dashboardData.legalCases.length
     }

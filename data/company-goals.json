@@ -1,5 +1,5 @@
 {
-  "weeklyBillable": 100,
-  "monthlyBillable": 1000,
-  "annualBillable": 10000
+  "weeklyBillable": 500,
+  "monthlyBillable": 5000,
+  "annualBillable": 50000
 }

@@ -1,136 +1,150 @@
 /**
- * API Protection Middleware
+ * Production-Ready API Protection
  * 
- * This module provides protection against mock data and invalid user IDs
- * at the API level. It should be used in all API routes.
+ * Provides authentication and authorization middleware for API endpoints
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { userContext } from './user-context'
-import { validateAPIRequest, logValidationResult } from './data-validator'
+import { getToken } from 'next-auth/jwt'
 
-/**
- * API protection options
- */
-export interface APIProtectionOptions {
-  requireUserId?: boolean
-  validateTimeFrame?: boolean
-  blockMockData?: boolean
-  logValidation?: boolean
+export interface ProtectedRouteConfig {
+  requireAuth: boolean
+  requireRole?: string | string[]
+  requireCompany?: boolean
 }
 
 /**
- * Default protection options
+ * Middleware to protect API routes with authentication and authorization
  */
-const DEFAULT_OPTIONS: APIProtectionOptions = {
-  requireUserId: true,
-  validateTimeFrame: true,
-  blockMockData: true,
-  logValidation: true
-}
-
-/**
- * Protect API route from mock data and invalid requests
- */
-export function protectAPI(
-  request: NextRequest, 
-  options: APIProtectionOptions = {}
-): { isValid: boolean; response?: NextResponse; params?: any } {
-  const opts = { ...DEFAULT_OPTIONS, ...options }
-  
+export async function protectApiRoute(
+  request: NextRequest,
+  config: ProtectedRouteConfig = { requireAuth: true }
+): Promise<{ user: any; isAuthorized: boolean; error?: string } | null> {
   try {
-    // Extract search parameters
-    const { searchParams } = new URL(request.url)
-    const params: any = {}
-    
-    // Convert search params to object
-    for (const [key, value] of searchParams.entries()) {
-      params[key] = value
-    }
-    
-    // Block mock data if enabled
-    if (opts.blockMockData) {
-      if (params.userId === 'mock-user-id' || params.userId === 'test-user') {
-        console.error('🚫 BLOCKED: Mock user ID detected in API call', {
-          route: request.url,
-          userId: params.userId,
-          timestamp: new Date().toISOString()
-        })
-        
-        return {
-          isValid: false,
-          response: NextResponse.json(
-            { 
-              error: 'Mock user IDs are not allowed',
-              code: 'MOCK_DATA_BLOCKED',
-              timestamp: new Date().toISOString()
-            },
-            { status: 403 }
-          )
-        }
+    // Get the JWT token from the request
+    const token = await getToken({ 
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET 
+    })
+
+    // Check if authentication is required
+    if (config.requireAuth && !token) {
+      return {
+        user: null,
+        isAuthorized: false,
+        error: 'Authentication required'
       }
     }
-    
-    // Validate API request parameters
-    if (opts.requireUserId || opts.validateTimeFrame) {
-      const validation = validateAPIRequest(params)
+
+    // If no auth required and no token, return success
+    if (!config.requireAuth && !token) {
+      return {
+        user: null,
+        isAuthorized: true
+      }
+    }
+
+    // Extract user information from token
+    const user = {
+      id: token?.id,
+      email: token?.email,
+      name: token?.name,
+      role: token?.role
+    }
+
+    // Check role requirements if specified
+    if (config.requireRole && user.role) {
+      const requiredRoles = Array.isArray(config.requireRole) 
+        ? config.requireRole 
+        : [config.requireRole]
       
-      if (opts.logValidation) {
-        logValidationResult(validation, `API Route: ${request.url}`)
-      }
-      
-      if (!validation.isValid) {
+      if (!requiredRoles.includes(user.role)) {
         return {
-          isValid: false,
-          response: NextResponse.json(
-            { 
-              error: 'Invalid API request parameters',
-              details: validation.errors,
-              code: 'VALIDATION_FAILED',
-              timestamp: new Date().toISOString()
-            },
-            { status: 400 }
-          )
+          user,
+          isAuthorized: false,
+          error: `Insufficient permissions. Required role: ${requiredRoles.join(' or ')}`
         }
       }
     }
-    
-    // Additional validation for specific parameters
-    if (opts.validateTimeFrame && params.timeFrame) {
-      const validTimeFrames = ['daily', 'weekly', 'monthly', 'annual']
-      if (!validTimeFrames.includes(params.timeFrame)) {
-        return {
-          isValid: false,
-          response: NextResponse.json(
-            { 
-              error: `Invalid timeFrame: ${params.timeFrame}`,
-              validTimeFrames,
-              code: 'INVALID_TIMEFRAME',
-              timestamp: new Date().toISOString()
-            },
-            { status: 400 }
-          )
-        }
-      }
-    }
-    
-    // All validations passed
+
     return {
-      isValid: true,
-      params
+      user,
+      isAuthorized: true
     }
-    
+
   } catch (error) {
-    console.error('❌ API Protection error:', error)
-    
+    console.error('❌ API protection error:', error)
     return {
-      isValid: false,
-      response: NextResponse.json(
-        { 
-          error: 'API protection failed',
-          code: 'PROTECTION_ERROR',
-          timestamp: new Date().toISOString()
-        },
+      user: null,
+      isAuthorized: false,
+      error: 'Internal server error'
+    }
+  }
+}
+
+/**
+ * Helper function to create protected API response
+ */
+export function createProtectedResponse(
+  user: any,
+  isAuthorized: boolean,
+  error?: string
+): NextResponse {
+  if (!isAuthorized) {
+    return NextResponse.json(
+      { 
+        error: error || 'Unauthorized',
+        code: 'UNAUTHORIZED'
+      },
+      { status: 401 }
+    )
+  }
+
+  return NextResponse.json({ 
+    success: true,
+    user: {
+      id: user?.id,
+      email: user?.email,
+      name: user?.name,
+      role: user?.role
+    }
+  })
+}
+
+/**
+ * Higher-order function to wrap API handlers with protection
+ */
+export function withApiProtection(
+  handler: (request: NextRequest, user: any) => Promise<NextResponse>,
+  config: ProtectedRouteConfig = { requireAuth: true }
+) {
+  return async (request: NextRequest): Promise<NextResponse> => {
+    try {
+      // Apply protection
+      const protection = await protectApiRoute(request, config)
+      
+      if (!protection) {
+        return NextResponse.json(
+          { error: 'Internal server error', code: 'PROTECTION_ERROR' },
+          { status: 500 }
+        )
+      }
+
+      if (!protection.isAuthorized) {
+        return createProtectedResponse(
+          protection.user,
+          false,
+          protection.error
+        )
+      }
+
+      // Call the protected handler
+      return await handler(request, protection.user)
+
+    } catch (error) {
+      console.error('❌ Protected API error:', error)
+      return NextResponse.json(
+        { error: 'Internal server error', code: 'HANDLER_ERROR' },
         { status: 500 }
       )
     }
@@ -138,90 +152,25 @@ export function protectAPI(
 }
 
 /**
- * Higher-order function to wrap API handlers with protection
+ * Utility functions for common protection patterns
  */
-export function withAPIProtection<T extends any[]>(
-  handler: (request: NextRequest, ...args: T) => Promise<NextResponse>,
-  options: APIProtectionOptions = {}
-) {
-  return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
-    // Apply protection
-    const protection = protectAPI(request, options)
-    
-    if (!protection.isValid) {
-      return protection.response!
-    }
-    
-    // Call original handler with validated params
-    return handler(request, ...args)
-  }
-}
+export const requireAuth = (config: Omit<ProtectedRouteConfig, 'requireAuth'> = {}) => 
+  withApiProtection(async (req, user) => {
+    // This will be overridden by the actual handler
+    return NextResponse.json({ error: 'Handler not implemented' })
+  }, { ...config, requireAuth: true })
 
-/**
- * Validate request body data
- */
-export function validateRequestBody<T>(body: any, validator: (data: any) => boolean): T | null {
-  try {
-    if (!body) {
-      console.error('❌ Request body is null or undefined')
-      return null
-    }
-    
-    if (!validator(body)) {
-      console.error('❌ Request body validation failed')
-      return null
-    }
-    
-    return body as T
-  } catch (error) {
-    console.error('❌ Request body validation error:', error)
-    return null
-  }
-}
+export const requireAdmin = () => 
+  withApiProtection(async (req, user) => {
+    return NextResponse.json({ error: 'Handler not implemented' })
+  }, { requireAuth: true, requireRole: 'ADMIN' })
 
-/**
- * Block specific user IDs that are known to cause issues
- */
-export function isBlockedUserId(userId: string): boolean {
-  const blockedIds = [
-    'mock-user-id',
-    'test-user',
-    'demo-user',
-    'sample-user',
-    'example-user'
-  ]
-  
-  return blockedIds.includes(userId)
-}
+export const requireAttorney = () => 
+  withApiProtection(async (req, user) => {
+    return NextResponse.json({ error: 'Handler not implemented' })
+  }, { requireAuth: true, requireRole: ['ADMIN', 'ATTORNEY'] })
 
-/**
- * Sanitize user ID for safe use
- */
-export function sanitizeUserId(userId: string): string {
-  if (isBlockedUserId(userId)) {
-    throw new Error(`Blocked user ID: ${userId}`)
-  }
-  
-  // Remove any potentially dangerous characters
-  return userId.replace(/[<>\"'&]/g, '')
-}
-
-/**
- * Log API access for monitoring
- */
-export function logAPIAccess(request: NextRequest, params: any, success: boolean): void {
-  const logData = {
-    timestamp: new Date().toISOString(),
-    method: request.method,
-    url: request.url,
-    userId: params.userId,
-    success,
-    userAgent: request.headers.get('user-agent') || 'unknown'
-  }
-  
-  if (success) {
-    console.log('✅ API Access:', logData)
-  } else {
-    console.error('❌ API Access Failed:', logData)
-  }
-} 
+export const optionalAuth = () => 
+  withApiProtection(async (req, user) => {
+    return NextResponse.json({ error: 'Handler not implemented' })
+  }, { requireAuth: false }) 

@@ -107,25 +107,47 @@ export default function LawFirmDashboard() {
   // Initialize user ID and fetch personal goals when component mounts
   useEffect(() => {
     const savedUserId = localStorage.getItem('currentUserId')
-    if (savedUserId && savedUserId !== currentUserId) {
+    console.log('🔍 Initializing user ID - localStorage value:', savedUserId)
+    console.log('🔍 Initializing user ID - current state:', currentUserId)
+    
+    if (savedUserId && savedUserId !== 'default-user') {
       console.log('🔄 Updating currentUserId from localStorage:', savedUserId)
       setCurrentUserId(savedUserId)
+    } else {
+      // Try to get from onboarding store as fallback
+      try {
+        const onboardingData = onboardingStore.getData()
+        console.log('🔍 Onboarding store data:', onboardingData)
+        if (onboardingData.profile?.name && onboardingData.profile.name !== 'default-user') {
+          console.log('🔄 Updating currentUserId from onboarding store:', onboardingData.profile.name)
+          setCurrentUserId(onboardingData.profile.name)
+          // Also update localStorage to keep it in sync
+          localStorage.setItem('currentUserId', onboardingData.profile.name)
+        }
+      } catch (error) {
+        console.warn('Error reading from onboarding store:', error)
+      }
     }
   }, [])
 
   // Get current user ID from onboarding store or localStorage
   const getCurrentUserId = () => {
     try {
-      // First try to get from onboarding store
-      const onboardingData = onboardingStore.getData()
-      if (onboardingData.profile?.name) {
-        return onboardingData.profile.name
+      // First priority: current state (if it's not default-user)
+      if (currentUserId && currentUserId !== 'default-user') {
+        return currentUserId
       }
       
-      // Fallback to localStorage
+      // Second priority: localStorage
       const savedUserId = localStorage.getItem('currentUserId')
-      if (savedUserId) {
+      if (savedUserId && savedUserId !== 'default-user') {
         return savedUserId
+      }
+      
+      // Third priority: onboarding store
+      const onboardingData = onboardingStore.getData()
+      if (onboardingData.profile?.name && onboardingData.profile.name !== 'default-user') {
+        return onboardingData.profile.name
       }
       
       // Final fallback
@@ -752,6 +774,7 @@ export default function LawFirmDashboard() {
       // Clear client-side data
       localStorage.removeItem('onboardingComplete')
       localStorage.removeItem('onboardingData')
+      localStorage.removeItem('currentUserId')
       
       // Clear server-side data for all APIs
       const apisToClear = [
@@ -759,7 +782,8 @@ export default function LawFirmDashboard() {
         '/api/company-goals',
         '/api/personal-goals',
         '/api/legal-cases',
-        '/api/streaks'
+        '/api/streaks',
+        '/api/time-entries' // Add time entries to the clear list
       ]
       
       const clearPromises = apisToClear.map(async (api) => {
@@ -793,7 +817,7 @@ export default function LawFirmDashboard() {
       // Redirect to role selection
       router.push('/role-select')
       
-      console.log('✅ Onboarding reset completed successfully')
+      console.log('✅ Onboarding reset completed successfully - all data cleared including time entries')
       
     } catch (error) {
       console.error('❌ Error resetting onboarding:', error)
@@ -897,7 +921,9 @@ export default function LawFirmDashboard() {
         setIsLoadingPersonalGoals(true)
         const selectedMemberId = localStorage.getItem('selectedMemberId')
         const userId = selectedMemberId || currentUserId
-        console.log('🔍 Fetching personal goals for user:', userId)
+        console.log('🔍 Fetching personal goals - selectedMemberId:', selectedMemberId)
+        console.log('🔍 Fetching personal goals - currentUserId:', currentUserId)
+        console.log('🔍 Fetching personal goals - final userId:', userId)
         
         const url = `/api/personal-goals?memberId=${encodeURIComponent(userId)}`
         console.log('🔍 Personal goals URL:', url)

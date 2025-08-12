@@ -2967,7 +2967,7 @@ export default function OnboardingPage() {
                 
                 if (!confirmed) return
                 
-                console.log('🧹 Resetting onboarding - clearing all data for new company setup')
+                console.log('🧹 Resetting onboarding - clearing all data for new company setup including time entries')
                 
                 try {
                   // Clear all data files via API endpoints
@@ -2976,7 +2976,8 @@ export default function OnboardingPage() {
                     fetch('/api/personal-goals', { method: 'DELETE' }),
                     fetch('/api/company-goals', { method: 'DELETE' }),
                     fetch('/api/legal-cases', { method: 'DELETE' }),
-                    fetch('/api/streaks', { method: 'DELETE' })
+                    fetch('/api/streaks', { method: 'DELETE' }),
+                    fetch('/api/time-entries', { method: 'DELETE' }) // Add time entries to the clear list
                   ])
                   
                   // Clear onboarding store
@@ -3018,7 +3019,7 @@ export default function OnboardingPage() {
                     customGoals: []
                   })
                   
-                  console.log('✅ Onboarding reset complete - all data cleared for new company setup')
+                  console.log('✅ Onboarding reset complete - all data cleared for new company setup including time entries')
                   router.push('/role-select')
                 } catch (error) {
                   console.error('❌ Error resetting onboarding:', error)

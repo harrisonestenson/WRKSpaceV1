@@ -171,6 +171,30 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// DELETE - Clear all time entries (used for onboarding reset)
+export async function DELETE() {
+  try {
+    console.log('Time Entries API - Clearing all time entries for onboarding reset')
+    
+    // Clear all time entries by writing an empty array
+    writeStore([])
+    
+    console.log('Time Entries API - Successfully cleared all time entries')
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: 'All time entries cleared successfully',
+      clearedCount: 0
+    })
+  } catch (error) {
+    console.error('Error clearing time entries:', error)
+    return NextResponse.json({ 
+      error: 'Failed to clear time entries',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Temporarily bypass authentication and database for testing

@@ -1,16 +1,17 @@
 /**
- * Bulletproof User Context Manager
+ * Production-Ready User Context Manager
  * 
- * This class ensures consistent user identity flow throughout the application.
- * It prevents mock data interference and maintains a single source of truth
- * for user identification.
+ * This class ensures consistent user identity flow throughout the application
+ * using real NextAuth.js authentication instead of mock data.
  */
 
-import { onboardingStore } from './onboarding-store'
+import { getSession } from 'next-auth/react'
 
 export class UserContext {
   private static instance: UserContext
-  private currentUserId: string = 'default-user'
+  private currentUserId: string | null = null
+  private currentUserEmail: string | null = null
+  private currentUserRole: string | null = null
   private isInitialized: boolean = false
   
   private constructor() {
@@ -25,124 +26,149 @@ export class UserContext {
   }
   
   /**
-   * Initialize the user context with proper user ID
+   * Initialize the user context with real authentication data
    * This should be called early in the application lifecycle
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     if (this.isInitialized) return
     
     try {
-      // Priority order: context → localStorage → onboarding → default
-      const userId = this.getUserId()
-      this.setUserId(userId)
-      this.isInitialized = true
+      // Get real user session from NextAuth
+      const session = await getSession()
       
-      console.log('🔐 UserContext initialized with userId:', userId)
+      if (session?.user) {
+        this.currentUserId = session.user.id
+        this.currentUserEmail = session.user.email
+        this.currentUserRole = session.user.role
+        
+        console.log('🔐 UserContext initialized with real user:', {
+          id: this.currentUserId,
+          email: this.currentUserEmail,
+          role: this.currentUserRole
+        })
+      } else {
+        console.log('🔐 UserContext: No authenticated user found')
+      }
+      
+      this.isInitialized = true
     } catch (error) {
       console.error('❌ Error initializing UserContext:', error)
-      this.setUserId('default-user')
+      this.currentUserId = null
+      this.currentUserEmail = null
+      this.currentUserRole = null
     }
   }
   
   /**
-   * Set the current user ID and persist it
+   * Get the current authenticated user ID
    */
-  setUserId(userId: string): void {
-    if (!userId || userId === 'mock-user-id' || userId === 'test-user') {
-      console.error('🚫 BLOCKED: Invalid user ID detected:', userId)
-      throw new Error(`Invalid user ID: ${userId}`)
+  getUserId(): string | null {
+    if (!this.isInitialized) {
+      console.warn('⚠️ UserContext not initialized. Call initialize() first.')
+      return null
     }
     
-    this.currentUserId = userId
-    localStorage.setItem('currentUserId', userId)
-    
-    console.log('👤 UserContext: User ID set to:', userId)
+    return this.currentUserId
   }
   
   /**
-   * Get the current user ID with fallback logic
+   * Get the current authenticated user email
    */
-  getUserId(): string {
-    // Priority 1: Current context
-    if (this.currentUserId !== 'default-user') {
-      return this.currentUserId
+  getUserEmail(): string | null {
+    if (!this.isInitialized) {
+      console.warn('⚠️ UserContext not initialized. Call initialize() first.')
+      return null
     }
     
-    // Priority 2: Local storage
+    return this.currentUserEmail
+  }
+  
+  /**
+   * Get the current authenticated user role
+   */
+  getUserRole(): string | null {
+    if (!this.isInitialized) {
+      console.warn('⚠️ UserContext not initialized. Call initialize() first.')
+      return null
+    }
+    
+    return this.currentUserRole
+  }
+  
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated(): boolean {
+    return this.currentUserId !== null
+  }
+  
+  /**
+   * Check if user has admin role
+   */
+  isAdmin(): boolean {
+    return this.currentUserRole === 'ADMIN'
+  }
+  
+  /**
+   * Check if user has attorney role
+   */
+  isAttorney(): boolean {
+    return this.currentUserRole === 'ATTORNEY'
+  }
+  
+  /**
+   * Refresh user context from session
+   */
+  async refresh(): Promise<void> {
     try {
-      const saved = localStorage.getItem('currentUserId')
-      if (saved && saved !== 'mock-user-id' && saved !== 'test-user') {
-        this.currentUserId = saved
-        return saved
+      const session = await getSession()
+      
+      if (session?.user) {
+        this.currentUserId = session.user.id
+        this.currentUserEmail = session.user.email
+        this.currentUserRole = session.user.role
+        
+        console.log('🔄 UserContext refreshed:', {
+          id: this.currentUserId,
+          email: this.currentUserEmail,
+          role: this.currentUserRole
+        })
+      } else {
+        this.currentUserId = null
+        this.currentUserEmail = null
+        this.currentUserRole = null
+        
+        console.log('🔄 UserContext: User logged out')
       }
     } catch (error) {
-      console.warn('⚠️ Error reading from localStorage:', error)
+      console.error('❌ Error refreshing UserContext:', error)
     }
-    
-    // Priority 3: Onboarding store
-    try {
-      const onboardingData = onboardingStore.getData()
-      if (onboardingData.profile?.name && 
-          onboardingData.profile.name !== 'mock-user-id' && 
-          onboardingData.profile.name !== 'test-user') {
-        const userId = onboardingData.profile.name
-        this.currentUserId = userId
-        localStorage.setItem('currentUserId', userId)
-        return userId
-      }
-    } catch (error) {
-      console.warn('⚠️ Error reading from onboarding store:', error)
-    }
-    
-    // Priority 4: Default fallback
-    console.warn('⚠️ No valid user ID found, using default-user')
-    return 'default-user'
   }
   
   /**
-   * Check if the current user ID is valid (not mock/test)
-   */
-  isValidUserId(userId: string): boolean {
-    return Boolean(userId && 
-           userId !== 'mock-user-id' && 
-           userId !== 'test-user' && 
-           userId !== 'default-user' &&
-           userId.trim().length > 0)
-  }
-  
-  /**
-   * Get user ID for API calls with validation
-   */
-  getUserIdForAPI(): string {
-    const userId = this.getUserId()
-    
-    if (!this.isValidUserId(userId)) {
-      console.error('🚫 Invalid user ID for API call:', userId)
-      throw new Error(`Invalid user ID for API: ${userId}`)
-    }
-    
-    return userId
-  }
-  
-  /**
-   * Clear user context (for logout, etc.)
+   * Clear user context (for logout)
    */
   clear(): void {
-    this.currentUserId = 'default-user'
+    this.currentUserId = null
+    this.currentUserEmail = null
+    this.currentUserRole = null
     this.isInitialized = false
-    localStorage.removeItem('currentUserId')
+    
     console.log('🧹 UserContext cleared')
   }
   
   /**
-   * Get debug information about the current state
+   * Get debug information about current context
    */
-  getDebugInfo(): object {
+  getDebugInfo(): any {
     return {
-      currentUserId: this.currentUserId,
       isInitialized: this.isInitialized,
-      localStorage: localStorage.getItem('currentUserId'),
-      onboardingStore: onboardingStore.getData()?.profile?.name
+      currentUserId: this.currentUserId,
+      currentUserEmail: this.currentUserEmail,
+      currentUserRole: this.currentUserRole,
+      isAuthenticated: this.isAuthenticated(),
+      isAdmin: this.isAdmin(),
+      isAttorney: this.isAttorney()
     }
   }
 }
@@ -150,12 +176,27 @@ export class UserContext {
 // Export singleton instance
 export const userContext = UserContext.getInstance()
 
-// Helper function for quick access
-export function getCurrentUserId(): string {
+// Helper functions for easy access
+export const getCurrentUserId = (): string | null => {
   return userContext.getUserId()
 }
 
-// Helper function for API calls
-export function getUserIdForAPI(): string {
-  return userContext.getUserIdForAPI()
+export const getCurrentUserEmail = (): string | null => {
+  return userContext.getUserEmail()
+}
+
+export const getCurrentUserRole = (): string | null => {
+  return userContext.getUserRole()
+}
+
+export const isUserAuthenticated = (): boolean => {
+  return userContext.isAuthenticated()
+}
+
+export const isUserAdmin = (): boolean => {
+  return userContext.isAdmin()
+}
+
+export const isUserAttorney = (): boolean => {
+  return userContext.isAttorney()
 } 
