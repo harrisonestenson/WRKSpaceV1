@@ -88,12 +88,15 @@ export async function POST(request: NextRequest) {
     const duration = Math.max(0, Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 1000))
     if (duration <= 0) return NextResponse.json({ error: 'End must be after start' }, { status: 400 })
 
+    // Use the frontend date exactly as sent, no timezone conversion
+    const entryDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0)
+
     const newEntry = {
       id: `entry-${Date.now()}`,
       userId,
       teamId: null,
       caseId,
-      date: base.toISOString(),
+      date: entryDate.toISOString(),
       startTime: startDateTime.toISOString(),
       endTime: endDateTime.toISOString(),
       duration,

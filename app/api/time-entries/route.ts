@@ -242,9 +242,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing duration' }, { status: 400 })
     }
 
-    // Fix date interpretation - ensure the date is stored as intended without timezone shifts
+    // Fix date interpretation - use the frontend date exactly as sent, no timezone conversion
     const entryDate = new Date(date)
-    const fixedDate = new Date(Date.UTC(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate(), 0, 0, 0, 0))
+    // Ensure the date is stored as the exact date the user selected, not shifted by timezone
+    const fixedDate = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate(), 12, 0, 0, 0)
     
     const newEntry = {
       id: `entry-${Date.now()}`,

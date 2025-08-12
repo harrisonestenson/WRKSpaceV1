@@ -94,6 +94,7 @@ interface LiveSession {
   currentTime: Date
   duration: number // in seconds
   status: 'active' | 'completed'
+  userId: string
 }
 
 // Team members state - will be populated from API
@@ -753,31 +754,52 @@ export default function DataDashboard() {
     return acc + workHours
   }, 0) / mockTimeEntries.length) : 0
 
-  // Function to get daily billable hours - directly fetch from daily goals API
-  const [dailyBillableHours, setDailyBillableHours] = useState(0)
-  
+  // Fetch historical daily billable hours for Work Hours column
+  const [historicalDailyHours, setHistoricalDailyHours] = useState<{[key: string]: {[userId: string]: number}}>({})
+
   useEffect(() => {
-    const fetchDailyBillableHours = async () => {
+    const fetchHistoricalDailyHours = async () => {
       try {
-        const response = await fetch('/api/personal-goals?memberId=Heather%20Potter')
+        const response = await fetch('/api/daily-rollover')
         if (response.ok) {
           const data = await response.json()
-          if (data.success && data.personalGoals) {
-            const dailyGoal = data.personalGoals.find((goal: any) => 
-              goal.frequency === 'daily' && goal.name?.includes('Billable')
-            )
-            if (dailyGoal) {
-              setDailyBillableHours(dailyGoal.current || 0)
-            }
+          if (data.success && data.data?.dailySnapshots) {
+            // Convert to lookup object: { "2025-08-12": {"Heather Potter": 1.0, "John Doe": 2.0} }
+            const hoursLookup: {[key: string]: {[userId: string]: number}} = {}
+            data.data.dailySnapshots.forEach((snapshot: any) => {
+              if (!hoursLookup[snapshot.date]) {
+                hoursLookup[snapshot.date] = {}
+              }
+              hoursLookup[snapshot.date][snapshot.userId] = snapshot.billableHours
+            })
+            setHistoricalDailyHours(hoursLookup)
+            console.log('📊 Loaded historical daily hours:', hoursLookup)
           }
         }
       } catch (error) {
-        console.error('Error fetching daily billable hours:', error)
+        console.error('Error fetching historical daily hours:', error)
       }
     }
+
+    fetchHistoricalDailyHours()
+  }, [])
+
+  // Function to get historical billable hours for a specific date and user
+  const getHistoricalDailyHours = (date: string, userId?: string) => {
+    // Convert date to YYYY-MM-DD format for lookup
+    const dateStr = new Date(date).toISOString().split('T')[0]
+    const dateData = historicalDailyHours[dateStr]
     
-    fetchDailyBillableHours()
-  }, [mockTimeEntries]) // Refresh when time entries change
+    if (!dateData) return 0
+    
+    // If no specific user provided, return the first user's data (for backward compatibility)
+    if (!userId) {
+      const firstUserId = Object.keys(dateData)[0]
+      return firstUserId ? dateData[firstUserId] : 0
+    }
+    
+    return dateData[userId] || 0
+  }
   
   // getDailyBillableHours function removed - now using dailyBillableHours state from API
 
@@ -874,25 +896,17 @@ export default function DataDashboard() {
   
   // Live session management
   const startLiveSession = (clockInTime: Date) => {
-    console.log('Starting live session:', clockInTime)
     const session: LiveSession = {
       id: `live-${Date.now()}`,
       clockInTime,
       currentTime: clockInTime,
       duration: 0,
-      status: 'active'
+      status: 'active',
+      userId: selectedUser || 'default-user'
     }
     setLiveSession(session)
-    console.log('Live session created:', session)
-    
-    // Save to localStorage for main dashboard sync
-    const sessionData = {
-      clockInTime: clockInTime.toISOString(),
-      sessionId: session.id,
-      timestamp: clockInTime.toISOString()
-    }
-    localStorage.setItem('clockSession', JSON.stringify(sessionData))
-    console.log('Saved clock session to localStorage:', sessionData)
+    localStorage.setItem('clockSession', JSON.stringify(session))
+    console.log('Started live session:', session)
   }
   
   const endLiveSession = () => {
@@ -1003,13 +1017,19 @@ export default function DataDashboard() {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Clear All
               </Button>
-              <Button variant="outline" onClick={refreshTimeEntries}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Time Entries
-              </Button>
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh Page
+              <Button variant="outline" onClick={async () => {
+                try {
+                  const response = await fetch('/api/daily-rollover', { method: 'POST' })
+                  if (response.ok) {
+                    alert('Daily rollover triggered successfully!')
+                    // Refresh the historical data
+                    window.location.reload()
+                  }
+                } catch (error) {
+                  alert('Failed to trigger daily rollover')
+                }
+              }}>
+                🔄 Daily Rollover
               </Button>
             </>
           )}
@@ -1175,7 +1195,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {dailyBillableHours.toFixed(1)}h
+                              {getHistoricalDailyHours(liveSession.clockInTime.toISOString().split('T')[0], liveSession.userId).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1226,7 +1246,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {dailyBillableHours.toFixed(1)}h
+                              {getHistoricalDailyHours(liveBillableTimer.startTime.toISOString().split('T')[0], selectedUser).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1277,7 +1297,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {dailyBillableHours.toFixed(1)}h
+                              {getHistoricalDailyHours(liveNonBillableTimer.startTime.toISOString().split('T')[0], selectedUser).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1336,7 +1356,7 @@ export default function DataDashboard() {
                             </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
                             <TableCell className="font-medium text-green-600">
-                              {dailyBillableHours.toFixed(1)}h
+                              {getHistoricalDailyHours(entry.date, entry.userId).toFixed(1)}h
                             </TableCell>
                             <TableCell>
                               {editingEntry === entry.id ? (
