@@ -37,13 +37,18 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('=== DELETE /api/time-entries/[id] Debug ===')
+    console.log('Request headers:', Object.fromEntries(request.headers.entries()))
+    console.log('Request cookies:', request.cookies.getAll())
+    
     const session = await getServerSession(authOptions)
     
     console.log('Session check result:', { 
       hasSession: !!session, 
       sessionData: session ? { 
         user: session.user?.email, 
-        userId: session.user?.id 
+        userId: session.user?.id,
+        role: session.user?.role
       } : null 
     })
     
