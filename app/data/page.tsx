@@ -1105,7 +1105,7 @@ export default function DataDashboard() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: getDatabaseUserId(liveSession.userId),
+            userId: liveSession.userId, // Already the database user ID
             action: 'clock-out',
             sessionId: liveSession.id,
             timestamp: now.toISOString()
@@ -1143,7 +1143,7 @@ export default function DataDashboard() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              userId: getDatabaseUserId(liveSession.userId),
+              userId: liveSession.userId, // Already the database user ID
               date: completedEntry.date,
               startTime: liveSession.clockInTime.toISOString(),
               endTime: now.toISOString(),
