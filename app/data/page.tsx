@@ -2232,20 +2232,7 @@ export default function DataDashboard() {
                   </Select>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Date Range:</span>
-                  <Select value="month" onValueChange={() => {}}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                      <SelectItem value="quarter">This Quarter</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
               </div>
             </CardContent>
           </Card>
@@ -2750,21 +2737,7 @@ export default function DataDashboard() {
                 </Select>
               </div>
               
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Time Frame:</span>
-                <Select value={adminDateRange} onValueChange={setAdminDateRange}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
             </div>
           )}
         </div>
@@ -2786,6 +2759,22 @@ export default function DataDashboard() {
             {userRole === "admin" && selectedUser === "all" ? (
               // Team-wide overview for admin
               <div className="space-y-6">
+                {/* Time Frame Control */}
+                <div className="flex items-center justify-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Time Frame:</span>
+                  <Select value={adminDateRange} onValueChange={(value) => setAdminDateRange(value)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                 {/* Team Overview Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <Card>
@@ -2940,7 +2929,24 @@ export default function DataDashboard() {
                 </Card>
               </div>
             ) : (
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="mt-8 space-y-4">
+                {/* Time Frame Control */}
+                <div className="flex items-center justify-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Time Frame:</span>
+                  <Select value={adminDateRange} onValueChange={(value) => setAdminDateRange(value)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -2989,6 +2995,7 @@ export default function DataDashboard() {
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               </div>
             )}
           </div>
