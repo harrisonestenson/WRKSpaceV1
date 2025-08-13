@@ -155,8 +155,68 @@ export default function DataDashboard() {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(true)
   
+  // Team aggregation state
+  const [teamAggregation, setTeamAggregation] = useState<any>(null)
+  const [isLoadingTeamAggregation, setIsLoadingTeamAggregation] = useState(false)
+  
   // Time entries state - now using real API data only
   const [timeEntries, setTimeEntries] = useState<any[]>([])
+
+  // Function to fetch team aggregation data
+  const fetchTeamAggregation = async (timeFrame: string = 'monthly') => {
+    if (selectedUser !== 'all') return
+    
+    try {
+      setIsLoadingTeamAggregation(true)
+      console.log('🚀 Fetching team aggregation for timeFrame:', timeFrame)
+      
+      const response = await fetch(`/api/team-aggregation?timeFrame=${timeFrame}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setTeamAggregation(data.teamAggregation)
+          console.log('✅ Team aggregation data loaded:', data.teamAggregation)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching team aggregation:', error)
+    } finally {
+      setIsLoadingTeamAggregation(false)
+    }
+  }
+
+  // Function to calculate daily average based on time frame
+  const calculateDailyAverage = (totalHours: number, timeFrame: string): number => {
+    const now = new Date()
+    let workingDays = 0
+    
+    switch (timeFrame) {
+      case 'daily':
+        workingDays = 1
+        break
+      case 'weekly':
+        // Count working days in current week (Monday-Friday)
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - now.getDay() + 1) // Monday
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(startOfWeek.getDate() + 4) // Friday
+        
+        workingDays = 5
+        break
+      case 'monthly':
+        // Approximate working days in current month (22 working days average)
+        workingDays = 22
+        break
+      case 'annual':
+        // Approximate working days in year (260 working days average)
+        workingDays = 260
+        break
+      default:
+        workingDays = 22
+    }
+    
+    return workingDays > 0 ? totalHours / workingDays : 0
+  }
 
   // Function to refresh time entries from API
   const refreshTimeEntries = async () => {
@@ -449,6 +509,11 @@ export default function DataDashboard() {
     }
     
     fetchDashboardData()
+    
+    // Also fetch team aggregation data if in team view
+    if (selectedUser === 'all') {
+      fetchTeamAggregation(adminDateRange)
+    }
   }, [selectedUser, adminDateRange])
   
   // Live session state
@@ -2890,7 +2955,13 @@ export default function DataDashboard() {
                 <div className="flex items-center justify-center gap-2">
                   <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Time Frame:</span>
-                  <Select value={adminDateRange} onValueChange={(value) => setAdminDateRange(value)}>
+                  <Select value={adminDateRange} onValueChange={(value) => {
+                    setAdminDateRange(value)
+                    // Refresh team aggregation data when time frame changes
+                    if (selectedUser === 'all') {
+                      fetchTeamAggregation(value)
+                    }
+                  }}>
                     <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
@@ -2910,7 +2981,13 @@ export default function DataDashboard() {
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Team Billable Hours</p>
                           <p className="text-2xl font-bold text-green-600">
-                            {mockTeamData.totalTeamBillable.toFixed(1)}h
+                            {isLoadingTeamAggregation ? (
+                              <span className="text-muted-foreground">Loading...</span>
+                            ) : teamAggregation ? (
+                              `${(teamAggregation.teamMetrics.totalBillableHours || 0).toFixed(1)}h`
+                            ) : (
+                              `${mockTeamData.totalTeamBillable.toFixed(1)}h`
+                            )}
                           </p>
                         </div>
                         <div className="p-3 rounded-full bg-green-100 text-green-600">
@@ -2926,7 +3003,13 @@ export default function DataDashboard() {
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Avg Daily Billable</p>
                           <p className="text-2xl font-bold">
-                            {mockTeamData.averageDailyBillable.toFixed(1)}h
+                            {isLoadingTeamAggregation ? (
+                              <span className="text-muted-foreground">Loading...</span>
+                            ) : teamAggregation ? (
+                              `${calculateDailyAverage(teamAggregation.teamMetrics.totalBillableHours || 0, adminDateRange).toFixed(2)}h`
+                            ) : (
+                              `${mockTeamData.averageDailyBillable.toFixed(1)}h`
+                            )}
                           </p>
                         </div>
                         <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -3056,7 +3139,13 @@ export default function DataDashboard() {
                 <div className="flex items-center justify-center gap-2">
                   <CalendarDays className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Time Frame:</span>
-                  <Select value={adminDateRange} onValueChange={(value) => setAdminDateRange(value)}>
+                  <Select value={adminDateRange} onValueChange={(value) => {
+                    setAdminDateRange(value)
+                    // Refresh team aggregation data when time frame changes
+                    if (selectedUser === 'all') {
+                      fetchTeamAggregation(value)
+                    }
+                  }}>
                     <SelectTrigger className="w-40">
                       <SelectValue />
                     </SelectTrigger>
