@@ -1473,7 +1473,7 @@ export default function LawFirmDashboard() {
             
             const completedEntry = {
               id: `completed-${Date.now()}`,
-              date: clockInTime.toISOString().split('T')[0],
+              date: clockInTime.toLocaleDateString('en-CA'),
               clockIn: clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               clockOut: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               totalHours: Math.round(totalHours * 100) / 100,

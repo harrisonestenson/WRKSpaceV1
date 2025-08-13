@@ -237,7 +237,7 @@ export default function DataDashboard() {
           // Transform API data to match the expected format
           const transformedEntries = data.timeEntries.map((entry: any) => ({
             id: entry.id,
-            date: new Date(entry.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+            date: new Date(entry.date).toLocaleDateString('en-CA'), // Convert to YYYY-MM-DD format using local date
             clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
             clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
             totalHours: entry.duration ? entry.duration / 3600 : 0,
@@ -435,7 +435,7 @@ export default function DataDashboard() {
             // Transform API data to match the expected format
             const transformedEntries = data.timeEntries.map((entry: any) => ({
               id: entry.id,
-              date: new Date(entry.date).toISOString().split('T')[0], // Convert to YYYY-MM-DD format
+              date: new Date(entry.date).toLocaleDateString('en-CA'), // Convert to YYYY-MM-DD format using local date
               clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
               clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
               totalHours: entry.duration ? entry.duration / 3600 : 0,
@@ -835,7 +835,7 @@ export default function DataDashboard() {
   )
 
   // Calculate today's summary
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA')
   const todayEntries = timeEntries.filter(entry => entry.date === today)
   const todayBillableHours = todayEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
   const todayTotalHours = todayEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
@@ -852,19 +852,19 @@ export default function DataDashboard() {
       case "weekly":
         startDate.setDate(now.getDate() - 7)
         return { 
-          start: startDate.toISOString().split('T')[0], 
+          start: startDate.toLocaleDateString('en-CA'), 
           end: today 
         }
       case "monthly":
         startDate.setMonth(now.getMonth() - 1)
         return { 
-          start: startDate.toISOString().split('T')[0], 
+          start: startDate.toLocaleDateString('en-CA'), 
           end: today 
         }
       case "quarterly":
         startDate.setMonth(now.getMonth() - 3)
         return { 
-          start: startDate.toISOString().split('T')[0], 
+          start: startDate.toLocaleDateString('en-CA'), 
           end: today 
         }
       default:
@@ -943,7 +943,7 @@ export default function DataDashboard() {
   // Function to get historical billable hours for a specific date and user
   const getHistoricalDailyHours = (date: string, userId?: string) => {
     // Convert date to YYYY-MM-DD format for lookup
-    const dateStr = new Date(date).toISOString().split('T')[0]
+    const dateStr = new Date(date).toLocaleDateString('en-CA')
     const dateData = historicalDailyHours[dateStr]
     
     if (!dateData) return 0
@@ -1036,6 +1036,9 @@ export default function DataDashboard() {
       const userId = getDatabaseUserId(userName)
       
       console.log('Starting session for user:', { userName, userId, selectedUser })
+      console.log('ClockInTime type:', typeof clockInTime)
+      console.log('ClockInTime value:', clockInTime)
+      console.log('ClockInTime instanceof Date:', clockInTime instanceof Date)
       
       // Call the clock-sessions API to create a new session
       const response = await fetch('/api/clock-sessions', {
@@ -1068,6 +1071,10 @@ export default function DataDashboard() {
         userId: userId
       }
       
+      console.log('Created session object:', session)
+      console.log('Session clockInTime type:', typeof session.clockInTime)
+      console.log('Session clockInTime instanceof Date:', session.clockInTime instanceof Date)
+      
       setLiveSession(session)
       localStorage.setItem('clockSession', JSON.stringify(session))
       console.log('Started live session in database:', session)
@@ -1084,6 +1091,9 @@ export default function DataDashboard() {
     if (liveSession) {
       try {
         console.log('Ending live session:', liveSession)
+        console.log('liveSession.clockInTime type:', typeof liveSession.clockInTime)
+        console.log('liveSession.clockInTime instanceof Date:', liveSession.clockInTime instanceof Date)
+        console.log('liveSession.clockInTime value:', liveSession.clockInTime)
         
         // Don't allow clock-out when viewing 'all' users
         if (liveSession.userId === 'all') {
@@ -1092,11 +1102,25 @@ export default function DataDashboard() {
         
         // Calculate final duration
         const now = new Date()
-        const finalDuration = Math.floor((now.getTime() - liveSession.clockInTime.getTime()) / 1000)
+        
+        // Ensure clockInTime is a Date object
+        const clockInTime = liveSession.clockInTime instanceof Date 
+          ? liveSession.clockInTime 
+          : new Date(liveSession.clockInTime)
+        
+        const finalDuration = Math.max(1, Math.floor((now.getTime() - clockInTime.getTime()) / 1000))
         const totalHours = finalDuration / 3600
+        
+        // Additional validation to ensure duration is valid
+        if (finalDuration <= 0 || isNaN(finalDuration)) {
+          throw new Error(`Invalid duration calculated: ${finalDuration}. Clock in: ${clockInTime}, Current: ${now}`)
+        }
         
         console.log('Final duration (seconds):', finalDuration)
         console.log('Total hours:', totalHours)
+        console.log('Clock in time:', clockInTime)
+        console.log('Current time:', now)
+        console.log('Time difference (ms):', now.getTime() - clockInTime.getTime())
         
         // Call the clock-sessions API to update the session
         const response = await fetch('/api/clock-sessions', {
@@ -1123,8 +1147,8 @@ export default function DataDashboard() {
         // Convert live session to completed time entry and save to database
         const completedEntry = {
           id: `completed-${Date.now()}`,
-          date: liveSession.clockInTime.toISOString().split('T')[0],
-          clockIn: liveSession.clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          date: clockInTime.toLocaleDateString('en-CA'), // Use local date in YYYY-MM-DD format
+          clockIn: clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           clockOut: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
           billableHours: 0, // Will be updated with additional work hours
@@ -1137,21 +1161,25 @@ export default function DataDashboard() {
         
         // Save the time entry to the database via API
         try {
+          const timeEntryData = {
+            userId: liveSession.userId, // Already the database user ID
+            date: completedEntry.date,
+            startTime: clockInTime.toISOString(),
+            endTime: now.toISOString(),
+            duration: finalDuration, // in seconds
+            billable: false, // Office sessions are not billable by default
+            description: completedEntry.notes,
+            source: 'clock-session'
+          }
+          
+          console.log('Sending time entry data to API:', timeEntryData)
+          
           const timeEntryResponse = await fetch('/api/time-entries', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              userId: liveSession.userId, // Already the database user ID
-              date: completedEntry.date,
-              startTime: liveSession.clockInTime.toISOString(),
-              endTime: now.toISOString(),
-              duration: finalDuration, // in seconds
-              billable: false, // Office sessions are not billable by default
-              description: completedEntry.notes,
-              source: 'clock-session'
-            })
+            body: JSON.stringify(timeEntryData)
           })
 
           if (!timeEntryResponse.ok) {
@@ -1465,7 +1493,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveSession.clockInTime.toISOString().split('T')[0], liveSession.userId).toFixed(1)}h
+                              {getHistoricalDailyHours(liveSession.clockInTime.toLocaleDateString('en-CA'), liveSession.userId).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1516,7 +1544,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveBillableTimer.startTime.toISOString().split('T')[0], selectedUser).toFixed(1)}h
+                              {getHistoricalDailyHours(liveBillableTimer.startTime.toLocaleDateString('en-CA'), selectedUser).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
@@ -1567,7 +1595,7 @@ export default function DataDashboard() {
                           </TableCell>
                           <TableCell>
                             <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveNonBillableTimer.startTime.toISOString().split('T')[0], selectedUser).toFixed(1)}h
+                              {getHistoricalDailyHours(liveNonBillableTimer.startTime.toLocaleDateString('en-CA'), selectedUser).toFixed(1)}h
                             </span>
                           </TableCell>
                           <TableCell>
