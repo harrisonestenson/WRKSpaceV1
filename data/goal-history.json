@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "data": {
+    "goalHistory": [
+      {
+        "id": "daily-billable-2025-08-13",
+        "goalId": "daily-billable",
+        "userId": "Heather Potter",
+        "goalName": "Daily Billable Hours",
+        "goalType": "GENERAL",
+        "frequency": "DAILY",
+        "targetValue": 8,
+        "actualValue": 1,
+        "status": "Missed",
+        "periodStart": "2025-08-13T04:00:00.000Z",
+        "periodEnd": "2025-08-14T03:59:59.999Z",
+        "completionDate": "2025-08-14T03:59:59.999Z",
+        "goalScope": "PERSONAL",
+        "createdAt": "2025-08-13T14:38:36.695Z"
+      }
+    ]
+  }
+}

@@ -7,7 +7,7 @@
       "frequency": "daily",
       "target": 8,
       "current": 1,
-      "status": "active",
+      "status": "completed",
       "description": "Daily billable hours target",
       "progress": 12.5
     },

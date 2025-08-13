@@ -142,7 +142,7 @@ export default function DataDashboard() {
   const [expandedGoals, setExpandedGoals] = useState<Set<number>>(new Set())
   const [goalFrequencyFilter, setGoalFrequencyFilter] = useState("all")
   const [goalStatusFilter, setGoalStatusFilter] = useState("all")
-  const [goalScopeFilter, setGoalScopeFilter] = useState("personal")
+  const [goalScopeFilter, setGoalScopeFilter] = useState("all")
   const [caseDateRange, setCaseDateRange] = useState("last30days")
   const [caseTimeType, setCaseTimeType] = useState("all")
   const [caseSortBy, setCaseSortBy] = useState("hours")
@@ -187,6 +187,107 @@ export default function DataDashboard() {
       console.error('❌ Error refreshing time entries:', error)
     }
   }
+
+  // Function to fetch goal history from API
+  const fetchGoalHistory = async () => {
+    try {
+      setGoalHistoryLoading(true)
+      console.log('🎯 Fetching goal history from API...')
+      
+      // Build query parameters based on current filters
+      const params = new URLSearchParams()
+      
+      if (selectedUser !== 'all') {
+        params.append('userId', selectedUser)
+      }
+      
+      if (goalTypeFilter !== 'all') {
+        // Map UI filter values to API values
+        const typeMapping: { [key: string]: string } = {
+          'Billable / Work Output': 'BILLABLE_HOURS',
+          'Time Management': 'TIME_MANAGEMENT', 
+          'Team Contribution & Culture': 'CULTURE'
+        }
+        params.append('goalType', typeMapping[goalTypeFilter] || goalTypeFilter)
+      }
+      
+      if (goalScopeFilter !== 'all') {
+        params.append('goalScope', goalScopeFilter === 'personal' ? 'PERSONAL' : 'TEAM')
+      }
+      
+      if (goalFrequencyFilter !== 'all') {
+        params.append('frequency', goalFrequencyFilter)
+      }
+      
+      if (goalStatusFilter !== 'all') {
+        params.append('status', goalStatusFilter === 'met' ? 'Met' : 'Missed')
+      }
+      
+
+      
+      const apiUrl = `/api/goal-history?${params.toString()}`
+      console.log('🔍 Calling API:', apiUrl)
+      const response = await fetch(apiUrl)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.goalHistory) {
+          // Transform API data to match the expected format
+          const transformedGoals = data.data.goalHistory.map((goal: any) => ({
+            id: goal.id,
+            name: goal.goalName,
+            type: goal.goalType,
+            scope: goal.goalScope.toLowerCase(),
+            frequency: goal.frequency,
+            target: goal.targetValue,
+            current: goal.actualValue,
+            status: goal.status.toLowerCase(),
+            periodStart: goal.periodStart,
+            periodEnd: goal.periodEnd,
+            completionDate: goal.completionDate
+          }))
+          setGoalHistoryData(transformedGoals)
+          console.log('✅ Fetched goal history:', transformedGoals)
+          
+          // Show success message in the UI (we can add toast notifications later)
+          if (transformedGoals.length > 0) {
+            console.log(`🎯 Dashboard refreshed! Found ${transformedGoals.length} goal history entries`)
+          } else {
+            console.log('🎯 Dashboard refreshed! No goal history entries found')
+          }
+          
+          // Set success state for visual feedback
+          setRefreshSuccess(true)
+          setTimeout(() => setRefreshSuccess(false), 2000) // Reset after 2 seconds
+          
+          // Update the button text to show the count briefly
+          console.log(`🎯 Dashboard refreshed successfully! Showing ${transformedGoals.length} goal history entries`)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching goal history:', error)
+      // Reset success state on error
+      setRefreshSuccess(false)
+    } finally {
+      setGoalHistoryLoading(false)
+    }
+  }
+
+  // Function to fetch team members
+  const fetchTeamMembers = async () => {
+    try {
+      const response = await fetch('/api/team-members')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setTeamMembers(data.teamMembers)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error)
+    } finally {
+      setIsLoadingTeamMembers(false)
+    }
+  }
   
   // Billable hour comparison state
   const [isBillableComparisonOpen, setIsBillableComparisonOpen] = useState(false)
@@ -200,53 +301,57 @@ export default function DataDashboard() {
   const [caseBreakdownData, setCaseBreakdownData] = useState<any>(null)
   const [caseBreakdownLoading, setCaseBreakdownLoading] = useState(false)
 
+  // Goal history state
+  const [goalHistoryData, setGoalHistoryData] = useState<any[]>([])
+  const [goalHistoryLoading, setGoalHistoryLoading] = useState(false)
+  const [refreshSuccess, setRefreshSuccess] = useState(false)
+  
+
+
   // Fetch team members and onboarding data on component mount
   useEffect(() => {
-    const fetchTeamMembers = async () => {
-      try {
-        const response = await fetch('/api/team-members')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setTeamMembers(data.teamMembers)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching team members:', error)
-      } finally {
-        setIsLoadingTeamMembers(false)
-      }
-    }
+    fetchTeamMembers()
+  }, [])
 
-    const fetchOnboardingData = async () => {
-      try {
-        const response = await fetch('/api/onboarding-data')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.data?.teamData?.teams) {
-            // Extract team member names from onboarding data
-            const onboardingTeamMembers = data.data.teamData.teams.flatMap((team: any) => 
-              team.members.map((member: any) => ({
-                id: member.name.toLowerCase().replace(/\s+/g, '-'),
-                name: member.name,
-                role: member.role,
-                title: member.title,
-                isAdmin: member.isAdmin
-              }))
-            )
-            console.log('Setting team members from onboarding data:', onboardingTeamMembers)
-            setTeamMembers(onboardingTeamMembers)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching onboarding data:', error)
-        // Fallback to team-members API if onboarding data fails
-        fetchTeamMembers()
-      } finally {
-        setIsLoadingTeamMembers(false)
-      }
-    }
+  // Fetch goal history when filters change
+  useEffect(() => {
+    fetchGoalHistory()
+  }, [selectedUser, goalTypeFilter, goalScopeFilter, goalFrequencyFilter, goalStatusFilter, goalDateRange])
+  
 
+
+  // Function to fetch onboarding data
+  const fetchOnboardingData = async () => {
+    try {
+      const response = await fetch('/api/onboarding-data')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.teamData?.teams) {
+          // Extract team member names from onboarding data
+          const onboardingTeamMembers = data.data.teamData.teams.flatMap((team: any) => 
+            team.members.map((member: any) => ({
+              id: member.name.toLowerCase().replace(/\s+/g, '-'),
+              name: member.name,
+              role: member.role,
+              title: member.title,
+              isAdmin: member.isAdmin
+            }))
+          )
+          console.log('Setting team members from onboarding data:', onboardingTeamMembers)
+          setTeamMembers(onboardingTeamMembers)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching onboarding data:', error)
+      // Fallback to team-members API if onboarding data fails
+      fetchTeamMembers()
+    } finally {
+      setIsLoadingTeamMembers(false)
+    }
+  }
+
+  // Fetch onboarding data on component mount
+  useEffect(() => {
     fetchOnboardingData()
   }, [])
   
@@ -1787,9 +1892,11 @@ export default function DataDashboard() {
   )
 
   const renderGoalHistorySection = () => {
-    // Use team goals if admin and "All Users" selected, otherwise use individual goals
-    const isTeamView = userRole === "admin" && selectedUser === "all"
-    const goalData = isTeamView ? mockTeamGoals : mockGoalHistory
+    // Goal History should only be shown for individual users, not team view
+    const isTeamView = false // Always treat as individual view since this is personal goal history
+    const goalData = goalHistoryData // Always use goalHistoryData since we have real data
+    
+
     
     // Filter goals based on selected criteria
     const filteredGoals = goalData.filter(goal => {
@@ -1822,8 +1929,6 @@ export default function DataDashboard() {
           return <Badge variant="default" className="bg-green-100 text-green-800">Met</Badge>
         case "missed":
           return <Badge variant="destructive" className="bg-red-100 text-red-800">Missed</Badge>
-        case "partial":
-          return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Partial</Badge>
         default:
           return <Badge variant="outline">Unknown</Badge>
       }
@@ -1833,22 +1938,46 @@ export default function DataDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-                            <div>
+          <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Target className="h-6 w-6" />
-              {isTeamView ? "Team Goal History" : "Goal History"}
+              Goal History
             </h2>
             <p className="text-muted-foreground">
-              {isTeamView 
-                ? "Track team performance and collective goals" 
-                : "Track your personal goals and performance"
-              }
-                              </p>
-                            </div>
-          <Button variant="outline" onClick={() => setActiveSection(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+              Track your personal goals and performance
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => fetchGoalHistory()}
+              disabled={goalHistoryLoading}
+              className={`flex items-center gap-2 ${
+                refreshSuccess ? 'bg-green-100 text-green-800 border-green-300' : ''
+              }`}
+            >
+              {goalHistoryLoading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Refreshing...
+                </>
+              ) : refreshSuccess ? (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Refreshed!
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Dashboard
+                </>
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => setActiveSection(null)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
 
         {/* Filter Goals */}
@@ -2052,23 +2181,14 @@ export default function DataDashboard() {
                   >
                     Missed
                   </button>
-                  <button
-                    onClick={() => setGoalStatusFilter("partial")}
-                    className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
-                      goalStatusFilter === "partial"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Partial
-                  </button>
+
                 </div>
               </div>
 
               {/* Goal Performance Summary */}
               <div className="border-t pt-4">
                 <h4 className="text-md font-semibold mb-3">Goal Performance Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">Total Goals</p>
                     <p className="text-2xl font-bold">{filteredGoals.length}</p>
@@ -2085,12 +2205,7 @@ export default function DataDashboard() {
                       {filteredGoals.filter(g => g.status === "missed").length}
                     </p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Partial</p>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {filteredGoals.filter(g => g.status === "partial").length}
-                    </p>
-                  </div>
+
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">Success Rate</p>
                     <p className="text-2xl font-bold text-blue-600">
@@ -2751,7 +2866,19 @@ export default function DataDashboard() {
             {activeSection === "time-log" && renderTimeLogSection()}
             {activeSection === "case-breakdown" && renderCaseBreakdownSection()}
             {activeSection === "unaccounted-time" && renderUnaccountedTimeSection()}
-            {activeSection === "goal-history" && renderGoalHistorySection()}
+            {activeSection === "goal-history" && (userRole !== "admin" || selectedUser !== "all") && renderGoalHistorySection()}
+            {activeSection === "goal-history" && userRole === "admin" && selectedUser === "all" && (
+              <div className="text-center py-12">
+                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Goal History Not Available</h3>
+                <p className="text-muted-foreground mb-4">
+                  Goal History is only available for individual users. Please select a specific user to view their goal history.
+                </p>
+                <Button variant="outline" onClick={() => setActiveSection(null)}>
+                  Back to Dashboard
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           // Render main dashboard grid
@@ -2862,12 +2989,7 @@ export default function DataDashboard() {
                     stats={`${mockTeamData.teamCases.length} active cases`}
                     onClick={() => setActiveSection("case-breakdown")}
                   />
-                  <DashboardCard
-                    title="Team Goal History"
-                    icon={Target}
-                    stats={`${mockTeamData.teamGoalCompletion}% completion rate`}
-                    onClick={() => setActiveSection("goal-history")}
-                  />
+                  {/* Removed Team Goal History - this should only be for individual users */}
               </div>
             </div>
             ) : (
