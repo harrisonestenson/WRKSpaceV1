@@ -160,5 +160,23 @@
     "source": "clock-session",
     "createdAt": "2025-08-13T18:36:05.672Z",
     "updatedAt": "2025-08-13T18:36:05.672Z"
+  },
+  {
+    "id": "entry-1755112306353",
+    "userId": "cme7fdvmn00002gp5j6x5jhgo",
+    "teamId": null,
+    "caseId": null,
+    "date": "2025-08-13T16:00:00.000Z",
+    "startTime": "2025-08-13T19:01:06.127Z",
+    "endTime": "2025-08-13T19:11:46.087Z",
+    "duration": 639,
+    "billable": false,
+    "description": "Office session completed",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "clock-session",
+    "createdAt": "2025-08-13T19:11:46.353Z",
+    "updatedAt": "2025-08-13T19:11:46.353Z"
   }
 ]

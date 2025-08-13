@@ -181,6 +181,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// DELETE - Clear all clock sessions (for testing)
+export async function DELETE() {
+  try {
+    console.log('🗑️  Clearing all clock sessions...')
+    
+    const deletedCount = await prisma.clockSession.deleteMany({})
+    
+    console.log(`✅ Deleted ${deletedCount.count} clock sessions`)
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: `Cleared ${deletedCount.count} clock sessions`,
+      deletedCount: deletedCount.count
+    })
+  } catch (error) {
+    console.error('Error clearing clock sessions:', error)
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
+}
+
 // Helper function to calculate date range based on time frame
 function getTimeFrameDateRange(timeFrame: string) {
   const now = new Date()

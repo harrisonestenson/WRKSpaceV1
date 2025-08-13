@@ -247,48 +247,229 @@ async function getPersonalGoals(memberId: string) {
 }
 
 // Helper function to resolve display name to database user ID
+// Cache for user resolution to avoid repeated database queries
+let userResolutionCache: { [key: string]: string } | null = null
+let cacheLastUpdated: number = 0
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 async function resolveUserId(displayName: string, onboardingData: any): Promise<string | null> {
   try {
-    // Search through all possible locations for the user
-    const searchLocations = [
-      onboardingData.profile?.name,
-      ...onboardingData.teamData?.teams?.map((team: any) => team.name) || [],
-      ...onboardingData.teamMemberExpectations?.map((member: any) => member.name) || []
-    ]
+    // Check if cache is valid
+    const now = Date.now()
+    if (!userResolutionCache || (now - cacheLastUpdated) > CACHE_TTL) {
+      await refreshUserResolutionCache()
+    }
     
-    // Check if the display name matches any of these names
-    const foundName = searchLocations.find((name: string) => 
-      name && (
-        name.toLowerCase() === displayName.toLowerCase() ||
-        name.toLowerCase().replace(/\s+/g, '-') === displayName.toLowerCase() ||
-        name.toLowerCase().replace(/\s+/g, '_') === displayName.toLowerCase()
-      )
-    )
+    // Try exact match first
+    if (userResolutionCache && userResolutionCache[displayName]) {
+      console.log(`✅ Cache hit: Found user ID for "${displayName}": ${userResolutionCache[displayName]}`)
+      return userResolutionCache[displayName]
+    }
     
-    if (foundName) {
-      // Now we need to find the actual database user ID for this name
-      // Check if we have a user in the database with this name
-      const databaseUser = await prisma.user.findFirst({
-        where: {
-          name: foundName
-        },
-        select: {
-          id: true
-        }
-      })
-      
-      if (databaseUser) {
-        console.log(`✅ Found database user ID for "${foundName}": ${databaseUser.id}`)
-        return databaseUser.id
-      } else {
-        console.log(`⚠️  No database user found for name: "${foundName}"`)
-        return null
+    // Try fuzzy matching if exact match fails
+    const resolvedUserId = await fuzzyMatchUserId(displayName)
+    if (resolvedUserId) {
+      // Cache the result for future use
+      if (userResolutionCache) {
+        userResolutionCache[displayName] = resolvedUserId
       }
+      return resolvedUserId
+    }
+    
+    console.log(`🔍 Could not resolve user ID for: "${displayName}"`)
+    return null
+  } catch (error) {
+    console.error('Error resolving user ID:', error)
+    return null
+  }
+}
+
+async function refreshUserResolutionCache(): Promise<void> {
+  try {
+    console.log('🔄 Refreshing user resolution cache...')
+    
+    // Get all users from database
+    const allUsers = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    })
+    
+    console.log(`📊 Found ${allUsers.length} users in database:`, allUsers.map(u => ({ id: u.id, name: u.name, email: u.email })))
+    
+    // Build comprehensive lookup table
+    const newCache: { [key: string]: string } = {}
+    
+    allUsers.forEach(user => {
+      if (user.id) {
+        // Store by user ID
+        newCache[user.id] = user.id
+        
+        // Store by exact name
+        if (user.name) {
+          newCache[user.name] = user.id
+          newCache[user.name.toLowerCase()] = user.id
+        }
+        
+        // Store by email
+        if (user.email) {
+          newCache[user.email] = user.id
+          newCache[user.email.toLowerCase()] = user.id
+        }
+        
+        // Store by email username (before @)
+        if (user.email) {
+          const emailUsername = user.email.split('@')[0]
+          newCache[emailUsername] = user.id
+          newCache[emailUsername.toLowerCase()] = user.id
+        }
+        
+        // Store by name variations
+        if (user.name) {
+          const nameVariations = generateNameVariations(user.name)
+          nameVariations.forEach(variation => {
+            newCache[variation] = user.id
+            newCache[variation.toLowerCase()] = user.id
+          })
+        }
+      }
+    })
+    
+    // Also add mappings from onboarding data if available
+    try {
+      const onboardingDataPath = path.join(process.cwd(), 'data', 'onboarding-data.json')
+      if (fs.existsSync(onboardingDataPath)) {
+        const onboardingData = JSON.parse(fs.readFileSync(onboardingDataPath, 'utf8'))
+        
+        // Add profile name mappings
+        if (onboardingData.profile?.name) {
+          const profileName = onboardingData.profile.name
+          const matchingUser = allUsers.find(u => u.name === profileName || u.email?.includes(profileName.toLowerCase()))
+          if (matchingUser) {
+            newCache[profileName] = matchingUser.id
+            newCache[profileName.toLowerCase()] = matchingUser.id
+          }
+        }
+        
+                 // Add team member name mappings
+         if (onboardingData.teamMemberExpectations) {
+           onboardingData.teamMemberExpectations.forEach((member: any) => {
+             if (member.name) {
+               const matchingUser = allUsers.find(u => u.name === member.name || u.email?.includes(member.name.toLowerCase()))
+               if (matchingUser) {
+                 newCache[member.name] = matchingUser.id
+                 newCache[member.name.toLowerCase()] = matchingUser.id
+               }
+             }
+           })
+         }
+      }
+    } catch (onboardingError) {
+      console.log('⚠️  Could not load onboarding data for additional mappings:', onboardingError)
+    }
+    
+    userResolutionCache = newCache
+    cacheLastUpdated = Date.now()
+    console.log(`✅ User resolution cache refreshed with ${Object.keys(newCache).length} mappings`)
+    
+  } catch (error) {
+    console.error('Error refreshing user resolution cache:', error)
+    userResolutionCache = null
+  }
+}
+
+function generateNameVariations(name: string): string[] {
+  const variations: string[] = []
+  
+  // Original name
+  variations.push(name)
+  
+  // Hyphenated version
+  variations.push(name.replace(/\s+/g, '-'))
+  
+  // Underscore version
+  variations.push(name.replace(/\s+/g, '_'))
+  
+  // Lowercase versions
+  variations.push(name.toLowerCase())
+  variations.push(name.replace(/\s+/g, '-').toLowerCase())
+  variations.push(name.replace(/\s+/g, '_').toLowerCase())
+  
+  // First name only
+  const firstName = name.split(' ')[0]
+  if (firstName && firstName !== name) {
+    variations.push(firstName)
+    variations.push(firstName.toLowerCase())
+  }
+  
+  // Last name only
+  const lastName = name.split(' ').slice(-1)[0]
+  if (lastName && lastName !== name && lastName !== firstName) {
+    variations.push(lastName)
+    variations.push(lastName.toLowerCase())
+  }
+  
+  return variations
+}
+
+async function fuzzyMatchUserId(displayName: string): Promise<string | null> {
+  try {
+    // Get all users for fuzzy matching
+    const allUsers = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    })
+    
+    if (allUsers.length === 0) return null
+    
+    // If only one user exists, return that user's ID
+    if (allUsers.length === 1) {
+      console.log(`🎯 Single user found, using: ${allUsers[0].id}`)
+      return allUsers[0].id
+    }
+    
+    // Try partial name matching
+    const normalizedDisplayName = displayName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    
+    for (const user of allUsers) {
+      if (user.name) {
+        const normalizedUserName = user.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+        
+        // Check if display name contains user name or vice versa
+        if (normalizedDisplayName.includes(normalizedUserName) || 
+            normalizedUserName.includes(normalizedDisplayName)) {
+          console.log(`🔍 Fuzzy match found: "${displayName}" -> "${user.name}" (${user.id})`)
+          return user.id
+        }
+      }
+      
+      if (user.email) {
+        const emailUsername = user.email.split('@')[0].toLowerCase()
+        if (normalizedDisplayName.includes(emailUsername) || 
+            emailUsername.includes(normalizedDisplayName)) {
+          console.log(`🔍 Email fuzzy match found: "${displayName}" -> "${user.email}" (${user.id})`)
+          return user.id
+        }
+      }
+    }
+    
+    // If still no match and there's only one admin user, use that
+    const adminUsers = allUsers.filter(u => u.role === 'ADMIN')
+    if (adminUsers.length === 1) {
+      console.log(`👑 Single admin user found, using: ${adminUsers[0].id}`)
+      return adminUsers[0].id
     }
     
     return null
   } catch (error) {
-    console.error('Error resolving user ID:', error)
+    console.error('Error in fuzzy matching:', error)
     return null
   }
 }
@@ -357,16 +538,16 @@ function calculateAverageClockTimes(clockSessions: any[]) {
   clockSessions.forEach(session => {
     if (session.clockIn) {
       const clockInTime = new Date(session.clockIn)
-      // Use UTC methods to avoid timezone conversion
-      const minutes = clockInTime.getUTCHours() * 60 + clockInTime.getUTCMinutes()
+      // Use local time methods to get user's actual timezone
+      const minutes = clockInTime.getHours() * 60 + clockInTime.getMinutes()
       totalClockInMinutes += minutes
       validClockInCount++
     }
     
     if (session.clockOut) {
       const clockOutTime = new Date(session.clockOut)
-      // Use UTC methods to avoid timezone conversion
-      const minutes = clockOutTime.getUTCHours() * 60 + clockOutTime.getUTCMinutes()
+      // Use local time methods to get user's actual timezone
+      const minutes = clockOutTime.getHours() * 60 + clockOutTime.getMinutes()
       totalClockOutMinutes += minutes
       validClockOutCount++
     }
