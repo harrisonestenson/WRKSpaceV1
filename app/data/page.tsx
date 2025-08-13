@@ -1065,6 +1065,7 @@ export default function DataDashboard() {
         // Delete from database first
         const response = await fetch(`/api/time-entries/${entryId}`, {
           method: 'DELETE',
+          credentials: 'include',
         })
 
         if (!response.ok) {
