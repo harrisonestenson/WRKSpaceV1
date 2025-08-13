@@ -1161,30 +1161,69 @@ export default function DataDashboard() {
     }
   }
 
-  const renderTimeLogSection = () => (
-    <div className="space-y-6">
-      {/* Header */}
+  const renderTimeLogSection = () => {
+    // Check if this is team view
+    const isTeamView = userRole === "admin" && selectedUser === "all"
+    
+    if (isTeamView) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
           <div className="flex items-center justify-between">
-              <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            My Time Log
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track your daily time entries and billable hours
-          </p>
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Clock className="h-6 w-6" />
+                Team Time Log
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Team time logs are not available in team view
+              </p>
             </div>
-                        <div className="flex items-center gap-3">
-
-          <Button variant="outline" onClick={() => handleExport("csv")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-          <Button variant="outline" onClick={() => handleExport("pdf")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </Button>
-                      <Button 
+            <Button variant="outline" onClick={() => setActiveSection(null)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
+          
+          {/* Empty State */}
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Clock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Team Time Logs</h3>
+              <p className="text-muted-foreground">
+                Individual time logs are only visible when viewing specific team members.
+                <br />
+                Switch to a specific user to see their time tracking data.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+    
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Clock className="h-6 w-6" />
+              My Time Log
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track your daily time entries and billable hours
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => handleExport("csv")}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button variant="outline" onClick={() => handleExport("pdf")}>
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+            <Button 
               variant={liveSession ? "default" : "outline"} 
               onClick={() => {
                 if (liveSession) {
@@ -1200,42 +1239,42 @@ export default function DataDashboard() {
                 }
               }}
             >
-            {liveSession ? (
+              {liveSession ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Clock Out
+                </>
+              ) : (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Clock In
+                </>
+              )}
+            </Button>
+            {process.env.NODE_ENV === 'development' && (
               <>
-                <Clock className="h-4 w-4 mr-2" />
-                Clock Out
-              </>
-            ) : (
-              <>
-                <Clock className="h-4 w-4 mr-2" />
-                Clock In
+                <Button variant="outline" onClick={async () => {
+                  try {
+                    const response = await fetch('/api/daily-rollover', { method: 'POST' })
+                    if (response.ok) {
+                      alert('Daily rollover triggered successfully!')
+                      // Refresh the historical data
+                      window.location.reload()
+                    }
+                  } catch (error) {
+                    alert('Failed to trigger daily rollover')
+                  }
+                }}>
+                  🔄 Daily Rollover
+                </Button>
               </>
             )}
-          </Button>
-          {process.env.NODE_ENV === 'development' && (
-            <>
-              <Button variant="outline" onClick={async () => {
-                try {
-                  const response = await fetch('/api/daily-rollover', { method: 'POST' })
-                  if (response.ok) {
-                    alert('Daily rollover triggered successfully!')
-                    // Refresh the historical data
-                    window.location.reload()
-                  }
-                } catch (error) {
-                  alert('Failed to trigger daily rollover')
-                }
-              }}>
-                🔄 Daily Rollover
-              </Button>
-            </>
-          )}
-          <Button variant="outline" onClick={() => setActiveSection(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-            </div>
+            <Button variant="outline" onClick={() => setActiveSection(null)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
           </div>
+        </div>
 
       {/* Date Range Filter */}
       <Card>
@@ -1735,10 +1774,47 @@ export default function DataDashboard() {
       </Dialog>
     </div>
   )
+  }
 
   const renderCaseBreakdownSection = () => {
     // Use team data if admin and "All Users" selected, otherwise use individual data
     const isTeamView = userRole === "admin" && selectedUser === "all"
+    
+    if (isTeamView) {
+      return (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <BarChart3 className="h-6 w-6" />
+                Team Case Breakdown
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Team case breakdowns are not available in team view
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => setActiveSection(null)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
+          
+          {/* Empty State */}
+          <Card>
+            <CardContent className="p-12 text-center">
+              <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Team Case Breakdown</h3>
+              <p className="text-muted-foreground">
+                Individual case breakdowns are only visible when viewing specific team members.
+                <br />
+                Switch to a specific user to see their case breakdown data.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
     
     // Use real data or fallback to empty state
     const caseData = caseBreakdownData?.breakdown || []
@@ -1773,18 +1849,15 @@ export default function DataDashboard() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-                    <div>
+          <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <BarChart3 className="h-6 w-6" />
-              {isTeamView ? "Team Case Breakdown" : "Case Breakdown"}
+              Case Breakdown
             </h2>
-            <p className="text-muted-foreground">
-              {isTeamView 
-                ? "See how team time is divided across cases" 
-                : "See how your time is divided across your cases"
-              }
+            <p className="text-sm text-muted-foreground">
+              See how your time is divided across your cases
             </p>
-                    </div>
+          </div>
           <Button variant="outline" onClick={() => setActiveSection(null)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
