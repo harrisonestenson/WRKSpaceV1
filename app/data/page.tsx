@@ -139,6 +139,7 @@ export default function DataDashboard() {
   
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState("last7days")
+  const [forceRecalculate, setForceRecalculate] = useState(0)
   const [sortBy, setSortBy] = useState("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
@@ -990,13 +991,33 @@ export default function DataDashboard() {
     }
   }
 
-  const handleDeleteEntry = (entryId: number) => {
+  const handleDeleteEntry = async (entryId: number) => {
     if (confirm('Are you sure you want to delete this time entry?')) {
-      setTimeEntries(prev => {
-        const newEntries = prev.filter(entry => entry.id !== entryId)
-        return newEntries
-      })
-      console.log(`Deleted entry ${entryId}`)
+      try {
+        // Delete from database first
+        const response = await fetch(`/api/time-entries/${entryId}`, {
+          method: 'DELETE',
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to delete entry: ${response.status}`)
+        }
+
+        // If database deletion successful, remove from local state
+        setTimeEntries(prev => {
+          const newEntries = prev.filter(entry => entry.id !== entryId)
+          return newEntries
+        })
+        
+        console.log(`Deleted entry ${entryId} from database`)
+        
+        // Force recalculation of summary stats and averages
+        setForceRecalculate(prev => prev + 1)
+        
+      } catch (error) {
+        console.error('Error deleting time entry:', error)
+        alert(`Failed to delete time entry: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
   }
 
@@ -1238,25 +1259,219 @@ export default function DataDashboard() {
                 Team Time Log
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Team time logs are not available in team view
+                Track team daily time entries and billable hours
               </p>
             </div>
-            <Button variant="outline" onClick={() => setActiveSection(null)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" onClick={() => handleExport("csv")}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="outline" onClick={() => handleExport("pdf")}>
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+              <Button variant="outline" onClick={() => setActiveSection(null)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </div>
           </div>
-          
-          {/* Empty State */}
+
+          {/* Date Range Filter */}
           <Card>
-            <CardContent className="p-12 text-center">
-              <Clock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Team Time Logs</h3>
-              <p className="text-muted-foreground">
-                Individual time logs are only visible when viewing specific team members.
-                <br />
-                Switch to a specific user to see their time tracking data.
-              </p>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Date Range:</span>
+                </div>
+                <Select value={dateRange} onValueChange={setDateRange}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last7days">Last 7 Days</SelectItem>
+                    <SelectItem value="thismonth">This Month</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Sort by:</span>
+                </div>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="hours">Hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                >
+                  {sortOrder === "asc" ? "↑" : "↓"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Summary Bar */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Team Time Summary</h3>
+                <Select value={timePeriod} onValueChange={setTimePeriod}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    <h3 className="text-lg font-semibold">{getPeriodLabel(timePeriod)} Team Billable Hours</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-green-600">{periodBillableHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Total Team Hours</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-blue-600">{periodTotalHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <PieChart className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold">Team Billable %</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-purple-600">{periodBillablePercentage.toFixed(1)}%</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Users className="h-5 w-5 text-orange-600" />
+                    <h3 className="text-lg font-semibold">Active Team Members</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-orange-600">0</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Time Entries Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Time Entries
+                </span>
+                <Badge variant="outline">{timeEntries.length} entries</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12"></TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Office In</TableHead>
+                        <TableHead>Office Out</TableHead>
+                        <TableHead>Office Hours</TableHead>
+                        <TableHead>Work Hours</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead className="w-20">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {/* Debug info */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="bg-yellow-50 text-xs text-yellow-800">
+                            Debug: Team view - showing aggregated data
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      
+                      {/* Placeholder for team data */}
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-3">
+                            <Clock className="h-16 w-16 text-muted-foreground" />
+                            <h3 className="text-lg font-semibold">No Team Data Available</h3>
+                            <p className="text-muted-foreground text-center max-w-md">
+                              Team time aggregations will appear here once team members start logging time.
+                              <br />
+                              Data is aggregated daily across all active team members.
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team Metrics Summary */}
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Team Performance Metrics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Average Team Hours/Day</p>
+                  <p className="text-2xl font-bold">{averageTotalHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Average Team Billable Hours</p>
+                  <p className="text-2xl font-bold text-green-600">{averageBillableHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Average Team Clock In</p>
+                  <p className="text-2xl font-bold">
+                    {timeEntries.length > 0 ? 
+                      new Date(timeEntries.reduce((acc, entry) => {
+                        const time = new Date(`2000-01-01T${entry.clockIn}:00`)
+                        return acc + time.getTime()
+                      }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: false 
+                      }) : '-'
+                    }
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Average Team Clock Out</p>
+                  <p className="text-2xl font-bold">
+                    {timeEntries.length > 0 ? 
+                      new Date(timeEntries.reduce((acc, entry) => {
+                        const time = new Date(`2000-01-01T${entry.clockIn}:00`)
+                        return acc + time.getTime()
+                      }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: false 
+                      }) : '-'
+                    }
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
