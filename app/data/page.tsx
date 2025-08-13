@@ -4,7 +4,6 @@ import React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -137,35 +136,8 @@ export default function DataDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
   const { data: session, status } = useSession()
-  const router = useRouter()
   
-  // Redirect to signin if not authenticated
-  useEffect(() => {
-    if (status === 'loading') return // Still loading, wait
-    
-    if (status === 'unauthenticated') {
-      console.log('User not authenticated, redirecting to signin')
-      router.push('/auth/signin')
-      return
-    }
-  }, [status, router])
-  
-  // Show loading while checking authentication
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-lg">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-  
-  // Don't render anything if not authenticated (will redirect)
-  if (status === 'unauthenticated') {
-    return null
-  }
+  // No authentication required - users can access and delete time entries without logging in
   
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState("last7days")
@@ -3447,13 +3419,7 @@ export default function DataDashboard() {
             <Badge variant="outline" className="text-sm">
               {userRole === "admin" ? "Admin View" : "Member View"}
             </Badge>
-            {session && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Logged in as:</span>
-                <Badge variant="secondary">{session.user.email}</Badge>
-                <Badge variant="outline">{session.user.role}</Badge>
-              </div>
-            )}
+
           </div>
           
           {/* Admin Controls */}

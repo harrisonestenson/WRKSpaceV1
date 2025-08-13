@@ -41,26 +41,13 @@ export async function DELETE(
     console.log('Request headers:', Object.fromEntries(request.headers.entries()))
     console.log('Request cookies:', request.cookies.getAll())
     
-    const session = await getServerSession(authOptions)
+    // No authentication required - anyone can delete time entries
+    // const session = await getServerSession(authOptions)
     
-    console.log('Session check result:', { 
-      hasSession: !!session, 
-      sessionData: session ? { 
-        user: session.user?.email, 
-        userId: session.user?.id,
-        role: session.user?.role
-      } : null 
-    })
-    
-    if (!session) {
-      console.log('No session found, returning 401')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const entryId = params.id
     console.log('DELETE /api/time-entries/[id] - Entry ID:', entryId)
     console.log('Entry ID type:', typeof entryId)
-    console.log('User:', session.user.email)
+    console.log('No authentication required - allowing deletion')
 
     // Read all time entries from the JSON file
     const allEntries = readStore()
@@ -83,7 +70,7 @@ export async function DELETE(
     // Write the updated entries back to the file
     writeStore(allEntries)
 
-    console.log(`Deleted time entry ${entryId} for user ${session.user.email}`)
+    console.log(`Deleted time entry ${entryId}`)
     console.log('Remaining entries:', allEntries.length)
 
     return NextResponse.json({ success: true, message: 'Time entry deleted successfully' })
