@@ -3,6 +3,7 @@
 import React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -46,6 +47,11 @@ import {
   BarChart,
   RefreshCw,
   X,
+  ArrowDownIcon,
+  FileDownIcon,
+  RotateCcwIcon,
+  ArrowLeftIcon,
+  FileTextIcon,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -129,6 +135,8 @@ const mockTeamGoals: any[] = []
 export default function DataDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
+  const { data: session, status } = useSession()
+  
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState("last7days")
   const [sortBy, setSortBy] = useState("date")
@@ -583,6 +591,12 @@ export default function DataDashboard() {
   
   // Initialize live session from localStorage on component mount
   useEffect(() => {
+    // Don't restore sessions when viewing all users (team view)
+    if (selectedUser === 'all') {
+      console.log('Team view active - skipping session restoration')
+      return
+    }
+
     console.log('Checking for saved clock session...')
     const savedClockState = localStorage.getItem('clockSession')
     if (savedClockState) {
@@ -619,7 +633,7 @@ export default function DataDashboard() {
     } else {
       console.log('No saved clock session found')
     }
-  }, [])
+  }, [selectedUser])
 
   // Poll for session ended flag
   useEffect(() => {
@@ -645,6 +659,13 @@ export default function DataDashboard() {
       console.log('Event detail clockInTime:', event.detail.clockInTime)
       console.log('Event type:', event.type)
       console.log('Event target:', event.target)
+      
+      // Don't start sessions when viewing all users (team view)
+      if (selectedUser === 'all') {
+        console.log('Team view active - ignoring startLiveSession event')
+        return
+      }
+      
       startLiveSession(event.detail.clockInTime)
     }
     
@@ -989,66 +1010,152 @@ export default function DataDashboard() {
 
 
   
-  // Live session management
-  const startLiveSession = (clockInTime: Date) => {
-    const session: LiveSession = {
-      id: `live-${Date.now()}`,
-      clockInTime,
-      currentTime: clockInTime,
-      duration: 0,
-      status: 'active',
-      userId: selectedUser || 'default-user'
+  // Helper function to get the correct database user ID
+  const getDatabaseUserId = (userName: string) => {
+    // Map user names to database user IDs
+    const userMap: Record<string, string> = {
+      'Heather Potter': 'cme7fdvmn00002gp5j6x5jhgo', // Admin user from database
+      'heather-potter': 'cme7fdvmn00002gp5j6x5jhgo', // Frontend format
+      'default-user': 'cme7fdvmn00002gp5j6x5jhgo' // Default to admin for now
     }
-    setLiveSession(session)
-    localStorage.setItem('clockSession', JSON.stringify(session))
-    console.log('Started live session:', session)
+    
+    return userMap[userName] || userName
+  }
+
+  // Live session management
+  const startLiveSession = async (clockInTime: Date) => {
+    try {
+      // Get the correct user ID from the database user
+      const userName = selectedUser || 'default-user'
+      
+      // Don't allow clock-in when viewing 'all' users
+      if (userName === 'all') {
+        throw new Error('Cannot clock in when viewing all users. Please select a specific user.')
+      }
+      
+      const userId = getDatabaseUserId(userName)
+      
+      console.log('Starting session for user:', { userName, userId, selectedUser })
+      
+      // Call the clock-sessions API to create a new session
+      const response = await fetch('/api/clock-sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          action: 'clock-in',
+          timestamp: clockInTime.toISOString()
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to clock in: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      const result = await response.json()
+      console.log('Clock in API response:', result)
+
+      // Create local session with the database session ID
+      const session: LiveSession = {
+        id: result.session?.id || `live-${Date.now()}`,
+        clockInTime,
+        currentTime: clockInTime,
+        duration: 0,
+        status: 'active',
+        userId: userId
+      }
+      
+      setLiveSession(session)
+      localStorage.setItem('clockSession', JSON.stringify(session))
+      console.log('Started live session in database:', session)
+      
+    } catch (error) {
+      console.error('Error starting live session:', error)
+      alert(`Failed to clock in: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
   
-  const endLiveSession = () => {
+  const endLiveSession = async () => {
     console.log('endLiveSession called, liveSession:', liveSession)
     
     if (liveSession) {
-      console.log('Ending live session:', liveSession)
-      
-      // Calculate final duration
-      const now = new Date()
-      const finalDuration = Math.floor((now.getTime() - liveSession.clockInTime.getTime()) / 1000)
-      const totalHours = finalDuration / 3600
-      
-      console.log('Final duration (seconds):', finalDuration)
-      console.log('Total hours:', totalHours)
-      
-      // Convert live session to completed time entry
-      const completedEntry = {
-        id: `completed-${Date.now()}`,
-        date: liveSession.clockInTime.toISOString().split('T')[0],
-        clockIn: liveSession.clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        clockOut: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
-        billableHours: 0, // Will be updated with additional work hours
-        notes: "Office session completed",
-        status: "completed",
-        isOfficeSession: true
-      }
-      
-      console.log('Creating completed entry:', completedEntry)
-      
-      // Add to mock time entries (in a real app, this would go to database)
-                setTimeEntries(prev => {
-            console.log('Previous entries count:', prev.length)
-            const newEntries = [completedEntry, ...prev]
-            console.log('New entries count:', newEntries.length)
-            return newEntries
+      try {
+        console.log('Ending live session:', liveSession)
+        
+        // Don't allow clock-out when viewing 'all' users
+        if (liveSession.userId === 'all') {
+          throw new Error('Cannot clock out when viewing all users. Please select a specific user.')
+        }
+        
+        // Calculate final duration
+        const now = new Date()
+        const finalDuration = Math.floor((now.getTime() - liveSession.clockInTime.getTime()) / 1000)
+        const totalHours = finalDuration / 3600
+        
+        console.log('Final duration (seconds):', finalDuration)
+        console.log('Total hours:', totalHours)
+        
+        // Call the clock-sessions API to update the session
+        const response = await fetch('/api/clock-sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: getDatabaseUserId(liveSession.userId),
+            action: 'clock-out',
+            sessionId: liveSession.id,
+            timestamp: now.toISOString()
           })
-      
-      // Clear the live session
-      setLiveSession(null)
-      
-      // Clear localStorage for main dashboard sync
-      localStorage.removeItem('clockSession')
-      console.log('Cleared clock session from localStorage')
-      
-      console.log('Live session ended, entry added to time log')
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Failed to clock out: ${response.status} ${response.statusText} - ${errorText}`)
+        }
+
+        const result = await response.json()
+        console.log('Clock out API response:', result)
+        
+        // Convert live session to completed time entry (still for local display)
+        const completedEntry = {
+          id: `completed-${Date.now()}`,
+          date: liveSession.clockInTime.toISOString().split('T')[0],
+          clockIn: liveSession.clockInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          clockOut: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
+          billableHours: 0, // Will be updated with additional work hours
+          notes: "Office session completed",
+          status: "completed",
+          isOfficeSession: true
+        }
+        
+        console.log('Creating completed entry:', completedEntry)
+        
+        // Add to mock time entries (in a real app, this would go to database)
+        setTimeEntries(prev => {
+          console.log('Previous entries count:', prev.length)
+          const newEntries = [completedEntry, ...prev]
+          console.log('New entries count:', newEntries.length)
+          return newEntries
+        })
+        
+        // Clear the live session
+        setLiveSession(null)
+        
+        // Clear localStorage for main dashboard sync
+        localStorage.removeItem('clockSession')
+        console.log('Cleared clock session from localStorage')
+        
+        console.log('Live session ended, entry added to time log and database')
+        
+      } catch (error) {
+        console.error('Error ending live session:', error)
+        alert(`Failed to clock out: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     } else {
       console.log('No live session to end')
     }
@@ -3025,7 +3132,13 @@ export default function DataDashboard() {
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Avg Clock In</p>
                           <p className="text-2xl font-bold">
-                            {mockTeamData.averageClockIn}
+                            {isLoadingTeamAggregation ? (
+                              <span className="text-muted-foreground">Loading...</span>
+                            ) : teamAggregation ? (
+                              teamAggregation.teamMetrics.averageClockIn || 'N/A'
+                            ) : (
+                              mockTeamData.averageClockIn
+                            )}
                           </p>
                         </div>
                         <div className="p-3 rounded-full bg-purple-100 text-purple-600">
