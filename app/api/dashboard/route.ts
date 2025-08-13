@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { onboardingStore } from '@/lib/onboarding-store'
 import { prisma } from '@/lib/prisma'
+import { cache } from '@/lib/cache'
 import fs from 'fs'
 import path from 'path'
 
@@ -61,14 +62,24 @@ interface DashboardData {
   }
 }
 
-// Read time entries from file-based store
+// Read time entries from file-based store with caching
 function readTimeEntries(): any[] {
+  const cacheKey = 'time-entries'
+  const cached = cache.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+
   try {
     const p = path.join(process.cwd(), 'data', 'time-entries.json')
     if (fs.existsSync(p)) {
       const raw = fs.readFileSync(p, 'utf8')
       const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed : []
+      const result = Array.isArray(parsed) ? parsed : []
+      
+      // Cache for 1 minute since time entries change frequently
+      cache.set(cacheKey, result, 60 * 1000)
+      return result
     }
   } catch (e) {
     console.warn('Dashboard - read time entries failed:', e)
@@ -266,41 +277,73 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching personal goals:', error)
     }
 
-    // Fetch streaks from onboarding
+    // Fetch streaks from onboarding with caching
     try {
-      const streaksResponse = await fetch(`${request.nextUrl.origin}/api/streaks`)
-      if (streaksResponse.ok) {
-        const streaksData = await streaksResponse.json()
-        if (streaksData.success && streaksData.streaks) {
-          // Convert streaks to goals format for dashboard
-          const streakGoals = streaksData.streaks.map((streak: any) => ({
-            id: streak.id || Math.random().toString(),
-            title: streak.name,
-            type: 'Streak',
-            frequency: streak.frequency,
-            actual: 0, // Will be calculated based on streak progress (not implemented here)
-            target: 1,
-            status: streak.active ? 'active' : 'inactive',
-            progress: 0 // Will be calculated based on streak progress
-          }))
-          dashboardData.goals = [...dashboardData.goals, ...streakGoals]
+      const cacheKey = `streaks-${userId}`
+      const cachedStreaks = cache.get(cacheKey)
+      
+      if (cachedStreaks) {
+        // Convert cached streaks to goals format for dashboard
+        const streakGoals = cachedStreaks.map((streak: any) => ({
+          id: streak.id || Math.random().toString(),
+          title: streak.name,
+          type: 'Streak',
+          frequency: streak.frequency,
+          actual: 0, // Will be calculated based on streak progress (not implemented here)
+          target: 1,
+          status: streak.active ? 'active' : 'inactive',
+          progress: 0 // Will be calculated based on streak progress
+        }))
+        dashboardData.goals = [...dashboardData.goals, ...streakGoals]
+      } else {
+        const streaksResponse = await fetch(`${request.nextUrl.origin}/api/streaks`)
+        if (streaksResponse.ok) {
+          const streaksData = await streaksResponse.json()
+          if (streaksData.success && streaksData.streaks) {
+            // Cache streaks for 5 minutes
+            cache.set(cacheKey, streaksData.streaks, 5 * 60 * 1000)
+            
+            // Convert streaks to goals format for dashboard
+            const streakGoals = streaksData.streaks.map((streak: any) => ({
+              id: streak.id || Math.random().toString(),
+              title: streak.name,
+              type: 'Streak',
+              frequency: streak.frequency,
+              actual: 0, // Will be calculated based on streak progress (not implemented here)
+              target: 1,
+              status: streak.active ? 'active' : 'inactive',
+              progress: 0 // Will be calculated based on streak progress
+            }))
+            dashboardData.goals = [...dashboardData.goals, ...streakGoals]
+          }
         }
       }
     } catch (error) {
       console.error('Error fetching streaks:', error)
     }
 
-    // Fetch legal cases from onboarding
+    // Fetch legal cases from onboarding with caching
     try {
-      const legalCasesResponse = await fetch(`${request.nextUrl.origin}/api/legal-cases`)
-      if (legalCasesResponse.ok) {
-        const legalCasesData = await legalCasesResponse.json()
-        if (legalCasesData.success && legalCasesData.data.cases) {
-          dashboardData.legalCases = legalCasesData.data.cases.map((caseItem: any) => ({
-            id: caseItem.id,
-            name: caseItem.name,
-            startDate: caseItem.startDate
-          }))
+      const cacheKey = 'legal-cases'
+      const cachedCases = cache.get(cacheKey)
+      
+      if (cachedCases) {
+        dashboardData.legalCases = cachedCases
+      } else {
+        const legalCasesResponse = await fetch(`${request.nextUrl.origin}/api/legal-cases`)
+        if (legalCasesResponse.ok) {
+          const legalCasesData = await legalCasesResponse.json()
+          if (legalCasesData.success && legalCasesData.data.cases) {
+            const cases = legalCasesData.data.cases.map((caseItem: any) => ({
+              id: caseItem.id,
+              name: caseItem.name,
+              startDate: caseItem.startDate
+            }))
+            
+            // Cache legal cases for 10 minutes since they don't change often
+            cache.set(cacheKey, cases, 10 * 60 * 1000)
+            dashboardData.legalCases = cases
+          }
         }
       }
     } catch (error) {
@@ -333,50 +376,98 @@ export async function GET(request: NextRequest) {
     let completedPersonalGoals = 0
     
     try {
-      // Get personal goals for the specific user
-      const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
-      if (personalGoalsResponse.ok) {
-        const personalGoalsData = await personalGoalsResponse.json()
-        if (personalGoalsData.success && personalGoalsData.personalGoals) {
-          const personalGoals = personalGoalsData.personalGoals
+      // Get personal goals for the specific user with caching
+      const cacheKey = `personal-goals-${userId}`
+      const cachedGoals = cache.get(cacheKey)
+      
+      if (cachedGoals) {
+        const personalGoals = cachedGoals
+        
+        // Calculate goals based on time frame
+        personalGoals.forEach((goal: any) => {
+          const goalFrequency = goal.frequency?.toLowerCase()
+          let shouldCountGoal = false
           
-          // Calculate goals based on time frame
-          personalGoals.forEach((goal: any) => {
-            const goalFrequency = goal.frequency?.toLowerCase()
-            let shouldCountGoal = false
-            
-            // Determine if this goal should be counted for the current time frame
-            switch (timeFrame.toLowerCase()) {
-              case 'daily':
-                // Count daily goals only
-                shouldCountGoal = goalFrequency === 'daily'
-                break
-              case 'weekly':
-                // Count daily goals from the week + weekly goal
-                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly'
-                break
-              case 'monthly':
-                // Count daily goals from the month + weekly goals + monthly goal
-                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
-                break
-              case 'annual':
-              case 'yearly':
-                // Count all goal types
-                shouldCountGoal = true
-                break
-              default:
-                // Default to monthly logic
-                shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+          // Determine if this goal should be counted for the current time frame
+          switch (timeFrame.toLowerCase()) {
+            case 'daily':
+              // Count daily goals only
+              shouldCountGoal = goalFrequency === 'daily'
+              break
+            case 'weekly':
+              // Count daily goals from the week + weekly goal
+              shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly'
+              break
+            case 'monthly':
+              // Count daily goals from the month + weekly goals + monthly goal
+              shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+              break
+            case 'annual':
+            case 'yearly':
+              // Count all goal types
+              shouldCountGoal = true
+              break
+            default:
+              // Default to monthly logic
+              shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+          }
+          
+          if (shouldCountGoal) {
+            totalPersonalGoals++
+            // Check if goal is completed (progress >= 100%)
+            if (goal.progress >= 100) {
+              completedPersonalGoals++
             }
+          }
+        })
+      } else {
+        const personalGoalsResponse = await fetch(`${request.nextUrl.origin}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
+        if (personalGoalsResponse.ok) {
+          const personalGoalsData = await personalGoalsResponse.json()
+          if (personalGoalsData.success && personalGoalsData.personalGoals) {
+            const personalGoals = personalGoalsData.personalGoals
             
-            if (shouldCountGoal) {
-              totalPersonalGoals++
-              // Check if goal is completed (progress >= 100%)
-              if (goal.progress >= 100) {
-                completedPersonalGoals++
+            // Cache personal goals for 2 minutes since they can change
+            cache.set(cacheKey, personalGoals, 2 * 60 * 1000)
+            
+            // Calculate goals based on time frame
+            personalGoals.forEach((goal: any) => {
+              const goalFrequency = goal.frequency?.toLowerCase()
+              let shouldCountGoal = false
+              
+              // Determine if this goal should be counted for the current time frame
+              switch (timeFrame.toLowerCase()) {
+                case 'daily':
+                  // Count daily goals only
+                  shouldCountGoal = goalFrequency === 'daily'
+                  break
+                case 'weekly':
+                  // Count daily goals from the week + weekly goal
+                  shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly'
+                  break
+                case 'monthly':
+                  // Count daily goals from the month + weekly goals + monthly goal
+                  shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
+                  break
+                case 'annual':
+                case 'yearly':
+                  // Count all goal types
+                  shouldCountGoal = true
+                  break
+                default:
+                  // Default to monthly logic
+                  shouldCountGoal = goalFrequency === 'daily' || goalFrequency === 'weekly' || goalFrequency === 'monthly'
               }
-            }
-          })
+              
+              if (shouldCountGoal) {
+                totalPersonalGoals++
+                // Check if goal is completed (progress >= 100%)
+                if (goal.progress >= 100) {
+                  completedPersonalGoals++
+                }
+              }
+            })
+          }
         }
       }
     } catch (error) {
@@ -423,41 +514,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
-// TODO: Replace mock data with real database queries
-// Example of real Prisma queries to implement:
-/*
-// Get user goals
-const goals = await prisma.goal.findMany({
-  where: { userId },
-  orderBy: { createdAt: 'desc' }
-})
-
-// Get time entries for the time frame
-const timeEntries = await prisma.timeEntry.findMany({
-  where: {
-    userId,
-    date: {
-      gte: getTimeFrameStartDate(timeFrame),
-      lte: getTimeFrameEndDate(timeFrame)
-    }
-  },
-  orderBy: { date: 'desc' }
-})
-
-// Get team members (for admin view)
-const teamMembers = userRole === 'admin' ? await prisma.user.findMany({
-  where: { role: 'MEMBER' },
-  include: {
-    timeEntries: {
-      where: {
-        date: {
-          gte: getTimeFrameStartDate(timeFrame),
-          lte: getTimeFrameEndDate(timeFrame)
-        }
-      }
-    },
-    goals: true
-  }
-}) : []
-*/ 

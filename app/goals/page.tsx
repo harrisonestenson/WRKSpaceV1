@@ -101,9 +101,9 @@ export default function GoalsDashboard() {
         ])
 
         const companyBillableMap: Record<string, number> = {
-          weekly: weeklyAll?.summary?.billableHours ?? 0,
-          monthly: monthlyAll?.summary?.billableHours ?? 0,
-          annual: annualAll?.summary?.billableHours ?? 0,
+          weekly: goalsData.companyGoals?.currentProgress?.weeklyBillable ?? 0,
+          monthly: goalsData.companyGoals?.currentProgress?.monthlyBillable ?? 0,
+          annual: goalsData.companyGoals?.currentProgress?.annualBillable ?? 0,
         }
         const personalBillableMap: Record<string, number> = {
           daily: dailyUser?.summary?.billableHours ?? 0,
@@ -245,9 +245,9 @@ export default function GoalsDashboard() {
             ])
 
             const companyBillableMap: Record<string, number> = {
-              weekly: weeklyAll?.summary?.billableHours ?? 0,
-              monthly: monthlyAll?.summary?.billableHours ?? 0,
-              annual: annualAll?.summary?.billableHours ?? 0,
+              weekly: goalsData.companyGoals?.currentProgress?.weeklyBillable ?? 0,
+              monthly: goalsData.companyGoals?.currentProgress?.monthlyBillable ?? 0,
+              annual: goalsData.companyGoals?.currentProgress?.annualBillable ?? 0,
             }
             const personalBillableMap: Record<string, number> = {
               daily: dailyUser?.summary?.billableHours ?? 0,

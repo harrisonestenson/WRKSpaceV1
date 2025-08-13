@@ -128,6 +128,53 @@ function updatePersonalBillableGoals(userId: string, entryDate?: string) {
   }
 }
 
+// Recompute and update company-wide billable hours goals
+function updateCompanyBillableGoals(entryDate?: string) {
+  try {
+    const companyGoalsPath = join(process.cwd(), 'data', 'company-goals.json')
+    if (!existsSync(companyGoalsPath)) return
+
+    const rawCompanyGoals = readFileSync(companyGoalsPath, 'utf8')
+    const companyGoals = JSON.parse(rawCompanyGoals)
+    
+    const allEntries = readStore()
+    const referenceDate = entryDate ? new Date(entryDate) : new Date()
+    
+    // Calculate company-wide billable hours for different time frames
+    const weeklyBillable = calculateCompanyBillableHours('weekly', referenceDate, allEntries)
+    const monthlyBillable = calculateCompanyBillableHours('monthly', referenceDate, allEntries)
+    const annualBillable = calculateCompanyBillableHours('annual', referenceDate, allEntries)
+    
+    // Update company goals with current progress
+    const updatedCompanyGoals = {
+      ...companyGoals,
+      weeklyBillable: Math.round(weeklyBillable * 100) / 100,
+      monthlyBillable: Math.round(monthlyBillable * 100) / 100,
+      annualBillable: Math.round(annualBillable * 100) / 100
+    }
+    
+    // Save updated company goals
+    writeFileSync(companyGoalsPath, JSON.stringify(updatedCompanyGoals, null, 2))
+    console.log('Time Entries API - Company billable goals updated:', updatedCompanyGoals)
+    
+  } catch (error) {
+    console.error('Time Entries API - Error updating company goals:', error)
+  }
+}
+
+// Calculate company-wide billable hours for a specific time frame
+function calculateCompanyBillableHours(timeFrame: string, referenceDate: Date, allEntries: any[]): number {
+  const { start, end } = getTimeFrameDateRange(timeFrame, undefined, undefined, referenceDate)
+  
+  const entriesInRange = allEntries.filter((e: any) => {
+    const d = new Date(e.date)
+    return e.billable && d >= start && d <= end
+  })
+  
+  const totalHours = entriesInRange.reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
+  return Math.round(totalHours * 100) / 100
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -180,6 +227,14 @@ export async function DELETE() {
     
     // Clear all time entries by writing an empty array
     writeStore([])
+    
+    // Update company-wide billable goals after clearing entries
+    try {
+      updateCompanyBillableGoals()
+      console.log('Time Entries API - Company goals updated after clearing entries')
+    } catch (error) {
+      console.error('Time Entries API - Error updating company goals after clearing entries:', error)
+    }
     
     console.log('Time Entries API - Successfully cleared all time entries')
     
@@ -278,6 +333,13 @@ export async function POST(request: NextRequest) {
       console.log(`Time Entries API - Personal goals updated for ${userId} after logging ${Math.round((newEntry.duration / 3600) * 100) / 100} hours`)
     } catch (error) {
       console.error(`Time Entries API - Error updating personal goals for ${userId}:`, error)
+    }
+
+    // Update company-wide billable goals
+    try {
+      updateCompanyBillableGoals(newEntry.date)
+    } catch (error) {
+      console.error('Time Entries API - Error updating company goals after logging:', error)
     }
 
     return NextResponse.json({ 

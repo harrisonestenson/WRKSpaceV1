@@ -36,18 +36,86 @@ function loadCompanyGoals(): any {
   return null
 }
 
+// Calculate current progress from time entries
+async function calculateCompanyGoalsProgress() {
+  try {
+    const timeEntriesPath = join(process.cwd(), 'data', 'time-entries.json')
+    if (!existsSync(timeEntriesPath)) {
+      return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+    }
+
+    const rawTimeEntries = readFileSync(timeEntriesPath, 'utf8')
+    const timeEntries = JSON.parse(rawTimeEntries)
+    
+    if (!Array.isArray(timeEntries)) {
+      return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+    }
+
+    const now = new Date()
+    
+    // Calculate weekly billable hours
+    const weekStart = new Date(now)
+    weekStart.setDate(now.getDate() - now.getDay())
+    weekStart.setHours(0, 0, 0, 0)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    weekEnd.setHours(23, 59, 59, 999)
+    
+    const weeklyBillable = timeEntries
+      .filter((e: any) => e.billable && new Date(e.date) >= weekStart && new Date(e.date) <= weekEnd)
+      .reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
+    
+    // Calculate monthly billable hours
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    monthEnd.setHours(23, 59, 59, 999)
+    
+    const monthlyBillable = timeEntries
+      .filter((e: any) => e.billable && new Date(e.date) >= monthStart && new Date(e.date) <= monthEnd)
+      .reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
+    
+    // Calculate annual billable hours
+    const yearStart = new Date(now.getFullYear(), 0, 1)
+    const yearEnd = new Date(now.getFullYear(), 11, 31)
+    yearEnd.setHours(23, 59, 59, 999)
+    
+    const annualBillable = timeEntries
+      .filter((e: any) => e.billable && new Date(e.date) >= yearStart && new Date(e.date) <= yearEnd)
+      .reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
+    
+    return {
+      weeklyBillable: Math.round(weeklyBillable * 100) / 100,
+      monthlyBillable: Math.round(monthlyBillable * 100) / 100,
+      annualBillable: Math.round(annualBillable * 100) / 100
+    }
+  } catch (error) {
+    console.error('Company Goals API - Error calculating progress:', error)
+    return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+  }
+}
+
 export async function GET() {
   try {
     // First try to get from onboarding-data API
     try {
-      const onboardingDataResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3001'}/api/onboarding-data`)
+      const onboardingDataResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/onboarding-data`)
       if (onboardingDataResponse.ok) {
         const onboardingDataResult = await onboardingDataResponse.json()
         if (onboardingDataResult.success && onboardingDataResult.data?.teamData?.companyGoals) {
-          console.log('Company Goals API - Retrieved from onboarding-data API:', onboardingDataResult.data.teamData.companyGoals)
+          const companyGoals = onboardingDataResult.data.teamData.companyGoals
+          
+          // Calculate current progress from time entries
+          const currentProgress = await calculateCompanyGoalsProgress()
+          
+          const goalsWithProgress = {
+            ...companyGoals,
+            currentProgress
+          }
+          
+          console.log('Company Goals API - Retrieved from onboarding-data API with progress:', goalsWithProgress)
           return NextResponse.json({
             success: true,
-            companyGoals: onboardingDataResult.data.teamData.companyGoals,
+            companyGoals: goalsWithProgress,
             notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
           })
         }
@@ -59,10 +127,18 @@ export async function GET() {
     // Fallback to file storage
     const fileData = loadCompanyGoals()
     if (fileData) {
-      console.log('Company Goals API - Retrieved from file storage:', fileData)
+      // Calculate current progress from time entries
+      const currentProgress = await calculateCompanyGoalsProgress()
+      
+      const goalsWithProgress = {
+        ...fileData,
+        currentProgress
+      }
+      
+      console.log('Company Goals API - Retrieved from file storage with progress:', goalsWithProgress)
       return NextResponse.json({
         success: true,
-        companyGoals: fileData,
+        companyGoals: goalsWithProgress,
         notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
       })
     }
@@ -81,9 +157,17 @@ export async function GET() {
       annualBillable: 0
     }
     
+    // Calculate current progress from time entries
+    const currentProgress = await calculateCompanyGoalsProgress()
+    
+    const goalsWithProgress = {
+      ...goalsToReturn,
+      currentProgress
+    }
+    
     return NextResponse.json({
       success: true,
-      companyGoals: goalsToReturn,
+      companyGoals: goalsWithProgress,
       notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
     })
   } catch (error) {

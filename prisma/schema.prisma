@@ -44,6 +44,10 @@ model User {
   managedTeams  Team[]    @relation("TeamManager")
   createdGoals  Goal[]    @relation("GoalCreator")
   
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -113,7 +117,7 @@ model TimeEntry {
   status      TimeEntryStatus @default(PENDING)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Non-billable specific fields
   nonBillableTaskId String?
   points           Float?  // Contribution Value Score points
@@ -123,6 +127,11 @@ model TimeEntry {
   case        Case?    @relation(fields: [caseId], references: [id])
   nonBillableTask NonBillableTask? @relation(fields: [nonBillableTaskId], references: [id])
   
+  @@index([userId])
+  @@index([date])
+  @@index([billable])
+  @@index([status])
+  @@index([createdAt])
   @@map("time_entries")
 }
 
@@ -167,6 +176,12 @@ model Goal {
   team        Team?    @relation(fields: [teamId], references: [id], onDelete: Cascade)
   creator     User     @relation("GoalCreator", fields: [createdBy], references: [id])
   
+  @@index([userId])
+  @@index([teamId])
+  @@index([status])
+  @@index([scope])
+  @@index([startDate])
+  @@index([endDate])
   @@map("goals")
 }
 
@@ -222,6 +237,10 @@ model ClockSession {
   // Relationships
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  @@index([userId])
+  @@index([clockIn])
+  @@index([clockOut])
+  @@index([createdAt])
   @@map("clock_sessions")
 }
 

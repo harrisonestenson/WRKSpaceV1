@@ -887,22 +887,22 @@ export default function LawFirmDashboard() {
           const data = await response.json()
           setCompanyGoals(data.companyGoals)
           
-          // Calculate progress (using 0 for actual since we don't have real time tracking yet)
+          // Calculate progress using actual data from the API
           setCompanyProgress({
             weekly: { 
-              actual: 0, 
+              actual: data.companyGoals.currentProgress?.weeklyBillable || 0, 
               target: data.companyGoals.weeklyBillable, 
-              percentage: 0 
+              percentage: data.companyGoals.currentProgress?.weeklyBillable ? Math.round((data.companyGoals.currentProgress.weeklyBillable / data.companyGoals.weeklyBillable) * 100) : 0
             },
             monthly: { 
-              actual: 0, 
+              actual: data.companyGoals.currentProgress?.monthlyBillable || 0, 
               target: data.companyGoals.monthlyBillable, 
-              percentage: 0 
+              percentage: data.companyGoals.currentProgress?.monthlyBillable ? Math.round((data.companyGoals.currentProgress.monthlyBillable / data.companyGoals.monthlyBillable) * 100) : 0
             },
             annual: { 
-              actual: 0, 
+              actual: data.companyGoals.currentProgress?.annualBillable || 0, 
               target: data.companyGoals.annualBillable, 
-              percentage: 0 
+              percentage: data.companyGoals.currentProgress?.annualBillable ? Math.round((data.companyGoals.currentProgress.annualBillable / data.companyGoals.annualBillable) * 100) : 0
             }
           })
         }
