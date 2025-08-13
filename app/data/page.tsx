@@ -195,6 +195,10 @@ export default function DataDashboard() {
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false)
+  
+  // Case breakdown state
+  const [caseBreakdownData, setCaseBreakdownData] = useState<any>(null)
+  const [caseBreakdownLoading, setCaseBreakdownLoading] = useState(false)
 
   // Fetch team members and onboarding data on component mount
   useEffect(() => {
@@ -281,6 +285,26 @@ export default function DataDashboard() {
 
     fetchTimeEntries() // Fetch latest time entries from API
   }, []) // Empty dependency array - run once on mount
+  
+  // Fetch case breakdown data when user or time frame changes
+  useEffect(() => {
+    if (activeSection === 'case-breakdown' && selectedUser !== 'all') {
+      setCaseBreakdownLoading(true)
+      fetch(`/api/case-breakdown?userId=${encodeURIComponent(selectedUser)}&timeFrame=${adminDateRange}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCaseBreakdownData(data.data)
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching case breakdown:', error)
+        })
+        .finally(() => {
+          setCaseBreakdownLoading(false)
+        })
+    }
+  }, [activeSection, selectedUser, adminDateRange])
   
   // Fetch dashboard data when user or time frame changes
   useEffect(() => {
@@ -1439,72 +1463,15 @@ export default function DataDashboard() {
     // Use team data if admin and "All Users" selected, otherwise use individual data
     const isTeamView = userRole === "admin" && selectedUser === "all"
     
-    // Mock data for case breakdown (individual view)
-    const mockCaseBreakdown = [
-      {
-        id: 1,
-        caseName: "Smith v. Jones",
-        billableHours: 12.5,
-        totalHours: 14.0,
-        percentage: 36,
-        notes: "Active trial prep",
-        status: "active"
-      },
-      {
-        id: 2,
-        caseName: "Acme Divorce",
-        billableHours: 8.0,
-        totalHours: 9.0,
-        percentage: 23,
-        notes: "Discovery phase",
-        status: "active"
-      },
-      {
-        id: 3,
-        caseName: "Estate Review",
-        billableHours: 6.0,
-        totalHours: 6.0,
-        percentage: 15,
-        notes: "Completed",
-        status: "completed"
-      },
-      {
-        id: 4,
-        caseName: "Contract Review",
-        billableHours: 5.5,
-        totalHours: 6.5,
-        percentage: 13,
-        notes: "Final review stage",
-        status: "active"
-      },
-      {
-        id: 5,
-        caseName: "Consultation",
-        billableHours: 2.0,
-        totalHours: 3.0,
-        percentage: 8,
-        notes: "Initial client meeting",
-        status: "active"
-      }
-    ]
-    
-    // Add missing properties to team data
-    const teamCasesWithIds = mockTeamData.teamCases.map((case_, index) => ({
-      id: index + 1,
-      notes: "Team case",
-      status: "active",
-      ...(case_ as any)
-    }))
-    
-    const caseData = isTeamView ? teamCasesWithIds : mockCaseBreakdown
-
-    const totalLoggedHours = caseData.reduce((acc, case_) => acc + case_.totalHours, 0)
-    const totalBillableHours = caseData.reduce((acc, case_) => acc + case_.billableHours, 0)
+    // Use real data or fallback to empty state
+    const caseData = caseBreakdownData?.breakdown || []
+    const totalLoggedHours = caseBreakdownData?.summary?.totalHours || 0
+    const totalBillableHours = caseBreakdownData?.summary?.totalBillableHours || 0
 
     const sortedCases = [...caseData].sort((a, b) => {
       switch (caseSortBy) {
         case "hours":
-          return b.totalHours - a.totalHours
+          return b.billableHours - a.billableHours
         case "percentage":
           return b.percentage - a.percentage
         case "alphabetical":
@@ -1601,54 +1568,71 @@ export default function DataDashboard() {
             <Card>
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold mb-4">Time Distribution</h3>
-              <div className="relative w-full h-64 flex items-center justify-center">
-                {/* Simple pie chart using CSS */}
-                <div className="relative w-48 h-48">
-                  {/* Create individual pie segments with distinct colors */}
-                  {sortedCases.map((case_, index) => {
-                    const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]
-                    const color = colors[index % colors.length]
-                    const startAngle = sortedCases.slice(0, index).reduce((acc, c) => acc + (c.percentage / 100) * 360, 0)
-                    const angle = (case_.percentage / 100) * 360
-                    
-                    return (
-                      <div
-                        key={case_.id}
-                        className="absolute inset-0"
-                        style={{
-                          background: `conic-gradient(from ${startAngle}deg, ${color} 0deg, ${color} ${angle}deg, transparent ${angle}deg)`,
-                          borderRadius: '50%'
-                        }}
-                      />
-                    )
-                  })}
-                  <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold">{totalLoggedHours.toFixed(1)}h</p>
-                      <p className="text-sm text-muted-foreground">Total</p>
+              {caseBreakdownLoading ? (
+                <div className="relative w-full h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading case breakdown...</p>
+                  </div>
+                </div>
+              ) : caseData.length === 0 ? (
+                <div className="relative w-full h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-muted-foreground">No time entries found for this period</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative w-full h-64 flex items-center justify-center">
+                  {/* Simple pie chart using CSS */}
+                  <div className="relative w-48 h-48">
+                    {/* Create individual pie segments with distinct colors */}
+                    {sortedCases.map((case_, index) => {
+                      const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]
+                      const color = colors[index % colors.length]
+                      const startAngle = sortedCases.slice(0, index).reduce((acc, c) => acc + (c.percentage / 100) * 360, 0)
+                      const angle = (case_.percentage / 100) * 360
+                      
+                      return (
+                        <div
+                          key={case_.caseId || case_.id}
+                          className="absolute inset-0"
+                          style={{
+                            background: `conic-gradient(from ${startAngle}deg, ${color} 0deg, ${color} ${angle}deg, transparent ${angle}deg)`,
+                            borderRadius: '50%'
+                          }}
+                        />
+                      )
+                    })}
+                    <div className="absolute inset-4 bg-white rounded-full flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold">{totalLoggedHours.toFixed(1)}h</p>
+                        <p className="text-sm text-muted-foreground">Total</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
               
               {/* Legend */}
-              <div className="mt-4 space-y-2">
-                {sortedCases.map((case_, index) => {
-                  const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]
-                  const color = colors[index % colors.length]
-                  
-                  return (
-                    <div key={case_.id} className="flex items-center gap-2 text-sm">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: color }}
-                      />
-                      <span className="font-medium">{case_.caseName}</span>
-                      <span className="text-muted-foreground">({case_.totalHours}h, {case_.percentage}%)</span>
-                    </div>
-                  )
-                })}
-              </div>
+              {!caseBreakdownLoading && caseData.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {sortedCases.map((case_, index) => {
+                    const colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16"]
+                    const color = colors[index % colors.length]
+                    
+                    return (
+                      <div key={case_.caseId || case_.id} className="flex items-center gap-2 text-sm">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="font-medium">{case_.caseName}</span>
+                        <span className="text-muted-foreground">({case_.billableHours}h, {case_.percentage}%)</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -1669,52 +1653,64 @@ export default function DataDashboard() {
                 </Select>
               </div>
               
-              <div className="overflow-x-auto">
+              {caseBreakdownLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-muted-foreground">Loading case details...</p>
+                  </div>
+                </div>
+              ) : caseData.length === 0 ? (
+                <div className="flex items-center justify-center h-32">
+                  <p className="text-muted-foreground">No case data available</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Case Name</TableHead>
                         <TableHead>Billable Hours</TableHead>
-                      <TableHead>Total Hours</TableHead>
-                      <TableHead>% of Time</TableHead>
-                      <TableHead>Status</TableHead>
+                        <TableHead>% of Time</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                     {sortedCases.map((case_) => (
-                      <TableRow key={case_.id}>
+                      <TableRow key={case_.caseId || case_.id}>
                         <TableCell className="font-medium">{case_.caseName}</TableCell>
                         <TableCell className="text-green-600 font-medium">{case_.billableHours}h</TableCell>
-                        <TableCell>{case_.totalHours}h</TableCell>
                         <TableCell>{case_.percentage}%</TableCell>
-                        <TableCell>{getStatusBadge(case_.status)}</TableCell>
-                        </TableRow>
-                      ))}
+                        <TableCell>{getStatusBadge(case_.status || 'active')}</TableCell>
+                      </TableRow>
+                    ))}
                     {/* Totals Row */}
                     <TableRow className="border-t-2 bg-muted/20">
                       <TableCell className="font-bold">Total</TableCell>
                       <TableCell className="font-bold text-green-600">{totalBillableHours.toFixed(1)}h</TableCell>
-                      <TableCell className="font-bold">{totalLoggedHours.toFixed(1)}h</TableCell>
                       <TableCell className="font-bold">100%</TableCell>
                       <TableCell></TableCell>
                     </TableRow>
                     </TableBody>
                   </Table>
                 </div>
+              )}
               
               {/* Summary */}
-              <div className="mt-4 p-4 bg-muted/20 rounded-lg">
-                <div className="grid grid-cols-2 gap-4 text-center">
+              {!caseBreakdownLoading && caseData.length > 0 && (
+                <div className="mt-4 p-4 bg-muted/20 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
-                    <p className="text-sm text-muted-foreground">Total Logged</p>
-                    <p className="text-xl font-bold">{totalLoggedHours.toFixed(1)}h</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Billable</p>
-                    <p className="text-xl font-bold text-green-600">{totalBillableHours.toFixed(1)}h</p>
+                      <p className="text-sm text-muted-foreground">Total Logged</p>
+                      <p className="text-xl font-bold">{totalLoggedHours.toFixed(1)}h</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Billable</p>
+                      <p className="text-xl font-bold text-green-600">{totalBillableHours.toFixed(1)}h</p>
                     </div>
                   </div>
                 </div>
+              )}
               </CardContent>
             </Card>
         </div>

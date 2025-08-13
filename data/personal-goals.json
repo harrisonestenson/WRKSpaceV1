@@ -17,10 +17,10 @@
       "type": "Personal Goal",
       "frequency": "weekly",
       "target": 40,
-      "current": 1,
+      "current": 2,
       "status": "active",
       "description": "Weekly billable hours target",
-      "progress": 2.5
+      "progress": 5
     },
     {
       "id": "monthly-billable",
@@ -28,10 +28,10 @@
       "type": "Personal Goal",
       "frequency": "monthly",
       "target": 160,
-      "current": 1,
+      "current": 2,
       "status": "active",
       "description": "Monthly billable hours target",
-      "progress": 0.6
+      "progress": 1.3
     }
   ]
 }
