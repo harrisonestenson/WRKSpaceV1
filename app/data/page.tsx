@@ -3287,19 +3287,19 @@ export default function DataDashboard() {
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Billable Hour Comparison</p>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="mt-2"
-                            onClick={() => setIsBillableComparisonOpen(true)}
-                          >
-                            <BarChart className="h-4 w-4 mr-2" />
-                            View Comparison
-                          </Button>
+                          <p className="text-sm font-medium text-muted-foreground">Average Clock Out Time</p>
+                          <p className="text-2xl font-bold">
+                            {isLoadingTeamAggregation ? (
+                              <span className="text-muted-foreground">Loading...</span>
+                            ) : teamAggregation ? (
+                              teamAggregation.teamMetrics.averageClockOut || 'N/A'
+                            ) : (
+                              mockTeamData.averageClockOut
+                            )}
+                          </p>
                         </div>
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                          <BarChart className="h-6 w-6" />
+                        <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                          <Clock className="h-6 w-6" />
                         </div>
                       </div>
                     </CardContent>
@@ -3356,7 +3356,13 @@ export default function DataDashboard() {
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Average Time Spent Each Day in Office</p>
                         <p className="text-2xl font-bold">
-                          8.75h
+                          {isLoadingTeamAggregation ? (
+                            <span className="text-muted-foreground">Loading...</span>
+                          ) : teamAggregation ? (
+                            `${teamAggregation.teamMetrics.averageOfficeHoursPerDay || 0}h`
+                          ) : (
+                            '0h'
+                          )}
                         </p>
                       </div>
                       <div className="p-3 rounded-full bg-purple-100 text-purple-600">
@@ -3369,13 +3375,19 @@ export default function DataDashboard() {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Average Clock Out Time</p>
-                        <p className="text-2xl font-bold">
-                          {mockTeamData.averageClockOut}
-                        </p>
+                        <p className="text-sm font-medium text-muted-foreground">Billable Hour Comparison</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-2"
+                          onClick={() => setIsBillableComparisonOpen(true)}
+                        >
+                          <BarChart className="h-4 w-4 mr-2" />
+                          View Comparison
+                        </Button>
                       </div>
-                      <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                        <Clock className="h-6 w-6" />
+                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                        <BarChart className="h-6 w-6" />
                       </div>
                     </div>
                   </CardContent>

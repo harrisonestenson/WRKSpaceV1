@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     const teamAggregation = {
       totalMembers: teamMembers.length,
       timeFrame,
-      teamMetrics: calculateTeamMetrics(memberMetrics, allTimeEntries, timeFrame),
+      teamMetrics: await calculateTeamMetrics(memberMetrics, allTimeEntries, timeFrame),
       memberBreakdown: memberMetrics.sort((a, b) => b.efficiency - a.efficiency), // Sort by efficiency
       lastUpdated: new Date().toISOString()
     }
@@ -611,7 +611,7 @@ function calculateMemberMetrics(member: any, timeEntries: any[], goals: any[], t
 }
 
 // Calculate team-wide metrics
-function calculateTeamMetrics(memberMetrics: any[], allTimeEntries: any[], timeFrame: string) {
+async function calculateTeamMetrics(memberMetrics: any[], allTimeEntries: any[], timeFrame: string) {
   const totalBillableHours = memberMetrics.reduce((sum, member) => sum + member.billableHours, 0)
   const totalNonBillableHours = memberMetrics.reduce((sum, member) => sum + member.nonBillableHours, 0)
   const totalHours = totalBillableHours + totalNonBillableHours
@@ -660,6 +660,47 @@ function calculateTeamMetrics(memberMetrics: any[], allTimeEntries: any[], timeF
     ? formatTimeFromMinutes(allClockOutTimes.reduce((sum, time) => sum + time, 0) / allClockOutTimes.length)
     : 'N/A'
   
+  // Calculate total office hours from all clock sessions
+  let totalOfficeHours = 0
+  let totalOfficeSessions = 0
+  
+  // Get all clock sessions for the team to calculate office hours
+  for (const member of memberMetrics) {
+    try {
+      const onboardingData = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'onboarding-data.json'), 'utf8'))
+      const resolvedUserId = await resolveUserId(member.name, onboardingData)
+      if (resolvedUserId) {
+        const dateRange = getTimeFrameDateRange(timeFrame)
+        const memberClockSessions = await prisma.clockSession.findMany({
+          where: {
+            userId: resolvedUserId,
+            clockIn: {
+              gte: dateRange.start,
+              lte: dateRange.end
+            },
+            clockOut: { not: null } // Only completed sessions
+          }
+        })
+        
+        // Calculate office hours for this member
+        memberClockSessions.forEach((session: any) => {
+          if (session.clockIn && session.clockOut) {
+            const clockIn = new Date(session.clockIn)
+            const clockOut = new Date(session.clockOut)
+            const sessionTime = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60)
+            totalOfficeHours += sessionTime
+            totalOfficeSessions++
+          }
+        })
+      }
+    } catch (error) {
+      console.error(`Error calculating office hours for ${member.name}:`, error)
+    }
+  }
+  
+  // Calculate average office hours per day
+  const averageOfficeHoursPerDay = totalOfficeSessions > 0 ? totalOfficeHours / totalOfficeSessions : 0
+  
   // Find top performer
   const topPerformer = memberMetrics.reduce((top, member) => 
     member.efficiency > top.efficiency ? member : top, memberMetrics[0] || {})
@@ -678,7 +719,8 @@ function calculateTeamMetrics(memberMetrics: any[], allTimeEntries: any[], timeF
     needsAttention,
     memberCount: memberMetrics.length,
     averageClockIn: teamAverageClockIn,
-    averageClockOut: teamAverageClockOut
+    averageClockOut: teamAverageClockOut,
+    averageOfficeHoursPerDay: Math.round(averageOfficeHoursPerDay * 100) / 100
   }
 }
 
