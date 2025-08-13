@@ -1120,7 +1120,7 @@ export default function DataDashboard() {
         const result = await response.json()
         console.log('Clock out API response:', result)
         
-        // Convert live session to completed time entry (still for local display)
+        // Convert live session to completed time entry and save to database
         const completedEntry = {
           id: `completed-${Date.now()}`,
           date: liveSession.clockInTime.toISOString().split('T')[0],
@@ -1135,7 +1135,41 @@ export default function DataDashboard() {
         
         console.log('Creating completed entry:', completedEntry)
         
-        // Add to mock time entries (in a real app, this would go to database)
+        // Save the time entry to the database via API
+        try {
+          const timeEntryResponse = await fetch('/api/time-entries', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: getDatabaseUserId(liveSession.userId),
+              date: completedEntry.date,
+              startTime: liveSession.clockInTime.toISOString(),
+              endTime: now.toISOString(),
+              duration: finalDuration, // in seconds
+              billable: false, // Office sessions are not billable by default
+              description: completedEntry.notes,
+              source: 'clock-session'
+            })
+          })
+
+          if (!timeEntryResponse.ok) {
+            const errorText = await timeEntryResponse.text()
+            console.error('Failed to save time entry to database:', errorText)
+            // Continue with local state even if database save fails
+          } else {
+            const savedEntry = await timeEntryResponse.json()
+            console.log('Time entry saved to database:', savedEntry)
+            // Update the completed entry with the database ID
+            completedEntry.id = savedEntry.timeEntry.id
+          }
+        } catch (error) {
+          console.error('Error saving time entry to database:', error)
+          // Continue with local state even if database save fails
+        }
+        
+        // Add to local state for immediate display
         setTimeEntries(prev => {
           console.log('Previous entries count:', prev.length)
           const newEntries = [completedEntry, ...prev]
