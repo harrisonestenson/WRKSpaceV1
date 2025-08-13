@@ -991,6 +991,74 @@ export default function DataDashboard() {
     }
   }
 
+  // Calculate summary stats based on selected time period
+  const calculatePeriodStats = () => {
+    if (!timeEntries.length) return { billableHours: 0, totalHours: 0, billablePercentage: 0 }
+    
+    const now = new Date()
+    let filteredEntries = []
+    
+    switch (timePeriod) {
+      case 'daily':
+        const today = now.toLocaleDateString('en-US') // MM/DD/YY format to match your data
+        console.log('Daily filter - today:', today)
+        console.log('Daily filter - all entries:', timeEntries.map(e => ({ date: e.date, hours: e.totalHours })))
+        filteredEntries = timeEntries.filter(entry => {
+          const matches = entry.date === today
+          console.log(`Entry ${entry.date} vs today ${today}: ${matches}`)
+          return matches
+        })
+        console.log('Daily filter - filtered entries:', filteredEntries)
+        break
+      case 'weekly':
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()))
+        const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6))
+        filteredEntries = timeEntries.filter(entry => {
+          const entryDate = new Date(entry.date)
+          return entryDate >= startOfWeek && entryDate <= endOfWeek
+        })
+        break
+      case 'monthly':
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        filteredEntries = timeEntries.filter(entry => {
+          const entryDate = new Date(entry.date)
+          return entryDate >= startOfMonth && entryDate <= endOfMonth
+        })
+        break
+      case 'quarterly':
+        const quarter = Math.floor(now.getMonth() / 3)
+        const startOfQuarter = new Date(now.getFullYear(), quarter * 3, 1)
+        const endOfQuarter = new Date(now.getFullYear(), (quarter + 1) * 3, 0)
+        filteredEntries = timeEntries.filter(entry => {
+          const entryDate = new Date(entry.date)
+          return entryDate >= startOfQuarter && entryDate <= endOfQuarter
+        })
+        break
+      default:
+        filteredEntries = timeEntries
+    }
+    
+    // Calculate sums from filtered entries
+    const billableHours = filteredEntries.reduce((sum, entry) => {
+      // Get billable hours from Work Hours column
+      const workHours = getHistoricalDailyHours(entry.date, entry.userId)
+      return sum + workHours
+    }, 0)
+    
+    const totalHours = filteredEntries.reduce((sum, entry) => {
+      // Get total hours from Office Hours column
+      return sum + entry.totalHours
+    }, 0)
+    
+    const billablePercentage = totalHours > 0 ? (billableHours / totalHours) * 100 : 0
+    
+    return { billableHours, totalHours, billablePercentage }
+  }
+
+  // Memoize the calculation to prevent unnecessary recalculations
+  const periodStats = React.useMemo(() => calculatePeriodStats(), [timeEntries, timePeriod, forceRecalculate])
+
   const handleDeleteEntry = async (entryId: number) => {
     if (confirm('Are you sure you want to delete this time entry?')) {
       try {
@@ -1612,29 +1680,29 @@ export default function DataDashboard() {
                   </SelectContent>
                 </Select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
-                <h3 className="text-lg font-semibold">{getPeriodLabel(timePeriod)} Billable Hours</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    <h3 className="text-lg font-semibold">{getPeriodLabel(timePeriod)} Billable Hours</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-green-600">{periodStats.billableHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Total Hours Logged</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-blue-600">{periodStats.totalHours.toFixed(1)}h</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <PieChart className="h-5 w-5 text-purple-600" />
+                    <h3 className="text-lg font-semibold">Billable %</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-purple-600">{periodStats.billablePercentage.toFixed(1)}%</p>
+                </div>
               </div>
-              <p className="text-3xl font-bold text-green-600">{periodBillableHours.toFixed(1)}h</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Clock className="h-5 w-5 text-blue-600" />
-                <h3 className="text-lg font-semibold">Total Hours Logged</h3>
-              </div>
-              <p className="text-3xl font-bold text-blue-600">{periodTotalHours.toFixed(1)}h</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <PieChart className="h-5 w-5 text-purple-600" />
-                <h3 className="text-lg font-semibold">Billable %</h3>
-              </div>
-              <p className="text-3xl font-bold text-purple-600">{periodBillablePercentage.toFixed(1)}%</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
