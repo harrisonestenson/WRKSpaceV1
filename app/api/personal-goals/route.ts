@@ -101,7 +101,9 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
         (normalizedEntryUserId?.startsWith('harrison') && normalizedSearchUserId?.startsWith('harrison'))
       )
       
-      if (!userIdMatches || !entry.billable) {
+      // Only count billable entries from manual-form or timer sources
+      const validSource = entry.source === 'manual-form' || entry.source === 'timer'
+      if (!userIdMatches || !entry.billable || !validSource) {
         return false
       }
       
@@ -123,7 +125,7 @@ function calculateBillableHours(userId: string, timeFrame: string): number {
     }, 0)
     
     console.log(`💰 Total billable hours for ${timeFrame}: ${totalHours}`)
-    return Math.round(totalHours * 100) / 100
+    return Math.round(totalHours * 10) / 10
   } catch (error) {
     console.error('❌ Error calculating billable hours:', error)
     return 0

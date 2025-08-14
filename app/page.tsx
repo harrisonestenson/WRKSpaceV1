@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale, ArrowLeft, Mic } from "lucide-react"
+import { Clock, Target, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale, ArrowLeft, Mic, Maximize } from "lucide-react"
 
 import Link from "next/link"
 import { onboardingStore } from "@/lib/onboarding-store"
@@ -206,6 +206,7 @@ export default function LawFirmDashboard() {
   const [isTimerRunning, setIsTimerRunning] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [selectedCases, setSelectedCases] = useState<string[]>([])
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
 
   // Smart Timer States
@@ -218,6 +219,8 @@ export default function LawFirmDashboard() {
   // Voice Typing States
   const [isRecordingVoice, setIsRecordingVoice] = useState<number | null>(null)
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null)
+  const [showCopyPasteModal, setShowCopyPasteModal] = useState(false)
+  const [copyPasteText, setCopyPasteText] = useState('')
 
   // Non-billable timer states
   const [isNonBillableTimerRunning, setIsNonBillableTimerRunning] = useState(false)
@@ -366,6 +369,19 @@ export default function LawFirmDashboard() {
     return () => {
       window.removeEventListener('clockInFromData', handleClockInFromData)
       window.removeEventListener('clockOutFromData', handleClockOutFromData)
+    }
+  }, [])
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
     }
   }, [])
 
@@ -1257,6 +1273,20 @@ export default function LawFirmDashboard() {
     }))
   }
 
+  const resetTimer = () => {
+    // Stop the timer and reset everything to 0
+    setIsTimerRunning(false)
+    setTimerSeconds(0)
+    setCaseTimers({})
+    setCaseSwitchLog([])
+    setActiveCaseId(null)
+    
+    // Clear timer from localStorage
+    localStorage.removeItem('billableTimer')
+    
+    console.log('🔄 Timer completely reset - stopped, cleared to 0, all case times cleared')
+  }
+
   const stopTimer = async () => {
     if (selectedCases.length === 0 || timerSeconds === 0) {
       alert("Please select at least one case before stopping the timer")
@@ -1301,8 +1331,9 @@ export default function LawFirmDashboard() {
   // Handle case selection
   const handleCaseSelection = (caseId: string, checked: boolean) => {
     if (checked) {
-      setSelectedCases((prev) => [...prev, caseId])
-      // If timer is running, switch to this case
+      // Only allow one case to be selected at a time
+      setSelectedCases([caseId])
+      // If timer is running, automatically switch to this case
       if (isTimerRunning) {
         switchToCase(caseId)
       }
@@ -1315,12 +1346,26 @@ export default function LawFirmDashboard() {
     }
   }
 
+  // Handle case switching (clicking on already selected case)
+  const handleCaseSwitch = (caseId: string) => {
+    // If timer is running and this case is already selected, switch to it
+    if (isTimerRunning && selectedCases.includes(caseId)) {
+      console.log(`🔄 Switching from case ${activeCaseId} to case ${caseId}`)
+      switchToCase(caseId)
+    } else {
+      console.log(`ℹ️ Case switch requested but timer not running or case not selected`)
+    }
+  }
+
   // Smart case switching function
   const switchToCase = (caseId: string) => {
     const now = Date.now()
     
+    console.log(`🔄 Switching to case ${caseId} (previous: ${activeCaseId})`)
+    
     // End tracking for previous case if exists
     if (activeCaseId) {
+      console.log(`⏹️ Stopping timer for case ${activeCaseId}`)
       setCaseSwitchLog(prev => prev.map(log => 
         log.caseId === activeCaseId && !log.endTime 
           ? { ...log, endTime: now }
@@ -1331,10 +1376,18 @@ export default function LawFirmDashboard() {
     // Start tracking new case
     setActiveCaseId(caseId)
     setCaseSwitchLog(prev => [...prev, { caseId, startTime: now }])
+    console.log(`▶️ Starting timer for case ${caseId}`)
     
     // Initialize case timer if not exists
     if (!caseTimers[caseId]) {
       setCaseTimers(prev => ({ ...prev, [caseId]: 0 }))
+    }
+    
+    // Automatically start the timer for the new case if timer is running
+    if (isTimerRunning) {
+      // The timer will automatically start tracking the new case
+      // since activeCaseId has changed and the timer effect watches it
+      console.log(`✅ Timer automatically switched to case ${caseId}`)
     }
   }
 
@@ -1995,16 +2048,18 @@ export default function LawFirmDashboard() {
     try {
       const now = new Date()
       
-      // Create time entries for each case
-      const payloads = reviewData.map(entry => ({
-        userId: currentUserId,
-        caseId: entry.caseId,
-        date: now.toISOString(),
-        duration: entry.duration,
-        billable: true,
-        description: entry.description,
-        source: 'timer'
-      }))
+      // Create time entries for each case (only include cases with actual time)
+      const payloads = reviewData
+        .filter(entry => entry.duration > 0) // Only include cases with actual time
+        .map(entry => ({
+          userId: currentUserId,
+          caseId: entry.caseId,
+          date: now.toISOString(),
+          duration: entry.duration,
+          billable: true,
+          description: entry.description,
+          source: 'timer'
+        }))
       
       // Submit all entries
       await Promise.all(payloads.map(p => fetch('/api/time-entries', {
@@ -2013,8 +2068,26 @@ export default function LawFirmDashboard() {
         body: JSON.stringify(p)
       })))
       
-      // Success - reset everything
-      alert(`Time entry submitted for ${reviewData.length} case(s)!`)
+      // Create copy-paste format for each case (only include cases with actual time)
+      const copyPasteTextFormatted = reviewData
+        .filter(entry => entry.duration > 0) // Only include cases with actual time
+        .map(entry => {
+          const hours = (entry.duration / 3600).toFixed(2)
+          const date = now.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })
+          return `Client: ${entry.caseName}\nHours: ${hours}h\nDate: ${date}\nDescription: ${entry.description}`
+        }).join('\n\n')
+      
+      // Set copy-paste text and show modal
+      setCopyPasteText(copyPasteTextFormatted)
+      setShowCopyPasteModal(true)
+      
+      // Show success message
+      const submittedCasesCount = reviewData.filter(entry => entry.duration > 0).length
+      console.log(`Time entry submitted successfully for ${submittedCasesCount} case(s)!`)
       
       // Reset timer state
       setTimerSeconds(0)
@@ -2128,12 +2201,7 @@ export default function LawFirmDashboard() {
                   </Button>
                 </Link>
 
-                <Link href={`/metrics?role=${userRole}`}>
-                  <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
-                    <BarChart3 className="h-4 w-4" />
-                    Metrics
-                  </Button>
-                </Link>
+
 
                 {!isOnboardingCompleted ? (
                   <Link href={`/onboarding?role=${userRole}`}>
@@ -2300,21 +2368,47 @@ export default function LawFirmDashboard() {
         {/* Full-Width Timer Section */}
         <div className="mb-8">
           {/* Hero Timer Card */}
-          <Card className="w-full">
+          <Card className="w-full" data-timer-card>
             <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-2xl">
-                <Clock className="h-7 w-7" />
-                Billable Hours Timer
-                <span className="text-sm text-muted-foreground font-normal">(Works remotely)</span>
-                {isTimerRunning && (
-                  <Badge variant="default" className="text-xs bg-green-600">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-1"></div>
-                    Active
-                  </Badge>
-                )}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-3 text-2xl">
+                  <Clock className="h-7 w-7" />
+                  Billable Hours Timer
+                  <span className="text-sm text-muted-foreground font-normal">(Works remotely)</span>
+                  {isTimerRunning && (
+                    <Badge variant="default" className="text-xs bg-green-600">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-1"></div>
+                      Active
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Button
+                  onClick={() => {
+                    if (isFullscreen) {
+                      document.exitFullscreen()
+                    } else {
+                      const timerCard = document.querySelector('[data-timer-card]')
+                      if (timerCard) {
+                        timerCard.requestFullscreen().catch(err => {
+                          console.error('Error entering fullscreen:', err)
+                        })
+                      }
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 hover:bg-muted"
+                  title="Toggle fullscreen timer"
+                >
+                  {isFullscreen ? (
+                    <X className="h-4 w-4" />
+                  ) : (
+                    <Maximize className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="space-y-8 timer-fullscreen-content">
               {/* Large Timer Display */}
               <div className="text-center">
                 <div className="text-8xl font-mono font-bold text-primary mb-6">{formatTime(timerSeconds)}</div>
@@ -2344,11 +2438,18 @@ export default function LawFirmDashboard() {
                       Pause
                     </Button>
                   )}
+                  <Button onClick={resetTimer} variant="outline" size="sm" className="px-4 py-2 text-sm">
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
                   <Button onClick={stopTimer} variant="destructive" size="lg" className="px-8 py-3 text-lg">
                     <Square className="h-5 w-5 mr-2" />
                     Stop & Submit
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  💡 Reset button: Stops timer, clears to 0, and removes all case times
+                </p>
               </div>
 
               {/* Case Buttons Grid */}
@@ -2356,8 +2457,14 @@ export default function LawFirmDashboard() {
                 <div className="text-center">
                   <Label className="text-lg font-semibold">Select Case to Track</Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Click a case button to start tracking time for that specific case
+                    Click a case button to start tracking time. Click on selected cases to switch between them while timer is running.
                   </p>
+                  <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-400/40 rounded-full animate-pulse"></div>
+                      <span>Active case</span>
+                    </div>
+                  </div>
                 </div>
                 
                 {isLoadingLegalCases ? (
@@ -2370,27 +2477,32 @@ export default function LawFirmDashboard() {
                     {legalCases.map((case_) => (
                       <Button
                         key={case_.id}
-                        variant={selectedCases.includes(case_.id.toString()) ? "default" : "outline"}
+                        variant="outline"
                         className={`h-20 p-3 flex flex-col items-center justify-center text-center transition-all duration-200 relative ${
                           activeCaseId === case_.id.toString() && isTimerRunning
-                            ? "bg-primary text-primary-foreground shadow-lg scale-105 ring-2 ring-primary/50"
-                            : selectedCases.includes(case_.id.toString())
-                            ? "bg-primary/80 text-primary-foreground hover:bg-primary"
+                            ? "bg-green-400/20 text-foreground shadow-lg scale-105 ring-1 ring-green-300/40"
+                            : selectedCases.includes(case_.id.toString()) && !isTimerRunning
+                            ? "ring-2 ring-primary border-2 border-primary hover:scale-105"
                             : "hover:scale-105"
                         }`}
-                        onClick={() => handleCaseSelection(case_.id.toString(), !selectedCases.includes(case_.id.toString()))}
+                        onClick={() => {
+                          if (selectedCases.includes(case_.id.toString())) {
+                            // Case is already selected - handle switching
+                            handleCaseSwitch(case_.id.toString())
+                          } else {
+                            // Case is not selected - handle selection
+                            handleCaseSelection(case_.id.toString(), true)
+                          }
+                        }}
                       >
                         <div className="text-xs font-medium leading-tight mb-1">
                           {case_.name.length > 20 ? case_.name.substring(0, 20) + "..." : case_.name}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(case_.startDate).toLocaleDateString()}
+                          {case_.startDate ? new Date(case_.startDate).toLocaleDateString() : new Date(case_.createdAt).toLocaleDateString()}
                         </div>
                         {activeCaseId === case_.id.toString() && isTimerRunning && (
-                          <div className="absolute top-1 right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        )}
-                        {selectedCases.includes(case_.id.toString()) && !isTimerRunning && (
-                          <div className="absolute top-1 right-1 w-2 h-2 bg-blue-400 rounded-full"></div>
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-green-400/40 rounded-full animate-pulse"></div>
                         )}
                       </Button>
                     ))}
@@ -2433,28 +2545,36 @@ export default function LawFirmDashboard() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">Case Breakdown</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Add new case to review
-                        const availableCases = legalCases.filter(c => 
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Add new case to review
+                          const availableCases = legalCases.filter(c => 
+                            !reviewData.some(rd => rd.caseId === c.id.toString())
+                          )
+                          if (availableCases.length > 0) {
+                            const newCase = availableCases[0]
+                            setReviewData(prev => [...prev, {
+                              caseId: newCase.id.toString(),
+                              caseName: newCase.name,
+                              duration: 0,
+                              description: `Work performed on ${newCase.name}`
+                            }])
+                          }
+                        }}
+                        disabled={legalCases.filter(c => 
                           !reviewData.some(rd => rd.caseId === c.id.toString())
-                        )
-                        if (availableCases.length > 0) {
-                          const newCase = availableCases[0]
-                          setReviewData(prev => [...prev, {
-                            caseId: newCase.id.toString(),
-                            caseName: newCase.name,
-                            duration: 0,
-                            description: `Work performed on ${newCase.name}`
-                          }])
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Case
-                    </Button>
+                        ).length === 0}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Additional Case
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Add cases not covered by the timer
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="border rounded-lg">
@@ -2471,7 +2591,14 @@ export default function LawFirmDashboard() {
                         {reviewData.map((entry, index) => (
                           <TableRow key={entry.caseId}>
                             <TableCell className="font-medium">
-                              {entry.caseName}
+                              <div className="flex items-center gap-2">
+                                {entry.caseName}
+                                {entry.duration === 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Additional
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -2501,7 +2628,11 @@ export default function LawFirmDashboard() {
                                         i === index ? { ...item, description: e.target.value } : item
                                       ))
                                     }}
-                                    placeholder={`Describe the specific work performed on ${entry.caseName}...`}
+                                    placeholder={
+                                      entry.duration === 0 
+                                        ? `Describe the additional work performed on ${entry.caseName} (not covered by timer)...`
+                                        : `Describe the specific work performed on ${entry.caseName}...`
+                                    }
                                     rows={3}
                                     className="text-sm resize-none min-w-[200px]"
                                   />
@@ -2684,7 +2815,7 @@ export default function LawFirmDashboard() {
                               <div className="flex flex-col">
                                 <span className="font-medium text-sm">{case_.name}</span>
                                 <span className="text-xs text-muted-foreground">
-                                  Started: {new Date(case_.startDate).toLocaleDateString()}
+                                  Started: {case_.startDate ? new Date(case_.startDate).toLocaleDateString() : new Date(case_.createdAt).toLocaleDateString()}
                                 </span>
                               </div>
                             </SelectItem>
@@ -2757,6 +2888,70 @@ export default function LawFirmDashboard() {
           </Card>
         </div>
       </main>
+
+      {/* Copy-Paste Modal */}
+      {showCopyPasteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                Time Entry Submitted Successfully!
+                {copyPasteText && (
+                  <span className="text-sm font-normal text-muted-foreground block mt-1">
+                    {copyPasteText.split('\n\n').length} case(s) submitted
+                  </span>
+                )}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCopyPasteModal(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-4">
+              Your time entry has been submitted. Here's the copy-paste format for cases with actual time:
+            </p>
+            
+            <div className="bg-gray-50 rounded-md p-4 mb-4">
+              <pre className="whitespace-pre-wrap text-sm font-mono">{copyPasteText}</pre>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(copyPasteText)
+                    alert('Copied to clipboard!')
+                  } catch (err) {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea')
+                    textArea.value = copyPasteText
+                    document.body.appendChild(textArea)
+                    textArea.select()
+                    document.execCommand('copy')
+                    document.body.removeChild(textArea)
+                    alert('Copied to clipboard!')
+                  }
+                }}
+                className="flex-1"
+              >
+                Copy to Clipboard
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowCopyPasteModal(false)}
+                className="flex-1"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -84,9 +84,9 @@ async function calculateCompanyGoalsProgress() {
       .reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
     
     return {
-      weeklyBillable: Math.round(weeklyBillable * 100) / 100,
-      monthlyBillable: Math.round(monthlyBillable * 100) / 100,
-      yearlyBillable: Math.round(yearlyBillable * 100) / 100
+      weeklyBillable: Math.round(weeklyBillable * 10) / 10,
+      monthlyBillable: Math.round(monthlyBillable * 10) / 10,
+      yearlyBillable: Math.round(yearlyBillable * 10) / 10
     }
   } catch (error) {
     console.error('Company Goals API - Error calculating progress:', error)

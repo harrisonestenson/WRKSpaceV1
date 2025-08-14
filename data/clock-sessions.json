@@ -47,5 +47,33 @@
     "clockIn": "2025-08-14T13:19:26.775Z",
     "clockOut": "2025-08-14T13:20:01.599Z",
     "totalHours": 0.01
+  },
+  {
+    "id": "session-1755185167712",
+    "userId": "maddy-e",
+    "clockIn": "2025-08-14T15:26:07.383Z",
+    "clockOut": null,
+    "totalHours": null
+  },
+  {
+    "id": "session-1755185191606",
+    "userId": "maddy-e",
+    "clockIn": "2025-08-14T15:26:07.383Z",
+    "clockOut": null,
+    "totalHours": null
+  },
+  {
+    "id": "session-1755186955942",
+    "userId": "harrison-estenson",
+    "clockIn": "2025-08-14T15:26:07.383Z",
+    "clockOut": "2025-08-14T15:56:05.604Z",
+    "totalHours": 0.5
+  },
+  {
+    "id": "session-1755187631221",
+    "userId": "harrison-estenson",
+    "clockIn": "2025-08-14T16:07:11.047Z",
+    "clockOut": "2025-08-14T16:07:15.143Z",
+    "totalHours": 0
   }
 ]

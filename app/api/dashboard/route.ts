@@ -136,9 +136,9 @@ function computeHoursForFrequency(entries: any[], freq: string, opts?: { userId?
   const nonBillableHours = inRange.filter((e: any) => !e.billable).reduce((s: number, e: any) => s + e.duration / 3600, 0)
   const totalHours = billableHours + nonBillableHours
   return {
-    billableHours: Math.round(billableHours * 100) / 100,
-    nonBillableHours: Math.round(nonBillableHours * 100) / 100,
-    totalHours: Math.round(totalHours * 100) / 100,
+          billableHours: Math.round(billableHours * 10) / 10,
+      nonBillableHours: Math.round(nonBillableHours * 10) / 10,
+      totalHours: Math.round(totalHours * 10) / 10,
   }
 }
 
@@ -496,7 +496,7 @@ export async function GET(request: NextRequest) {
         total: totalPersonalGoals,
         display: `${completedPersonalGoals}/${totalPersonalGoals}`
       },
-      averageDailyHours: Math.round((frameTotals.totalHours / days) * 100) / 100,
+      averageDailyHours: Math.round((frameTotals.totalHours / days) * 10) / 10,
       activeCases: dashboardData.legalCases.length
     }
 

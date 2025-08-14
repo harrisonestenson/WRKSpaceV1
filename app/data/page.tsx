@@ -533,20 +533,7 @@ export default function DataDashboard() {
   // Live session state
   const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
   
-  // Live timer states
-  const [liveBillableTimer, setLiveBillableTimer] = useState<{
-    startTime: Date
-    selectedCases: string[]
-    workDescription: string
-    duration: number
-  } | null>(null)
-  
-  const [liveNonBillableTimer, setLiveNonBillableTimer] = useState<{
-    startTime: Date
-    selectedTask: string
-    description: string
-    duration: number
-  } | null>(null)
+
   
   // Update live session and timer times every second
   useEffect(() => {
@@ -565,35 +552,11 @@ export default function DataDashboard() {
         })
       }
       
-      // Update live billable timer
-      if (liveBillableTimer) {
-        setLiveBillableTimer(prev => {
-          if (!prev) return null
-          const now = new Date()
-          const duration = Math.floor((now.getTime() - prev.startTime.getTime()) / 1000)
-          return {
-            ...prev,
-            duration
-          }
-        })
-      }
-      
-      // Update live non-billable timer
-      if (liveNonBillableTimer) {
-        setLiveNonBillableTimer(prev => {
-          if (!prev) return null
-          const now = new Date()
-          const duration = Math.floor((now.getTime() - prev.startTime.getTime()) / 1000)
-          return {
-            ...prev,
-            duration
-          }
-        })
-      }
+
     }, 1000)
     
     return () => clearInterval(interval)
-  }, [liveSession, liveBillableTimer, liveNonBillableTimer])
+  }, [liveSession])
   
   // Initialize live session from localStorage on component mount
   useEffect(() => {
@@ -686,44 +649,9 @@ export default function DataDashboard() {
       // This function is no longer needed - work hours are now handled by the real API
     }
     
-    const handleStartLiveTimer = (event: CustomEvent) => {
-      console.log('Received startLiveTimer event:', event.detail)
-      if (event.detail.type === 'billable') {
-        setLiveBillableTimer({
-          startTime: event.detail.startTime,
-          selectedCases: event.detail.selectedCases,
-          workDescription: event.detail.workDescription,
-          duration: 0
-        })
-      } else if (event.detail.type === 'non-billable') {
-        setLiveNonBillableTimer({
-          startTime: event.detail.startTime,
-          selectedTask: event.detail.selectedTask,
-          description: event.detail.description,
-          duration: 0
-        })
-      }
-    }
+
     
-    const handlePauseLiveTimer = (event: CustomEvent) => {
-      console.log('Received pauseLiveTimer event:', event.detail)
-      if (event.detail.type === 'billable') {
-        setLiveBillableTimer(null)
-      } else if (event.detail.type === 'non-billable') {
-        setLiveNonBillableTimer(null)
-      }
-    }
-    
-    const handleStopLiveTimer = (event: CustomEvent) => {
-      console.log('Received stopLiveTimer event:', event.detail)
-      if (event.detail.type === 'billable') {
-        setLiveBillableTimer(null)
-      } else if (event.detail.type === 'non-billable') {
-        setLiveNonBillableTimer(null)
-      }
-    }
-    
-    console.log('Setting up event listeners for live session and timers')
+    console.log('Setting up event listeners for live session')
     console.log('Data page is ready to receive events')
     
     // Add global event listener to debug
@@ -737,17 +665,11 @@ export default function DataDashboard() {
     window.addEventListener('startLiveSession', handleStartLiveSession as EventListener)
     window.addEventListener('endLiveSession', handleEndLiveSession)
     window.addEventListener('addWorkHours', handleAddWorkHours as EventListener)
-    window.addEventListener('startLiveTimer', handleStartLiveTimer as EventListener)
-    window.addEventListener('pauseLiveTimer', handlePauseLiveTimer as EventListener)
-    window.addEventListener('stopLiveTimer', handleStopLiveTimer as EventListener)
     
     return () => {
       window.removeEventListener('startLiveSession', handleStartLiveSession as EventListener)
       window.removeEventListener('endLiveSession', handleEndLiveSession)
       window.removeEventListener('addWorkHours', handleAddWorkHours as EventListener)
-      window.removeEventListener('startLiveTimer', handleStartLiveTimer as EventListener)
-      window.removeEventListener('pauseLiveTimer', handlePauseLiveTimer as EventListener)
-      window.removeEventListener('stopLiveTimer', handleStopLiveTimer as EventListener)
     }
   }, [])
   
@@ -843,9 +765,7 @@ export default function DataDashboard() {
   // Calculate today's summary
   const today = new Date().toLocaleDateString('en-CA')
   const todayEntries = timeEntries.filter(entry => entry.date === today)
-  const todayBillableHours = todayEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
   const todayTotalHours = todayEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
-  const todayBillablePercentage = todayTotalHours > 0 ? (todayBillableHours / todayTotalHours) * 100 : 0
 
   // Helper function to get date range based on time period
   const getDateRange = (period: string) => {
@@ -886,9 +806,7 @@ export default function DataDashboard() {
 
   // Calculate period summary
   const periodEntries = getPeriodEntries(timePeriod)
-  const periodBillableHours = periodEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
   const periodTotalHours = periodEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
-  const periodBillablePercentage = periodTotalHours > 0 ? (periodBillableHours / periodTotalHours) * 100 : 0
 
   // Get period label
   const getPeriodLabel = (period: string) => {
@@ -903,12 +821,10 @@ export default function DataDashboard() {
 
   // Calculate totals for selected date range
   const totalLoggedHours = timeEntries.reduce((acc, entry) => acc + entry.totalHours, 0)
-  const totalBillableHours = timeEntries.reduce((acc, entry) => acc + entry.billableHours, 0)
   const averagePerDay = timeEntries.length > 0 ? totalLoggedHours / timeEntries.length : 0
 
   // Calculate averages for table columns
   const averageTotalHours = timeEntries.length > 0 ? totalLoggedHours / timeEntries.length : 0
-  const averageBillableHours = timeEntries.length > 0 ? totalBillableHours / timeEntries.length : 0
   const averageWorkDay = timeEntries.length > 0 ? (timeEntries.reduce((acc, entry) => {
     const clockIn = new Date(`2000-01-01T${entry.clockIn}:00`)
     const clockOut = new Date(`2000-01-01T${entry.clockOut}:00`)
@@ -916,67 +832,11 @@ export default function DataDashboard() {
     return acc + workHours
   }, 0) / timeEntries.length) : 0
 
-  // Fetch historical daily billable hours for Work Hours column
-  const [historicalDailyHours, setHistoricalDailyHours] = useState<{[key: string]: {[userId: string]: number}}>({})
 
-  useEffect(() => {
-    const fetchHistoricalDailyHours = async () => {
-      try {
-        const response = await fetch('/api/daily-rollover')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.data?.dailySnapshots) {
-            // Convert to lookup object: { "2025-08-12": {"Heather Potter": 1.0, "John Doe": 2.0} }
-            const hoursLookup: {[key: string]: {[userId: string]: number}} = {}
-            data.data.dailySnapshots.forEach((snapshot: any) => {
-              if (!hoursLookup[snapshot.date]) {
-                hoursLookup[snapshot.date] = {}
-              }
-              hoursLookup[snapshot.date][snapshot.userId] = snapshot.billableHours
-            })
-            setHistoricalDailyHours(hoursLookup)
-            console.log('📊 Loaded historical daily hours:', hoursLookup)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching historical daily hours:', error)
-      }
-    }
 
-    fetchHistoricalDailyHours()
-  }, [])
 
-  // Function to get historical billable hours for a specific date and user
-  const getHistoricalDailyHours = (date: string, userId?: string) => {
-    // First, try to get work hours from the time entries (permanent snapshot)
-    const dateStr = new Date(date).toLocaleDateString('en-CA')
-    
-    // Look for time entries with workHours for this date and user
-    const timeEntry = timeEntries.find(entry => {
-      const entryDate = new Date(entry.date).toLocaleDateString('en-CA')
-      const entryUserId = entry.userId || selectedUser
-      return entryDate === dateStr && entryUserId === (userId || selectedUser)
-    })
-    
-    // If we have a time entry with workHours, use that (permanent snapshot)
-    if (timeEntry && typeof timeEntry.workHours === 'number') {
-      console.log(`📊 Using permanent work hours snapshot for ${dateStr}: ${timeEntry.workHours}h`)
-      return timeEntry.workHours
-    }
-    
-    // Fall back to historical calculation if no workHours found
-    const dateData = historicalDailyHours[dateStr]
-    
-    if (!dateData) return 0
-    
-    // If no specific user provided, return the first user's data (for backward compatibility)
-    if (!userId) {
-      const firstUserId = Object.keys(dateData)[0]
-      return firstUserId ? dateData[firstUserId] : 0
-    }
-    
-    return dateData[userId] || 0
-  }
+
+
   
   // getDailyBillableHours function removed - now using dailyBillableHours state from API
 
@@ -1013,7 +873,7 @@ export default function DataDashboard() {
 
   // Calculate summary stats based on selected time period
   const calculatePeriodStats = () => {
-    if (!timeEntries.length) return { billableHours: 0, totalHours: 0, billablePercentage: 0 }
+    if (!timeEntries.length) return { totalHours: 0 }
     
     const now = new Date()
     let filteredEntries = []
@@ -1059,21 +919,12 @@ export default function DataDashboard() {
         filteredEntries = timeEntries
     }
     
-    // Calculate sums from filtered entries
-    const billableHours = filteredEntries.reduce((sum, entry) => {
-      // Get billable hours from Work Hours column
-      const workHours = getHistoricalDailyHours(entry.date, entry.userId)
-      return sum + workHours
-    }, 0)
-    
+    // Calculate total hours from filtered entries
     const totalHours = filteredEntries.reduce((sum, entry) => {
-      // Get total hours from Office Hours column
       return sum + entry.totalHours
     }, 0)
     
-    const billablePercentage = totalHours > 0 ? (billableHours / totalHours) * 100 : 0
-    
-    return { billableHours, totalHours, billablePercentage }
+    return { totalHours }
   }
 
   // Memoize the calculation to prevent unnecessary recalculations
@@ -1348,7 +1199,7 @@ export default function DataDashboard() {
                 Team Time Log
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Track team daily time entries and billable hours
+                Track team daily office attendance (clock in/out sessions)
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -1481,7 +1332,6 @@ export default function DataDashboard() {
                         <TableHead>Office In</TableHead>
                         <TableHead>Office Out</TableHead>
                         <TableHead>Office Hours</TableHead>
-                        <TableHead>Work Hours</TableHead>
                         <TableHead>Notes</TableHead>
                         <TableHead className="w-20">Actions</TableHead>
                       </TableRow>
@@ -1490,7 +1340,7 @@ export default function DataDashboard() {
                       {/* Debug info */}
                       {process.env.NODE_ENV === 'development' && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-yellow-50 text-xs text-yellow-800">
+                          <TableCell colSpan={7} className="bg-yellow-50 text-xs text-yellow-800">
                             Debug: Team view - showing aggregated data
                           </TableCell>
                         </TableRow>
@@ -1498,7 +1348,7 @@ export default function DataDashboard() {
                       
                       {/* Placeholder for team data */}
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-12">
+                        <TableCell colSpan={7} className="text-center py-12">
                           <div className="flex flex-col items-center gap-3">
                             <Clock className="h-16 w-16 text-muted-foreground" />
                             <h3 className="text-lg font-semibold">No Team Data Available</h3>
@@ -1576,9 +1426,9 @@ export default function DataDashboard() {
               <Clock className="h-6 w-6" />
               My Time Log
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Track your daily time entries and billable hours
-            </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                Track your daily office attendance (clock in/out sessions)
+              </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => handleExport("csv")}>
@@ -1701,27 +1551,13 @@ export default function DataDashboard() {
                   </SelectContent>
                 </Select>
           </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    <h3 className="text-lg font-semibold">{getPeriodLabel(timePeriod)} Billable Hours</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-green-600">{periodStats.billableHours.toFixed(1)}h</p>
-                </div>
+                        <div className="grid grid-cols-1 gap-6">
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Clock className="h-5 w-5 text-blue-600" />
                     <h3 className="text-lg font-semibold">Total Hours Logged</h3>
                   </div>
                   <p className="text-3xl font-bold text-blue-600">{periodStats.totalHours.toFixed(1)}h</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <PieChart className="h-5 w-5 text-purple-600" />
-                    <h3 className="text-lg font-semibold">Billable %</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-purple-600">{periodStats.billablePercentage.toFixed(1)}%</p>
                 </div>
               </div>
           </CardContent>
@@ -1749,7 +1585,6 @@ export default function DataDashboard() {
                         <TableHead>Office In</TableHead>
                         <TableHead>Office Out</TableHead>
                         <TableHead>Office Hours</TableHead>
-                        <TableHead>Work Hours</TableHead>
                         <TableHead>Notes</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
                       </TableRow>
@@ -1758,7 +1593,7 @@ export default function DataDashboard() {
                       {/* Debug info */}
                       {process.env.NODE_ENV === 'development' && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-yellow-50 text-xs text-yellow-800">
+                          <TableCell colSpan={7} className="bg-yellow-50 text-xs text-yellow-800">
                             Debug: Live session state = {liveSession ? 'ACTIVE' : 'NULL'}
                           </TableCell>
                         </TableRow>
@@ -1795,11 +1630,7 @@ export default function DataDashboard() {
                               {Math.floor(liveSession.duration / 3600)}h {Math.floor((liveSession.duration % 3600) / 60)}m
                             </span>
                           </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveSession.clockInTime.toLocaleDateString('en-CA'), liveSession.userId).toFixed(1)}h
-                            </span>
-                          </TableCell>
+
                           <TableCell>
                             <span className="text-blue-600 text-sm">
                               Office session
@@ -1815,112 +1646,14 @@ export default function DataDashboard() {
                         </TableRow>
                       )}
                       
-                      {/* Live billable timer row */}
-                      {liveBillableTimer && (
-                        <TableRow key="live-billable-timer" className="bg-green-50 hover:bg-green-100">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs text-green-600 font-medium">TIMER</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {liveBillableTimer.startTime.toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {liveBillableTimer.startTime.toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 font-medium">
-                              {new Date().toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 font-medium">
-                              {Math.floor(liveBillableTimer.duration / 3600)}h {Math.floor((liveBillableTimer.duration % 3600) / 60)}m
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveBillableTimer.startTime.toLocaleDateString('en-CA'), selectedUser).toFixed(1)}h
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 text-sm">
-                              Billable: {liveBillableTimer.selectedCases.join(", ")}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                Running
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
+
                       
-                      {/* Live non-billable timer row */}
-                      {liveNonBillableTimer && (
-                        <TableRow key="live-non-billable-timer" className="bg-purple-50 hover:bg-purple-100">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs text-purple-600 font-medium">TIMER</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {liveNonBillableTimer.startTime.toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            {liveNonBillableTimer.startTime.toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-purple-600 font-medium">
-                              {new Date().toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-purple-600 font-medium">
-                              {Math.floor(liveNonBillableTimer.duration / 3600)}h {Math.floor((liveNonBillableTimer.duration % 3600) / 60)}m
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-green-600 font-medium">
-                              {getHistoricalDailyHours(liveNonBillableTimer.startTime.toLocaleDateString('en-CA'), selectedUser).toFixed(1)}h
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-purple-600 text-sm">
-                              Non-billable: {liveNonBillableTimer.selectedTask}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                                Running
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
+
                       
                       {/* Regular time entries */}
                       {timeEntries.map((entry) => (
                         <React.Fragment key={entry.id}>
-                          <TableRow className={`hover:bg-muted/50 ${entry.isOfficeSession ? 'bg-blue-50' : ''} ${entry.isOfficeSession && entry.billableHours > 0 ? 'border-l-4 border-l-green-500' : ''}`}>
+                          <TableRow className={`hover:bg-muted/50 ${entry.isOfficeSession ? 'bg-blue-50' : ''}`}>
                             <TableCell>
                               <Button
                                 variant="ghost"
@@ -1957,9 +1690,6 @@ export default function DataDashboard() {
                               )}
                             </TableCell>
                             <TableCell>{entry.totalHours.toFixed(1)}h</TableCell>
-                            <TableCell className="font-medium text-green-600">
-                              {getHistoricalDailyHours(entry.date, entry.userId).toFixed(1)}h
-                            </TableCell>
                             <TableCell>
                               {editingEntry === entry.id ? (
                                 <div className="max-w-xs">
@@ -1975,11 +1705,7 @@ export default function DataDashboard() {
                             <p className="text-sm truncate">
                               {entry.notes.length > 50 ? `${entry.notes.substring(0, 50)}...` : entry.notes}
                             </p>
-                            {entry.isOfficeSession && entry.billableHours > 0 && (
-                              <p className="text-xs text-green-600 mt-1">
-                                +{entry.billableHours.toFixed(1)}h additional work
-                              </p>
-                            )}
+
                             {entry.notes.length > 50 && (
                               <Button variant="link" size="sm" className="h-auto p-0 text-xs">
                                 View
@@ -2037,20 +1763,13 @@ export default function DataDashboard() {
                           </TableRow>
                           {expandedRows.has(entry.id) && (
                             <TableRow>
-                          <TableCell colSpan={8} className="bg-muted/20">
+                          <TableCell colSpan={7} className="bg-muted/20">
                                 <div className="p-4 space-y-3">
                                   <div>
                                 <h4 className="font-medium mb-2">Full Notes:</h4>
                                 <p className="text-sm text-muted-foreground">{entry.notes}</p>
                                   </div>
-                                  {entry.status === "unaccounted" && (
-                                    <div className="flex items-center gap-2 text-yellow-600">
-                                      <AlertTriangle className="h-4 w-4" />
-                                      <span className="text-sm">
-                                        {(entry.totalHours - entry.billableHours).toFixed(1)} hours unaccounted
-                                      </span>
-                                    </div>
-                                  )}
+
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -2068,15 +1787,7 @@ export default function DataDashboard() {
       <Card>
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold mb-4">Average Metrics for Selected Period</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-1">Average Total Hours</p>
-              <p className="text-2xl font-bold">{averageTotalHours.toFixed(1)}h</p>
-                    </div>
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-1">Average Billable Hours</p>
-              <p className="text-2xl font-bold text-green-600">{averageBillableHours.toFixed(1)}h</p>
-                    </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-1">Average Clock In</p>
               <p className="text-2xl font-bold">
@@ -2106,8 +1817,8 @@ export default function DataDashboard() {
                   }) : '-'
                 }
               </p>
-                  </div>
-                </div>
+            </div>
+          </div>
               </CardContent>
             </Card>
 

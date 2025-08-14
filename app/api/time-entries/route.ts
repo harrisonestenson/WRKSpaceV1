@@ -95,7 +95,9 @@ function updatePersonalBillableGoals(userId: string, entryDate?: string) {
       const { start, end } = getTimeFrameDateRange(tf, undefined, undefined, referenceDate)
       const pick = allEntries.filter((e: any) => {
         const d = new Date(e.date)
-        return e.userId === userId && e.billable && d >= start && d <= end
+        // Only count billable entries from manual-form or timer sources
+        const validSource = e.source === 'manual-form' || e.source === 'timer'
+        return e.userId === userId && e.billable && validSource && d >= start && d <= end
       })
       const hours = pick.reduce((s: number, e: any) => s + e.duration / 3600, 0)
       return Math.round(hours * 100) / 100
@@ -148,9 +150,9 @@ function updateCompanyBillableGoals(entryDate?: string) {
     // Update company goals with current progress
     const updatedCompanyGoals = {
       ...companyGoals,
-      weeklyBillable: Math.round(weeklyBillable * 100) / 100,
-      monthlyBillable: Math.round(monthlyBillable * 100) / 100,
-      annualBillable: Math.round(annualBillable * 100) / 100
+      weeklyBillable: Math.round(weeklyBillable * 10) / 10,
+      monthlyBillable: Math.round(monthlyBillable * 10) / 10,
+      annualBillable: Math.round(annualBillable * 10) / 10
     }
     
     // Save updated company goals
@@ -168,11 +170,13 @@ function calculateCompanyBillableHours(timeFrame: string, referenceDate: Date, a
   
   const entriesInRange = allEntries.filter((e: any) => {
     const d = new Date(e.date)
-    return e.billable && d >= start && d <= end
+    // Only count billable entries from manual-form or timer sources
+    const validSource = e.source === 'manual-form' || e.source === 'timer'
+    return e.billable && validSource && d >= start && d <= end
   })
   
   const totalHours = entriesInRange.reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
-  return Math.round(totalHours * 100) / 100
+  return Math.round(totalHours * 10) / 10
 }
 
 export async function GET(request: NextRequest) {
@@ -208,9 +212,9 @@ export async function GET(request: NextRequest) {
       timeEntries: filtered,
       summary: {
         totalEntries: filtered.length,
-        totalHours: Math.round(totalHours * 100) / 100,
-        billableHours: Math.round(billableHours * 100) / 100,
-        nonBillableHours: Math.round(nonBillableHours * 100) / 100
+        totalHours: Math.round(totalHours * 10) / 10,
+        billableHours: Math.round(billableHours * 10) / 10,
+        nonBillableHours: Math.round(nonBillableHours * 10) / 10
       },
       message: 'Time entries retrieved'
     })
@@ -329,17 +333,21 @@ export async function POST(request: NextRequest) {
     all.push(newEntry)
     writeStore(all)
 
-    // Update user's personal billable goals' current values immediately
+    // Update user's personal billable goals' current values immediately ONLY for manual-form or timer entries
     try { 
-      updatePersonalBillableGoals(userId, newEntry.date) 
-      console.log(`Time Entries API - Personal goals updated for ${userId} after logging ${Math.round((newEntry.duration / 3600) * 100) / 100} hours`)
+      if (newEntry.source === 'manual-form' || newEntry.source === 'timer') {
+        updatePersonalBillableGoals(userId, newEntry.date) 
+        console.log(`Time Entries API - Personal goals updated for ${userId} after logging ${Math.round((newEntry.duration / 3600) * 100) / 100} hours`)
+      }
     } catch (error) {
       console.error(`Time Entries API - Error updating personal goals for ${userId}:`, error)
     }
 
-    // Update company-wide billable goals
+    // Update company-wide billable goals ONLY for manual-form or timer entries
     try {
-      updateCompanyBillableGoals(newEntry.date)
+      if (newEntry.source === 'manual-form' || newEntry.source === 'timer') {
+        updateCompanyBillableGoals(newEntry.date)
+      }
     } catch (error) {
       console.error('Time Entries API - Error updating company goals after logging:', error)
     }
