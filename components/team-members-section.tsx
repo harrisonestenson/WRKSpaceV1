@@ -35,12 +35,6 @@ interface TeamMember {
   isAdmin: boolean
   // Optional fields that might not be available
   avatar?: string
-  employmentDuration?: string
-  joined?: string
-  // Real data fields from API
-  dailyBillableTarget?: number
-  weeklyBillableTarget?: number
-  monthlyBillableTarget?: number
 }
 
 export default function TeamMembersSection() {
@@ -72,8 +66,7 @@ export default function TeamMembersSection() {
           // Use real data from API, only add minimal calculated fields
           const transformedMembers = data.teamMembers.map((member: any) => ({
             ...member,
-            // Calculate employment duration based on join date
-            employmentDuration: member.joined ? calculateDuration(new Date(member.joined)) : '1 month',
+
             // Use real avatar or placeholder
             avatar: member.photo || `/placeholder-user.jpg`
           }))
@@ -107,12 +100,7 @@ export default function TeamMembersSection() {
   }
 
   // Helper functions to generate realistic data
-  const calculateDuration = (joinDate: Date): string => {
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - joinDate.getTime())
-    const diffYears = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 365))
-    return `${diffYears} year${diffYears !== 1 ? 's' : ''}`
-  }
+
 
 
 
@@ -315,21 +303,7 @@ export default function TeamMembersSection() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Team
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Employment Duration
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Daily Target
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Weekly Target
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
+
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -374,25 +348,7 @@ export default function TeamMembersSection() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{member.team}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.employmentDuration}</div>
-                    </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.dailyBillableTarget || 0}h/day</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.weeklyBillableTarget || 0}h/week</div>
-                  </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className={getStatusColor(member.status)}>
-                        {member.status}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {member.joined ? new Date(member.joined).toLocaleDateString() : 'N/A'}
-                      </div>
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Button 
                         variant="ghost" 
@@ -449,11 +405,7 @@ export default function TeamMembersSection() {
                     <Badge className={getStatusColor(selectedMember.status)}>
                       {selectedMember.status}
                     </Badge>
-                    {selectedMember.joined && (
-                      <span className="text-sm text-gray-500">
-                        Joined {new Date(selectedMember.joined).toLocaleDateString()}
-                      </span>
-                    )}
+
                   </div>
                 </div>
               </div>
@@ -471,57 +423,18 @@ export default function TeamMembersSection() {
                 </div>
               </div>
 
-              {/* Professional Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Employment Duration</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.employmentDuration}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Daily Target</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.dailyBillableTarget || 0}h/day</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Weekly Target</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.weeklyBillableTarget || 0}h/week</p>
-                </div>
-              </div>
-
-              {/* Billable Hours Information */}
+              {/* Essential Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Billable Hours Target</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.expectedBillableHours}h/year</p>
-                  <p className="text-sm text-gray-600">
-                    {Math.round(selectedMember.expectedBillableHours / 12)}h/month, {Math.round(selectedMember.expectedBillableHours / 52)}h/week
-                  </p>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Non-Billable Hours</h4>
-                  <p className="text-2xl font-bold text-green-600">{selectedMember.expectedNonBillablePoints}h/year</p>
-                  <p className="text-sm text-gray-600">Administrative & training time</p>
-                </div>
-              </div>
-
-              {/* Team and Role Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Team Assignment</h4>
-                  <p className="text-lg font-semibold text-gray-700">{selectedMember.team}</p>
-                  <p className="text-sm text-gray-600">Department</p>
-                </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="font-medium text-gray-900 mb-2">Role & Title</h4>
                   <p className="text-lg font-semibold text-gray-700">{selectedMember.role}</p>
                   <p className="text-sm text-gray-600">{selectedMember.title}</p>
                 </div>
-              </div>
-
-              {/* Personal Target */}
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Personal Performance Target</h4>
-                <p className="text-lg font-semibold text-purple-700">{selectedMember.personalTarget}</p>
-                <p className="text-sm text-gray-600">Daily goal for billable hours</p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">Team Assignment</h4>
+                  <p className="text-lg font-semibold text-gray-700">{selectedMember.team}</p>
+                  <p className="text-sm text-gray-600">Department</p>
+                </div>
               </div>
 
 
