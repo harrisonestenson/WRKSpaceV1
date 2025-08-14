@@ -391,17 +391,10 @@ export default function LawFirmDashboard() {
   const [manualEndTime, setManualEndTime] = useState("")
   const [manualSelectedCases, setManualSelectedCases] = useState<string[]>([])
   const [manualDescription, setManualDescription] = useState("")
-  const manualDurationOptions = [
-    { label: '15 minutes', seconds: 15 * 60 },
-    { label: '30 minutes', seconds: 30 * 60 },
-    { label: '45 minutes', seconds: 45 * 60 },
-    { label: '1 hour', seconds: 60 * 60 },
-    { label: '1.5 hours', seconds: 90 * 60 },
-    { label: '2 hours', seconds: 120 * 60 },
-    { label: '3 hours', seconds: 180 * 60 },
-    { label: '4 hours', seconds: 240 * 60 }
-  ]
+  const [manualDurationHours, setManualDurationHours] = useState<string>("")
   const [manualDurationSeconds, setManualDurationSeconds] = useState<number | null>(null)
+  const [isManualReviewMode, setIsManualReviewMode] = useState(false)
+  const [manualReviewData, setManualReviewData] = useState<Array<{caseId: string, caseName: string, duration: number, description: string}>>([])
 
   // Non-billable manual entry states
   const [nonBillableManualDate, setNonBillableManualDate] = useState(new Date().toISOString().split("T")[0])
@@ -1667,97 +1660,105 @@ export default function LawFirmDashboard() {
     setManualSelectedCases((prev) => prev.filter((id) => id !== caseId))
   }
 
-  // Manual entry submit
-  const submitManualEntry = async () => {
+  // Manual entry review
+  const handleManualReview = () => {
     // Fallback to DOM values in case controlled state didn't capture input (Safari/time input quirks)
-    const startRaw = ''
-    const endRaw = ''
     const descRaw = manualDescription || (typeof document !== 'undefined' ? (document.getElementById('manual-description') as HTMLTextAreaElement | null)?.value || '' : '')
 
     const missing: string[] = []
     if (manualSelectedCases.length === 0) missing.push('case')
-    // Only require times if duration not chosen
-    if (manualDurationSeconds == null) missing.push('duration')
+    if (manualDurationSeconds == null || manualDurationSeconds <= 0) missing.push('duration')
     if (!descRaw.trim()) missing.push('description')
     if (missing.length > 0) {
-      console.log('Manual submit missing fields:', { manualSelectedCases, manualStartTime, manualEndTime, startRaw, endRaw, manualDescription: descRaw, manualDurationSeconds })
+      console.log('Manual review missing fields:', { manualSelectedCases, manualDescription: descRaw, manualDurationSeconds })
       alert(`Please fix missing fields: ${missing.join(', ')}`)
       return
     }
 
-    // Compute duration either from dropdown or from start/end
-    let startDateTime: Date | null = null
-    let endDateTime: Date | null = null
-    let duration = 0
-    if (manualDurationSeconds != null) {
-      // Anchor at midnight; only duration matters for aggregation
-      startDateTime = new Date(manualDate)
-      startDateTime.setHours(0, 0, 0, 0)
-      duration = manualDurationSeconds
-      endDateTime = new Date(startDateTime)
-      endDateTime.setSeconds(endDateTime.getSeconds() + duration)
+    // Create review data for each selected case
+    const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
+    const reviewEntries = selectedCaseDetails.map((case_) => ({
+      caseId: case_.id.toString(),
+      caseName: case_.name,
+      duration: Math.round(manualDurationSeconds! / selectedCaseDetails.length), // Distribute duration evenly
+      description: descRaw
+    }))
+
+    setManualReviewData(reviewEntries)
+    setIsManualReviewMode(true)
+  }
+
+  // Manual entry submit
+  const submitManualEntry = async () => {
+    try {
+      // Simple fix: Add 1 day to the date to align with daily goals calculation
+      const adjustedDate = new Date(manualDate)
+      adjustedDate.setDate(adjustedDate.getDate() + 1)
+      
+      const payloads = manualReviewData.map((entry) => ({
+        userId: currentUserId,
+        caseId: entry.caseId,
+        date: adjustedDate.toISOString(),
+        duration: entry.duration,
+        billable: true,
+        description: entry.description,
+        source: 'manual-form'
+      }))
+
+      const responses = await Promise.all(payloads.map(p => fetch('/api/time-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p)
+      })))
+
+      const firstError = await (async () => {
+        for (const r of responses) {
+          if (!r.ok) {
+            try { const j = await r.json(); return j?.error || r.statusText } catch { return r.statusText }
+          }
+        }
+        return null
+      })()
+      if (firstError) throw new Error(String(firstError))
+
+      // Create copy-paste format for each case
+      const copyPasteTextFormatted = manualReviewData.map((entry) => {
+        const hours = (entry.duration / 3600).toFixed(2)
+        // Fix: Use the date string directly to avoid timezone issues
+        const dateParts = manualDate.split('-')
+        const year = parseInt(dateParts[0])
+        const month = parseInt(dateParts[1]) - 1 // Month is 0-indexed
+        const day = parseInt(dateParts[2])
+        const date = new Date(year, month, day).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })
+        return `Client: ${entry.caseName}\nHours: ${hours}h\nDate: ${date}\nDescription: ${entry.description}`
+      }).join('\n\n')
+
+      // Set copy-paste text and show modal
+      setCopyPasteText(copyPasteTextFormatted)
+      setShowCopyPasteModal(true)
+
+      // Show success message
+      const submittedCasesCount = manualReviewData.length
+      console.log(`Manual time entry submitted successfully for ${submittedCasesCount} case(s)!`)
+
+      // Reset form and review mode
+      setManualSelectedCases([])
+      setManualDescription("")
+      setManualDurationHours("")
+      setManualDurationSeconds(null)
+      setIsManualReviewMode(false)
+      setManualReviewData([])
+
+    } catch (e) {
+      console.error('Failed to store manual time entry:', e)
+      alert('Failed to store time entry. Please try again.')
+      return
     }
-
-     const selectedCaseDetails = legalCases.filter((case_) => manualSelectedCases.includes(case_.id.toString()))
-     const manualTimeEntry = {
-       date: manualDate,
-       cases: selectedCaseDetails,
-       description: descRaw,
-       startTime: startDateTime ? startDateTime.toISOString() : null,
-       endTime: endDateTime ? endDateTime.toISOString() : null,
-       duration: formatTime(duration),
-     }
-
-     console.log("Manual time entry submitted for multiple cases:", manualTimeEntry)
-
-     // Persist to backend: create one entry per selected case
-     try {
-            // Simple fix: Add 1 day to the date to align with daily goals calculation
-     const adjustedDate = new Date(manualDate)
-     adjustedDate.setDate(adjustedDate.getDate() + 1)
-     
-     const payloads = manualSelectedCases.map((caseId) => ({
-       userId: currentUserId,
-       caseId,
-       date: adjustedDate.toISOString(),
-       startTime: startDateTime ? startDateTime.toISOString() : undefined,
-       endTime: endDateTime ? endDateTime.toISOString() : undefined,
-       duration,
-       billable: true,
-       description: descRaw,
-       source: 'manual-form'
-     }))
-       const responses = await Promise.all(payloads.map(p => fetch('/api/time-entries', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify(p)
-       })))
-       const firstError = await (async () => {
-         for (const r of responses) {
-           if (!r.ok) {
-             try { const j = await r.json(); return j?.error || r.statusText } catch { return r.statusText }
-           }
-         }
-         return null
-       })()
-       if (firstError) throw new Error(String(firstError))
-       alert(`Manual time entry submitted for ${manualSelectedCases.length} case(s)!`)
-     } catch (e) {
-       console.error('Failed to store manual time entry:', e)
-       alert('Failed to store time entry. Please try again.')
-       return
-     }
-
-     // Refresh personal goals to show updated progress
-     // fetchPersonalGoals() // Commented out - function not defined
-
-     // Reset form
-     setManualSelectedCases([])
-     setManualDescription("")
-     setManualStartTime("")
-     setManualEndTime("")
-     setManualDurationSeconds(null)
-   }
+  }
 
   // Non-billable manual entry submit
   const submitNonBillableManualEntry = () => {
@@ -1855,8 +1856,13 @@ export default function LawFirmDashboard() {
     // Memoized filtered team members for better performance
     const filteredTeamMembers = useMemo(() => 
       allTeamMembers && allTeamMembers.length > 0 
-        ? allTeamMembers.filter(member => member && member.name && member.name.trim() !== '')
-        : [],
+        ? allTeamMembers.filter(member => member && member.name && member.name.trim() !== '').map((member: any) => ({
+              ...member,
+              teamName: member.teamName,
+              isAdmin: member.isAdmin,
+              uniqueId: `${member.teamName}-${member.name}-${member.email}`
+            })) || []
+          : [],
       [allTeamMembers]
     );
 
@@ -2108,7 +2114,7 @@ export default function LawFirmDashboard() {
   }
 
   // Voice typing functions
-  const startVoiceTyping = (index: number) => {
+  const startVoiceTyping = (index: number, isManual: boolean = false) => {
     if (!recognition) {
       // Initialize speech recognition
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -2131,9 +2137,15 @@ export default function LawFirmDashboard() {
           .map(result => result[0].transcript)
           .join('')
         
-        setReviewData(prev => prev.map((item, i) => 
-          i === index ? { ...item, description: transcript } : item
-        ))
+        if (isManual) {
+          setManualReviewData(prev => prev.map((item, i) => 
+            i === index ? { ...item, description: transcript } : item
+          ))
+        } else {
+          setReviewData(prev => prev.map((item, i) => 
+            i === index ? { ...item, description: transcript } : item
+          ))
+        }
       }
       
       newRecognition.onerror = (event) => {
@@ -2155,6 +2167,52 @@ export default function LawFirmDashboard() {
     }
   }
 
+  // Voice typing for main description field
+  const startMainDescriptionVoiceTyping = () => {
+    if (!recognition) {
+      // Initialize speech recognition
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SpeechRecognition) {
+        alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
+        return
+      }
+      
+      const newRecognition = new SpeechRecognition()
+      newRecognition.continuous = false
+      newRecognition.interimResults = true
+      newRecognition.lang = 'en-US'
+      
+      newRecognition.onstart = () => {
+        setIsRecordingVoice(-1) // Use -1 to indicate main description field
+      }
+      
+      newRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('')
+        
+        setManualDescription(transcript)
+      }
+      
+      newRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event)
+        setIsRecordingVoice(null)
+        alert('Speech recognition error. Please try again.')
+      }
+      
+      newRecognition.onend = () => {
+        setIsRecordingVoice(null)
+      }
+      
+      setRecognition(newRecognition)
+      newRecognition.start()
+    } else {
+      // Use existing recognition
+      recognition.start()
+      setIsRecordingVoice(-1)
+    }
+  }
+
   const stopVoiceTyping = () => {
     if (recognition) {
       recognition.stop()
@@ -2172,11 +2230,11 @@ export default function LawFirmDashboard() {
   }, [recognition])
 
   useEffect(() => {
-    if (!isReviewMode && recognition) {
+    if (!isReviewMode && !isManualReviewMode && recognition) {
       recognition.stop()
       setIsRecordingVoice(null)
     }
-  }, [isReviewMode, recognition])
+  }, [isReviewMode, isManualReviewMode, recognition])
 
   return (
     <div className="min-h-screen bg-background">
@@ -2849,21 +2907,24 @@ export default function LawFirmDashboard() {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Duration</Label>
-                <Select onValueChange={(v) => setManualDurationSeconds(parseInt(v, 10))}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select duration (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {manualDurationOptions.map(opt => (
-                      <SelectItem key={opt.seconds} value={String(opt.seconds)}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {manualDurationSeconds != null && (
-                  <p className="text-xs text-muted-foreground mt-1">Selected: {Math.round(manualDurationSeconds/60)} minutes</p>
+                <Label className="text-sm font-medium">Duration (hours)</Label>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  placeholder="e.g., 0.5, 1.25, 2.0"
+                  value={manualDurationHours}
+                  onChange={(e) => {
+                    const hours = parseFloat(e.target.value) || 0
+                    setManualDurationHours(e.target.value)
+                    setManualDurationSeconds(Math.round(hours * 3600))
+                  }}
+                  className="mt-1"
+                />
+                {manualDurationSeconds != null && manualDurationSeconds > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {manualDurationHours} hours = {Math.round(manualDurationSeconds/60)} minutes
+                  </p>
                 )}
               </div>
 
@@ -2871,21 +2932,193 @@ export default function LawFirmDashboard() {
                 <Label htmlFor="manual-description" className="text-sm font-medium">
                   Description
                 </Label>
-                <Textarea
-                  id="manual-description"
-                  placeholder="Work description..."
-                  value={manualDescription}
-                  onChange={(e) => setManualDescription(e.target.value)}
-                  rows={3}
-                  className="mt-1"
-                />
+                <div className="relative">
+                  <Textarea
+                    id="manual-description"
+                    placeholder="Work description..."
+                    value={manualDescription}
+                    onChange={(e) => setManualDescription(e.target.value)}
+                    rows={3}
+                    className="mt-1 pr-12"
+                  />
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={isRecordingVoice === -1 ? stopVoiceTyping : startMainDescriptionVoiceTyping}
+                      disabled={isRecordingVoice !== null && isRecordingVoice !== -1}
+                      className="h-8 w-8 p-0"
+                    >
+                      {isRecordingVoice === -1 ? (
+                        <Square className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {isRecordingVoice === -1 && (
+                      <div className="absolute -top-8 right-0 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                        Recording...
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <Button onClick={submitManualEntry} className="w-full">
-                Submit Entry
+              <Button onClick={handleManualReview} className="w-full">
+                Review & Submit
               </Button>
             </CardContent>
           </Card>
+
+          {/* Manual Review Modal */}
+          {isManualReviewMode && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Review Manual Time Entry</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsManualReviewMode(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Review and adjust the time allocation and descriptions for each case before submitting.
+                  </div>
+
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Case</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {manualReviewData.map((entry, index) => (
+                          <TableRow key={entry.caseId}>
+                            <TableCell className="font-medium">
+                              {entry.caseName}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.25"
+                                  value={(entry.duration / 3600).toFixed(2)}
+                                  onChange={(e) => {
+                                    const newHours = parseFloat(e.target.value) || 0
+                                    const newDuration = Math.round(newHours * 3600)
+                                    setManualReviewData(prev => prev.map((item, i) => 
+                                      i === index ? { ...item, duration: newDuration } : item
+                                    ))
+                                  }}
+                                  className="w-20"
+                                />
+                                <span className="text-sm text-muted-foreground">hours</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Textarea
+                                    value={entry.description}
+                                    onChange={(e) => {
+                                      setManualReviewData(prev => prev.map((item, i) => 
+                                        i === index ? { ...item, description: e.target.value } : item
+                                      ))
+                                    }}
+                                    placeholder={`Describe the work performed on ${entry.caseName}...`}
+                                    rows={3}
+                                    className="text-sm resize-none min-w-[200px]"
+                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => startVoiceTyping(index, true)}
+                                      className="h-8 w-8 p-0 flex-shrink-0"
+                                      title="Voice type description (Click to start recording)"
+                                      disabled={isRecordingVoice !== null && isRecordingVoice !== index}
+                                    >
+                                      {isRecordingVoice === index ? (
+                                        <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                                      ) : (
+                                        <Mic className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    {isRecordingVoice === index && (
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => stopVoiceTyping()}
+                                        className="h-8 w-8 p-0 flex-shrink-0"
+                                        title="Stop recording"
+                                      >
+                                        <Square className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {isRecordingVoice === index && (
+                                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                    Listening... Speak now
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setManualReviewData(prev => prev.filter((_, i) => i !== index))
+                                }}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Total Duration: {manualReviewData.reduce((sum, entry) => sum + entry.duration, 0) / 3600} hours
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsManualReviewMode(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={submitManualEntry}
+                        disabled={manualReviewData.some(entry => !entry.description.trim())}
+                      >
+                        Submit All Entries
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 

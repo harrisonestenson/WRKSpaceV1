@@ -1,21 +1,21 @@
 [
   {
-    "id": "clock-session-session-1755187631221",
-    "userId": "harrison-estenson",
+    "id": "entry-1755198214329",
+    "userId": "Maddy Estenson",
     "teamId": null,
-    "caseId": null,
-    "date": "2025-08-14T16:07:15.143Z",
-    "startTime": "2025-08-14T16:07:11.047Z",
-    "endTime": "2025-08-14T16:07:15.143Z",
-    "duration": 4,
+    "caseId": "1755197328119",
+    "date": "2025-08-14T16:00:00.000Z",
+    "startTime": null,
+    "endTime": null,
+    "duration": 3600,
     "billable": true,
-    "description": "Office session completed - 0h",
+    "description": "test",
     "status": "COMPLETED",
     "nonBillableTaskId": null,
     "points": null,
-    "source": "clock-session",
-    "workHours": 0,
-    "createdAt": "2025-08-14T16:07:15.162Z",
-    "updatedAt": "2025-08-14T16:07:15.162Z"
+    "source": "manual-form",
+    "workHours": null,
+    "createdAt": "2025-08-14T19:03:34.329Z",
+    "updatedAt": "2025-08-14T19:03:34.329Z"
   }
 ]

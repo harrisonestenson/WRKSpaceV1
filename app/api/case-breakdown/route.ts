@@ -40,6 +40,21 @@ function getTimeRange(timeFrame: string): { start: Date; end: Date } {
       start = new Date(now.getFullYear(), now.getMonth(), 1)
       end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
       break
+    case 'thisweek':
+      const dayOfWeekThisWeek = now.getDay()
+      const daysToSubtractThisWeek = dayOfWeekThisWeek === 0 ? 6 : dayOfWeekThisWeek - 1
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToSubtractThisWeek)
+      end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1)
+      break
+    case 'last30days':
+      start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      end = now
+      break
+    case 'custom':
+      // For custom, default to monthly view
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      break
     default:
       start = new Date(now.getFullYear(), now.getMonth(), 1)
       end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)

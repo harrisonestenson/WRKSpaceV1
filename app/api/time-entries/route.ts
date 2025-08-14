@@ -186,8 +186,9 @@ export async function GET(request: NextRequest) {
     const timeFrame = searchParams.get('timeFrame') || 'monthly'
     const startDate = searchParams.get('startDate') || undefined
     const endDate = searchParams.get('endDate') || undefined
+    const includeManual = searchParams.get('includeManual') === 'true'
 
-    console.log('Time Entries API - Request:', { userId, timeFrame, startDate, endDate })
+    console.log('Time Entries API - Request:', { userId, timeFrame, startDate, endDate, includeManual })
 
     const all = readStore()
     const range = getTimeFrameDateRange(timeFrame, startDate, endDate)
@@ -196,8 +197,11 @@ export async function GET(request: NextRequest) {
       const d = new Date(e.date)
       const inRange = d >= range.start && d <= range.end
       const byUser = userId === 'all' || e.userId === userId
-      // Show clock entries and clock-session entries, but not manual time entries
-      const isClockEntry = !e.source || e.source !== 'manual-form' || e.source === 'clock-session'
+      
+      // If includeManual is true, show all entries including manual-form and timer
+      // Otherwise, show only clock entries and clock-session entries
+      const isClockEntry = includeManual ? true : (!e.source || e.source !== 'manual-form' || e.source === 'clock-session')
+      
       return inRange && byUser && isClockEntry
     })
 

@@ -154,6 +154,11 @@ export default function DataDashboard() {
   const [goalFrequencyFilter, setGoalFrequencyFilter] = useState("all")
   const [goalStatusFilter, setGoalStatusFilter] = useState("all")
   const [goalScopeFilter, setGoalScopeFilter] = useState("all")
+  
+  // Billable entries filter states
+  const [caseFilter, setCaseFilter] = useState("all")
+  const [billableDateRange, setBillableDateRange] = useState("monthly")
+  
   const [caseDateRange, setCaseDateRange] = useState("last30days")
   const [caseTimeType, setCaseTimeType] = useState("all")
   const [caseSortBy, setCaseSortBy] = useState("hours")
@@ -172,6 +177,24 @@ export default function DataDashboard() {
   
   // Time entries state - now using real API data only
   const [timeEntries, setTimeEntries] = useState<any[]>([])
+  
+  // Billable entries state
+  const [billableEntriesData, setBillableEntriesData] = useState<any[]>([])
+  
+  // Legal cases state
+  const [legalCases, setLegalCases] = useState<any[]>([])
+  
+  // Copy-paste modal state
+  const [showCopyPasteModal, setShowCopyPasteModal] = useState(false)
+  const [copyPasteText, setCopyPasteText] = useState("")
+
+  // Initialize selectedUser based on role
+  useEffect(() => {
+    // Both admins and members see their own data by default
+    if (session?.user?.id) {
+      setSelectedUser(session.user.id)
+    }
+  }, [session?.user?.id])
 
   // Function to fetch team aggregation data
   const fetchTeamAggregation = async (timeFrame: string = 'monthly') => {
@@ -227,6 +250,62 @@ export default function DataDashboard() {
     }
     
     return workingDays > 0 ? totalHours / workingDays : 0
+  }
+
+  // Function to fetch legal cases
+  const fetchLegalCases = async () => {
+    try {
+      console.log('🔄 Fetching legal cases...')
+      const response = await fetch('/api/legal-cases')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data?.cases) {
+          setLegalCases(data.data.cases)
+          console.log('✅ Legal cases loaded:', data.data.cases.length)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching legal cases:', error)
+    }
+  }
+
+  // Function to fetch billable entries
+  const fetchBillableEntries = async () => {
+    try {
+      console.log('🔄 Fetching billable entries...')
+      const response = await fetch(`/api/time-entries?userId=all&timeFrame=${billableDateRange}&includeManual=true`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.timeEntries) {
+          // Filter only billable entries from manual-form or timer sources
+          const billableEntries = data.timeEntries.filter((entry: any) => 
+            entry.billable && (entry.source === 'manual-form' || entry.source === 'timer')
+          )
+          setBillableEntriesData(billableEntries)
+          console.log('✅ Billable entries loaded:', billableEntries.length)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching billable entries:', error)
+    }
+  }
+
+  // Function to show entry log modal
+  const showEntryLog = (entry: any) => {
+    // Generate the exact same log format as the timer
+    const hours = (entry.duration / 3600).toFixed(2)
+    const date = new Date(entry.date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+    const caseName = legalCases.find(c => c.id.toString() === entry.caseId)?.name || 'Unknown Case'
+    
+    const logText = `Client: ${caseName}\nHours: ${hours}h\nDate: ${date}\nDescription: ${entry.description}`
+    
+    // Set the log text and show modal
+    setCopyPasteText(logText)
+    setShowCopyPasteModal(true)
   }
 
   // Function to refresh time entries from API
@@ -465,15 +544,76 @@ export default function DataDashboard() {
     fetchTimeEntries() // Fetch latest time entries from API
   }, []) // Empty dependency array - run once on mount
   
-  // Fetch case breakdown data when user or time frame changes
+  // Fetch case breakdown data when user or time frame changes - using same data as billable hours log
   useEffect(() => {
-    if (activeSection === 'case-breakdown' && selectedUser !== 'all') {
+    if (activeSection === 'case-breakdown') {
       setCaseBreakdownLoading(true)
-      fetch(`/api/case-breakdown?userId=${encodeURIComponent(selectedUser)}&timeFrame=${adminDateRange}`)
+      
+      // Use the exact same data source as billable hours log
+      fetch(`/api/time-entries?userId=all&timeFrame=${caseDateRange}&includeManual=true`)
         .then(res => res.json())
         .then(data => {
-          if (data.success) {
-            setCaseBreakdownData(data.data)
+          if (data.success && data.timeEntries) {
+            // Transform the same data that billable hours log uses
+            const transformedEntries = data.timeEntries.map((entry: any) => ({
+              id: entry.id,
+              date: new Date(entry.date).toLocaleDateString('en-CA'),
+              clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+              clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+              totalHours: entry.duration ? entry.duration / 3600 : 0,
+              billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
+              notes: entry.description || '',
+              status: entry.status || 'completed',
+              isOfficeSession: false,
+              userId: entry.userId,
+              caseId: entry.caseId,
+              billable: entry.billable
+            }))
+            
+            // Group by case and calculate breakdown
+            const caseBreakdown = new Map()
+            transformedEntries.forEach((entry: any) => {
+              if (entry.caseId) {
+                if (!caseBreakdown.has(entry.caseId)) {
+                  caseBreakdown.set(entry.caseId, {
+                    caseId: entry.caseId,
+                    caseName: legalCases.find(c => c.id.toString() === entry.caseId)?.name || `Case ${entry.caseId}`,
+                    totalHours: 0,
+                    billableHours: 0,
+                    nonBillableHours: 0,
+                    percentage: 0
+                  })
+                }
+                
+                const caseData = caseBreakdown.get(entry.caseId)
+                caseData.totalHours += entry.totalHours
+                if (entry.billable) {
+                  caseData.billableHours += entry.totalHours
+                } else {
+                  caseData.nonBillableHours += entry.totalHours
+                }
+              }
+            })
+            
+            // Calculate percentages
+            const totalHours = Array.from(caseBreakdown.values()).reduce((sum: number, caseData: any) => sum + caseData.totalHours, 0)
+            const breakdown = Array.from(caseBreakdown.values()).map((caseData: any) => ({
+              ...caseData,
+              percentage: totalHours > 0 ? Math.round((caseData.totalHours / totalHours) * 100) : 0
+            }))
+            
+            // Sort by total hours
+            breakdown.sort((a: any, b: any) => b.totalHours - a.totalHours)
+            
+            setCaseBreakdownData({
+              breakdown,
+              summary: {
+                totalHours: Math.round(totalHours * 10) / 10,
+                totalBillableHours: Math.round(breakdown.reduce((sum: number, caseData: any) => sum + caseData.billableHours, 0) * 10) / 10,
+                totalNonBillableHours: Math.round(breakdown.reduce((sum: number, caseData: any) => sum + caseData.nonBillableHours, 0) * 10) / 10,
+                caseCount: breakdown.length
+              }
+            })
           }
         })
         .catch(error => {
@@ -483,27 +623,37 @@ export default function DataDashboard() {
           setCaseBreakdownLoading(false)
         })
     }
-  }, [activeSection, selectedUser, adminDateRange])
+  }, [activeSection, caseDateRange, legalCases])
+  
+
+  
+  // Fetch billable entries when component mounts
+  useEffect(() => {
+    fetchBillableEntries()
+    fetchLegalCases()
+  }, [])
+
+  // Refetch billable entries when date range changes
+  useEffect(() => {
+    fetchBillableEntries()
+  }, [billableDateRange])
   
   // Fetch dashboard data when user or time frame changes
   useEffect(() => {
-    console.log('🔄 Dashboard useEffect triggered:', { selectedUser, adminDateRange })
-    
     const fetchDashboardData = async () => {
       console.log('🔄 fetchDashboardData called with:', { selectedUser, adminDateRange })
-      if (!selectedUser) {
-        console.log('❌ Skipping fetch - no user selected')
+      
+      // Both admins and members see their own data
+      const userId = session?.user?.id
+      
+      if (!userId) {
+        console.log('❌ Skipping fetch - no user ID available')
         return
       }
       
-      // If user is "all", fetch team-wide data, otherwise fetch user-specific data
-      const isTeamView = selectedUser === 'all'
-      
       try {
         setIsLoadingDashboard(true)
-        const url = isTeamView 
-          ? `/api/dashboard?userId=all&role=admin&timeFrame=${adminDateRange}`
-          : `/api/dashboard?userId=${encodeURIComponent(selectedUser)}&role=admin&timeFrame=${adminDateRange}`
+        const url = `/api/dashboard?userId=${encodeURIComponent(userId)}&role=${userRole}&timeFrame=${adminDateRange}`
         console.log('🌐 Fetching dashboard data:', url)
         
         const response = await fetch(url)
@@ -512,6 +662,8 @@ export default function DataDashboard() {
         if (data.success) {
           setDashboardData(data.dashboardData)
           console.log('✅ Dashboard data loaded:', data.dashboardData)
+          
+
         } else {
           console.error('❌ Failed to fetch dashboard data:', data)
         }
@@ -523,12 +675,7 @@ export default function DataDashboard() {
     }
     
     fetchDashboardData()
-    
-    // Also fetch team aggregation data if in team view
-    if (selectedUser === 'all') {
-      fetchTeamAggregation(adminDateRange)
-    }
-  }, [selectedUser, adminDateRange])
+  }, [adminDateRange, session?.user?.id])
   
   // Live session state
   const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
@@ -560,12 +707,6 @@ export default function DataDashboard() {
   
   // Initialize live session from localStorage on component mount
   useEffect(() => {
-    // Don't restore sessions when viewing all users (team view)
-    if (selectedUser === 'all') {
-      console.log('Team view active - skipping session restoration')
-      return
-    }
-
     console.log('Checking for saved clock session...')
     const savedClockState = localStorage.getItem('clockSession')
     if (savedClockState) {
@@ -1185,238 +1326,7 @@ export default function DataDashboard() {
   }
 
   const renderTimeLogSection = () => {
-    // Check if this is team view
-    const isTeamView = userRole === "admin" && selectedUser === "all"
-    
-    if (isTeamView) {
-      return (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Clock className="h-6 w-6" />
-                Team Time Log
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Track team daily office attendance (clock in/out sessions)
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => handleExport("csv")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button variant="outline" onClick={() => handleExport("pdf")}>
-                <Download className="h-4 w-4 mr-2" />
-                Export PDF
-              </Button>
-              <Button variant="outline" onClick={() => setActiveSection(null)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </div>
-          </div>
-
-          {/* Date Range Filter */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Date Range:</span>
-                </div>
-                <Select value={dateRange} onValueChange={setDateRange}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="last7days">Last 7 Days</SelectItem>
-                    <SelectItem value="thismonth">This Month</SelectItem>
-                    <SelectItem value="custom">Custom Range</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Sort by:</span>
-                </div>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="hours">Hours</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-                >
-                  {sortOrder === "asc" ? "↑" : "↓"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Summary Bar */}
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Team Time Summary</h3>
-                <Select value={timePeriod} onValueChange={setTimePeriod}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <DollarSign className="h-5 w-5 text-green-600" />
-                    <h3 className="text-lg font-semibold">{getPeriodLabel(timePeriod)} Team Billable Hours</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-green-600">{periodBillableHours.toFixed(1)}h</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold">Total Team Hours</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-blue-600">{periodTotalHours.toFixed(1)}h</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <PieChart className="h-5 w-5 text-purple-600" />
-                    <h3 className="text-lg font-semibold">Team Billable %</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-purple-600">{periodBillablePercentage.toFixed(1)}%</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Users className="h-5 w-5 text-orange-600" />
-                    <h3 className="text-lg font-semibold">Active Team Members</h3>
-                  </div>
-                  <p className="text-3xl font-bold text-orange-600">0</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Time Entries Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Time Entries
-                </span>
-                <Badge variant="outline">{timeEntries.length} entries</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12"></TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Office In</TableHead>
-                        <TableHead>Office Out</TableHead>
-                        <TableHead>Office Hours</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead className="w-20">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {/* Debug info */}
-                      {process.env.NODE_ENV === 'development' && (
-                        <TableRow>
-                          <TableCell colSpan={7} className="bg-yellow-50 text-xs text-yellow-800">
-                            Debug: Team view - showing aggregated data
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      
-                      {/* Placeholder for team data */}
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12">
-                          <div className="flex flex-col items-center gap-3">
-                            <Clock className="h-16 w-16 text-muted-foreground" />
-                            <h3 className="text-lg font-semibold">No Team Data Available</h3>
-                            <p className="text-muted-foreground text-center max-w-md">
-                              Team time aggregations will appear here once team members start logging time.
-                              <br />
-                              Data is aggregated daily across all active team members.
-                            </p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Team Metrics Summary */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Team Performance Metrics</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Average Team Hours/Day</p>
-                  <p className="text-2xl font-bold">{averageTotalHours.toFixed(1)}h</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Average Team Billable Hours</p>
-                  <p className="text-2xl font-bold text-green-600">{averageBillableHours.toFixed(1)}h</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Average Team Clock In</p>
-                  <p className="text-2xl font-bold">
-                    {timeEntries.length > 0 ? 
-                      new Date(timeEntries.reduce((acc, entry) => {
-                        const time = new Date(`2000-01-01T${entry.clockIn}:00`)
-                        return acc + time.getTime()
-                      }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: false 
-                      }) : '-'
-                    }
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">Average Team Clock Out</p>
-                  <p className="text-2xl font-bold">
-                    {timeEntries.length > 0 ? 
-                      new Date(timeEntries.reduce((acc, entry) => {
-                        const time = new Date(`2000-01-01T${entry.clockIn}:00`)
-                        return acc + time.getTime()
-                      }, 0) / timeEntries.length).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: false 
-                      }) : '-'
-                    }
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-    
+    // Both admins and members see their individual time log data
     return (
       <div className="space-y-6">
         {/* Header */}
@@ -1426,9 +1336,9 @@ export default function DataDashboard() {
               <Clock className="h-6 w-6" />
               My Time Log
             </h2>
-                          <p className="text-sm text-muted-foreground mt-1">
-                Track your daily office attendance (clock in/out sessions)
-              </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track your daily office attendance (clock in/out sessions)
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => handleExport("csv")}>
@@ -1854,46 +1764,7 @@ export default function DataDashboard() {
   }
 
   const renderCaseBreakdownSection = () => {
-    // Use team data if admin and "All Users" selected, otherwise use individual data
-    const isTeamView = userRole === "admin" && selectedUser === "all"
-    
-    if (isTeamView) {
-      return (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <BarChart3 className="h-6 w-6" />
-                Team Case Breakdown
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Team case breakdowns are not available in team view
-              </p>
-            </div>
-            <Button variant="outline" onClick={() => setActiveSection(null)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
-          
-          {/* Empty State */}
-          <Card>
-            <CardContent className="p-12 text-center">
-              <BarChart3 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Team Case Breakdown</h3>
-              <p className="text-muted-foreground">
-                Individual case breakdowns are only visible when viewing specific team members.
-                <br />
-                Switch to a specific user to see their case breakdown data.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )
-    }
-    
-    // Use real data or fallback to empty state
+    // Both admins and members see their individual case breakdown data
     const caseData = caseBreakdownData?.breakdown || []
     const totalLoggedHours = caseBreakdownData?.summary?.totalHours || 0
     const totalBillableHours = caseBreakdownData?.summary?.totalBillableHours || 0
@@ -2213,32 +2084,16 @@ export default function DataDashboard() {
                             </div>
   )
 
-  const renderGoalHistorySection = () => {
-    // Goal History should only be shown for individual users, not team view
-    const isTeamView = false // Always treat as individual view since this is personal goal history
-    const goalData = goalHistoryData // Always use goalHistoryData since we have real data
+  const renderBillableEntriesSection = () => {
+    // Billable Entries should only be shown for individual users, not team view
+    const isTeamView = false // Always treat as individual view since this is personal billable entries
     
 
     
-    // Filter goals based on selected criteria
-    const filteredGoals = goalData.filter(goal => {
-      // Filter by goal type
-      if (goalTypeFilter !== "all" && goal.type !== goalTypeFilter) {
-        return false
-      }
-      
-      // Filter by goal scope (only for individual view)
-      if (!isTeamView && goalScopeFilter !== "all" && goal.scope !== goalScopeFilter) {
-        return false
-      }
-      
-      // Filter by frequency
-      if (goalFrequencyFilter !== "all" && goal.frequency !== goalFrequencyFilter) {
-        return false
-      }
-      
-      // Filter by status
-      if (goalStatusFilter !== "all" && goal.status !== goalStatusFilter) {
+    // Filter billable entries based on selected criteria
+    const filteredEntries = billableEntriesData.filter(entry => {
+      // Filter by case
+      if (caseFilter !== "all" && entry.caseId !== caseFilter) {
         return false
       }
       
@@ -2262,11 +2117,11 @@ export default function DataDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Target className="h-6 w-6" />
-              Goal History
+              <FileText className="h-6 w-6" />
+              Billable Work Log
             </h2>
             <p className="text-muted-foreground">
-              Track your personal goals and performance
+              Track your billable time entries and work history
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -2306,13 +2161,13 @@ export default function DataDashboard() {
               <Card>
           <CardContent className="p-4">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Filter Goals</h3>
+              <h3 className="text-lg font-semibold">Filter Entries</h3>
               
               {/* Date Range Filter */}
                             <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Date Range:</span>
-                <Select value={goalDateRange} onValueChange={setGoalDateRange}>
+                <Select value={billableDateRange} onValueChange={setBillableDateRange}>
                   <SelectTrigger className="w-48">
                     <SelectValue />
                   </SelectTrigger>
@@ -2326,214 +2181,67 @@ export default function DataDashboard() {
                 </Select>
               </div>
 
-              {/* Goal Type Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Goal Type:</span>
-                <div className="flex border rounded-lg">
-                  <button
-                    onClick={() => setGoalTypeFilter("all")}
-                    className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
-                      goalTypeFilter === "all"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setGoalTypeFilter("Billable / Work Output")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalTypeFilter === "Billable / Work Output"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Billable
-                  </button>
-                  <button
-                    onClick={() => setGoalTypeFilter("Time Management")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalTypeFilter === "Time Management"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Time Management
-                  </button>
-                  <button
-                    onClick={() => setGoalTypeFilter("Team Contribution & Culture")}
-                    className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
-                      goalTypeFilter === "Team Contribution & Culture"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Culture
-                  </button>
-                </div>
-              </div>
 
-              {/* Goal Scope Filter - Only show for individual view */}
+
+              {/* Case Filter - Only show for individual view */}
               {!isTeamView && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Goal Scope:</span>
-                  <div className="flex border rounded-lg">
-                    <button
-                      onClick={() => setGoalScopeFilter("all")}
-                      className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
-                        goalScopeFilter === "all"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background hover:bg-muted"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setGoalScopeFilter("personal")}
-                      className={`px-4 py-2 text-sm font-medium transition-colors ${
-                        goalScopeFilter === "personal"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background hover:bg-muted"
-                      }`}
-                    >
-                      Personal
-                    </button>
-                    <button
-                      onClick={() => setGoalScopeFilter("team")}
-                      className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
-                        goalScopeFilter === "team"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background hover:bg-muted"
-                      }`}
-                    >
-                      Team
-                    </button>
-                  </div>
+                  <span className="text-sm font-medium">Case:</span>
+                  <Select value={caseFilter} onValueChange={setCaseFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All cases" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All cases</SelectItem>
+                      {legalCases.map((case_) => (
+                        <SelectItem key={case_.id} value={case_.id.toString()}>
+                          {case_.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
-              {/* Frequency Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Frequency:</span>
-                <div className="flex border rounded-lg">
-                  <button
-                    onClick={() => setGoalFrequencyFilter("all")}
-                    className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
-                      goalFrequencyFilter === "all"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setGoalFrequencyFilter("Daily")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalFrequencyFilter === "Daily"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Daily
-                  </button>
-                  <button
-                    onClick={() => setGoalFrequencyFilter("Weekly")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalFrequencyFilter === "Weekly"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Weekly
-                  </button>
-                  <button
-                    onClick={() => setGoalFrequencyFilter("Monthly")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalFrequencyFilter === "Monthly"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setGoalFrequencyFilter("Quarterly")}
-                    className={`px-4 py-2 text-sm font-medium rounded-r-lg transition-colors ${
-                      goalFrequencyFilter === "Quarterly"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Quarterly
-                  </button>
-                </div>
-              </div>
 
-              {/* Status Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Status:</span>
-                <div className="flex border rounded-lg">
-                  <button
-                    onClick={() => setGoalStatusFilter("all")}
-                    className={`px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
-                      goalStatusFilter === "all"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setGoalStatusFilter("met")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalStatusFilter === "met"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Met
-                  </button>
-                  <button
-                    onClick={() => setGoalStatusFilter("missed")}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
-                      goalStatusFilter === "missed"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    Missed
-                  </button>
 
-                </div>
-              </div>
 
-              {/* Goal Performance Summary */}
+
+              {/* Billable Entries Summary */}
               <div className="border-t pt-4">
-                <h4 className="text-md font-semibold mb-3">Goal Performance Summary</h4>
+                <h4 className="text-md font-semibold mb-3">Billable Entries Summary</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Total Goals</p>
-                    <p className="text-2xl font-bold">{filteredGoals.length}</p>
+                    <p className="text-sm text-muted-foreground mb-1">Total Entries</p>
+                    <p className="text-2xl font-bold">{filteredEntries.length}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Met</p>
+                    <p className="text-sm text-muted-foreground mb-1">Total Hours</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {filteredGoals.filter(g => g.status === "met").length}
+                      {Math.round((filteredEntries.reduce((sum, e) => sum + e.duration, 0) / 3600) * 100) / 100}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Missed</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      {filteredGoals.filter(g => g.status === "missed").length}
-                    </p>
-                  </div>
-
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">Success Rate</p>
+                    <p className="text-sm text-muted-foreground mb-1">Avg Duration</p>
                     <p className="text-2xl font-bold text-blue-600">
-                      {filteredGoals.length > 0 
-                        ? Math.round((filteredGoals.filter(g => g.status === "met").length / filteredGoals.length) * 100)
-                        : 0}%
+                      {filteredEntries.length > 0 
+                        ? Math.round((filteredEntries.reduce((sum, e) => sum + e.duration, 0) / filteredEntries.length / 3600) * 100) / 100
+                        : 0}h
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">Most Active Case</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {filteredEntries.length > 0 
+                        ? (() => {
+                            const caseCounts = filteredEntries.reduce((acc, e) => {
+                              acc[e.caseId] = (acc[e.caseId] || 0) + 1
+                              return acc
+                            }, {} as Record<string, number>)
+                            const mostActive = Object.entries(caseCounts).sort(([,a], [,b]) => b - a)[0]
+                            return mostActive ? legalCases.find(c => c.id.toString() === mostActive[0])?.name || 'Unknown' : 'None'
+                          })()
+                        : 'None'}
                     </p>
                   </div>
                 </div>
@@ -2542,43 +2250,47 @@ export default function DataDashboard() {
                 </CardContent>
               </Card>
 
-        {/* Goal Cards */}
+        {/* Billable Entries Cards */}
             <div className="space-y-4">
-          {filteredGoals.map((goal) => (
-            <Card key={goal.id} className="hover:shadow-md transition-shadow">
+          {filteredEntries.map((entry) => (
+            <Card key={entry.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => showEntryLog(entry)}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold text-lg">{goal.title}</h4>
+                      <h4 className="font-semibold text-lg">
+                        {legalCases.find(c => c.id.toString() === entry.caseId)?.name || 'Unknown Case'}
+                      </h4>
                       <Badge variant="outline" className="text-xs">
-                        {goal.frequency}
+                        {entry.source === 'timer' ? 'Timer' : 'Manual'}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
-                        {goal.scope}
+                        {Math.round((entry.duration / 3600) * 100) / 100}h
                       </Badge>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                      <span>{goal.type}</span>
+                      <span>{new Date(entry.date).toLocaleDateString()}</span>
                       <span>•</span>
-                      <span>{goal.dateRange}</span>
+                      <span>{new Date(entry.date).toLocaleTimeString()}</span>
                       <span>•</span>
-                      <span>Target: {goal.target}</span>
+                      <span>Source: {entry.source}</span>
                     </div>
-                    <div className="flex items-center gap-4 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Actual:</span>
-                        <span className="text-lg font-bold">{goal.actual}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Status:</span>
-                        {getGoalStatusBadge(goal.status)}
-                      </div>
+                    <div className="mb-3">
+                      <p className="text-sm text-muted-foreground mb-1">Description:</p>
+                      <p className="text-sm">{entry.description}</p>
                     </div>
-                    <Progress value={goal.progress} className="mb-2" />
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progress: {goal.progress}%</span>
-                      <span className="text-muted-foreground">{goal.actual}/{goal.target}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          showEntryLog(entry)
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Log
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -2586,18 +2298,16 @@ export default function DataDashboard() {
             </Card>
           ))}
           
-          {filteredGoals.length === 0 && (
+          {filteredEntries.length === 0 && (
             <Card>
               <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground">No goals match the selected filters.</p>
+                <p className="text-muted-foreground">No billable entries match the selected filters.</p>
                 <Button 
                   variant="outline" 
                   className="mt-2"
                   onClick={() => {
-                    setGoalTypeFilter("all")
-                    setGoalScopeFilter("all")
-                    setGoalFrequencyFilter("all")
-                    setGoalStatusFilter("all")
+                    setCaseFilter("all")
+                    setBillableDateRange("monthly")
                   }}
                 >
                   Clear All Filters
@@ -2642,38 +2352,7 @@ export default function DataDashboard() {
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Select User:</span>
-                  {/* Debug info */}
-                  {process.env.NODE_ENV === 'development' && (
-                    <span className="text-xs text-gray-500 ml-2">
-                      Debug: selectedUser = "{selectedUser}"
-                    </span>
-                  )}
-                  <Select value={selectedUser} onValueChange={setSelectedUser}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="fc (Team View)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">fc (Team View)</SelectItem>
-                      {teamMembers && teamMembers.length > 0 ? teamMembers.map((member: any) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{member.name}</span>
-                            <span className="text-muted-foreground">({member.role})</span>
-                          </div>
-                        </SelectItem>
-                      )) : (
-                        <SelectItem value="no-team-members" disabled>
-                          <div className="text-muted-foreground">No team members available</div>
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-
+                {/* User selection removed - admins see their own data just like members */}
               </div>
             </CardContent>
           </Card>
@@ -3158,32 +2837,7 @@ export default function DataDashboard() {
           {/* Admin Controls */}
           {userRole === "admin" && (
             <div className="mt-4 flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Select User:</span>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Users (Team View)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">fc (Team View)</SelectItem>
-                    {teamMembers && teamMembers.length > 0 ? teamMembers.map((member: any) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{member.name}</span>
-                          <span className="text-muted-foreground">({member.role})</span>
-                        </div>
-                      </SelectItem>
-                    )) : (
-                      <SelectItem value="no-team-members-2" disabled>
-                        <div className="text-muted-foreground">No team members available</div>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-
+              {/* User selection removed - admins see their own data just like members */}
             </div>
           )}
         </div>
@@ -3197,302 +2851,52 @@ export default function DataDashboard() {
             {activeSection === "time-log" && renderTimeLogSection()}
             {activeSection === "case-breakdown" && renderCaseBreakdownSection()}
             {activeSection === "unaccounted-time" && renderUnaccountedTimeSection()}
-            {activeSection === "goal-history" && (userRole !== "admin" || selectedUser !== "all") && renderGoalHistorySection()}
-            {activeSection === "goal-history" && userRole === "admin" && selectedUser === "all" && (
-              <div className="text-center py-12">
-                <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Goal History Not Available</h3>
-                <p className="text-muted-foreground mb-4">
-                  Goal History is only available for individual users. Please select a specific user to view their goal history.
-                </p>
-                <Button variant="outline" onClick={() => setActiveSection(null)}>
-                  Back to Dashboard
-                </Button>
-              </div>
-            )}
+            {activeSection === "goal-history" && renderBillableEntriesSection()}
           </div>
         ) : (
           // Render main dashboard grid
           <div className="max-w-4xl mx-auto">
-            {userRole === "admin" && selectedUser === "all" ? (
-              // Team-wide overview for admin
-              <div className="space-y-6">
-                {/* Time Frame Control */}
-                <div className="flex items-center justify-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Time Frame:</span>
-                  <Select value={adminDateRange} onValueChange={(value) => {
-                    setAdminDateRange(value)
-                    // Refresh team aggregation data when time frame changes
-                    if (selectedUser === 'all') {
-                      fetchTeamAggregation(value)
-                    }
-                  }}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Team Overview Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Team Billable Hours</p>
-                          <p className="text-2xl font-bold text-green-600">
-                            {isLoadingTeamAggregation ? (
-                              <span className="text-muted-foreground">Loading...</span>
-                            ) : teamAggregation ? (
-                              `${(teamAggregation.teamMetrics.totalBillableHours || 0).toFixed(1)}h`
-                            ) : (
-                              `${mockTeamData.totalTeamBillable.toFixed(1)}h`
-                            )}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-full bg-green-100 text-green-600">
-                          <DollarSign className="h-6 w-6" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Avg Daily Billable</p>
-                          <p className="text-2xl font-bold">
-                            {isLoadingTeamAggregation ? (
-                              <span className="text-muted-foreground">Loading...</span>
-                            ) : teamAggregation ? (
-                              `${calculateDailyAverage(teamAggregation.teamMetrics.totalBillableHours || 0, adminDateRange).toFixed(2)}h`
-                            ) : (
-                              `${mockTeamData.averageDailyBillable.toFixed(1)}h`
-                            )}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                          <TrendingUp className="h-6 w-6" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Avg Clock In</p>
-                          <p className="text-2xl font-bold">
-                            {isLoadingTeamAggregation ? (
-                              <span className="text-muted-foreground">Loading...</span>
-                            ) : teamAggregation ? (
-                              teamAggregation.teamMetrics.averageClockIn || 'N/A'
-                            ) : (
-                              mockTeamData.averageClockIn
-                            )}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                          <Clock className="h-6 w-6" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Average Clock Out Time</p>
-                          <p className="text-2xl font-bold">
-                            {isLoadingTeamAggregation ? (
-                              <span className="text-muted-foreground">Loading...</span>
-                            ) : teamAggregation ? (
-                              teamAggregation.teamMetrics.averageClockOut || 'N/A'
-                            ) : (
-                              mockTeamData.averageClockOut
-                            )}
-                          </p>
-                        </div>
-                        <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                          <Clock className="h-6 w-6" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Team Dashboard Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <DashboardCard
-                    title="Team Time Log"
-                    icon={Clock}
-                    stats={isLoadingTeamMembers ? "Loading..." : `${teamMembers.length} team members`}
-                    onClick={() => setActiveSection("time-log")}
-                  />
-                  <DashboardCard
-                    title="Team Case Breakdown"
-                    icon={BarChart3}
-                    stats={`${mockTeamData.teamCases.length} active cases`}
-                    onClick={() => setActiveSection("case-breakdown")}
-                  />
-                  {/* Removed Team Goal History - this should only be for individual users */}
-              </div>
+            {/* Individual user dashboard - same for both admins and members */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <DashboardCard
+                title="My Time Log"
+                icon={Clock}
+                stats={`${dashboardData?.timeEntries?.length || 0} recent entries`}
+                onClick={() => setActiveSection("time-log")}
+              />
+              <DashboardCard
+                title="Case Breakdown"
+                icon={BarChart3}
+                stats={`${dashboardData?.legalCases?.length || 0} active cases`}
+                onClick={() => setActiveSection("case-breakdown")}
+              />
+              <DashboardCard
+                title="Billable Hours Log"
+                icon={Target}
+                stats={`${dashboardData?.goals?.length || 0} personal goals`}
+                onClick={() => setActiveSection("goal-history")}
+              />
             </div>
-            ) : (
-              // Individual user or member view
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <DashboardCard
-                  title="My Time Log"
-                  icon={Clock}
-                  stats={`${dashboardData?.timeEntries?.length || 0} recent entries`}
-                  onClick={() => setActiveSection("time-log")}
-                />
-                <DashboardCard
-                  title="Case Breakdown"
-                  icon={BarChart3}
-                  stats={`${dashboardData?.legalCases?.length || 0} active cases`}
-                  onClick={() => setActiveSection("case-breakdown")}
-                />
-                <DashboardCard
-                  title="Goal History"
-                  icon={Target}
-                  stats={`${dashboardData?.goals?.length || 0} personal goals`}
-                  onClick={() => setActiveSection("goal-history")}
-                />
-            </div>
-            )}
             
-            {/* Bottom Row - Two Metrics Cards */}
-            {userRole === "admin" && selectedUser === "all" ? (
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Average Time Spent Each Day in Office</p>
-                        <p className="text-2xl font-bold">
-                          {isLoadingTeamAggregation ? (
-                            <span className="text-muted-foreground">Loading...</span>
-                          ) : teamAggregation ? (
-                            `${teamAggregation.teamMetrics.averageOfficeHoursPerDay || 0}h`
-                          ) : (
-                            '0h'
-                          )}
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                        <Clock className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Billable Hour Comparison</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => setIsBillableComparisonOpen(true)}
-                        >
-                          <BarChart className="h-4 w-4 mr-2" />
-                          View Comparison
-                        </Button>
-                      </div>
-                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <BarChart className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Time Frame Control - same for both admins and members */}
+            <div className="mt-8 space-y-4">
+              <div className="flex items-center justify-center gap-2">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Time Frame:</span>
+                <Select value={adminDateRange} onValueChange={(value) => {
+                  setAdminDateRange(value)
+                }}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            ) : (
-              <div className="mt-8 space-y-4">
-                {/* Time Frame Control */}
-                <div className="flex items-center justify-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Time Frame:</span>
-                  <Select value={adminDateRange} onValueChange={(value) => {
-                    setAdminDateRange(value)
-                    // Refresh team aggregation data when time frame changes
-                    if (selectedUser === 'all') {
-                      fetchTeamAggregation(value)
-                    }
-                  }}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Billable Hours</p>
-                        <p className="text-2xl font-bold">
-                          {isLoadingDashboard ? 'Loading...' : 
-                           dashboardData?.summary?.totalBillableHours?.toFixed(1) || '0.0'}h
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          User: {selectedUser} | TimeFrame: {adminDateRange} | Loading: {isLoadingDashboard ? 'Yes' : 'No'}
-                        </p>
-                        {dashboardData && (
-                          <p className="text-xs text-muted-foreground">
-                            Data: {JSON.stringify({
-                              hasData: !!dashboardData,
-                              summary: !!dashboardData?.summary,
-                              billableHours: dashboardData?.summary?.totalBillableHours
-                            })}
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-3 rounded-full bg-green-100 text-green-600">
-                        <DollarSign className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Goal Completion</p>
-                        <p className="text-2xl font-bold">
-                          {dashboardData?.summary?.goalCompletionCounts?.display || '0/0'}
-                        </p>
-                        {dashboardData?.summary?.goalCompletionRate !== undefined && (
-                          <p className="text-sm text-muted-foreground">
-                            {Math.round(dashboardData.summary.goalCompletionRate)}% complete
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                        <Target className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         )}
       </main>
@@ -3605,6 +3009,47 @@ export default function DataDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+        
+        {/* Copy-Paste Modal */}
+        {showCopyPasteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Timer Log</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCopyPasteModal(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Copy the log text below to paste into client communications, billing systems, or time tracking software:
+                </p>
+                <div className="bg-gray-100 p-4 rounded-lg border">
+                  <pre className="whitespace-pre-wrap text-sm font-mono">{copyPasteText}</pre>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(copyPasteText)
+                    // You could add a toast notification here
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Copy to Clipboard
+                </Button>
+                <Button onClick={() => setShowCopyPasteModal(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   )
 }

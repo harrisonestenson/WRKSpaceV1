@@ -49,9 +49,9 @@ export const authOptions: NextAuthOptions = {
         if (credentials?.email === "test@example.com" && credentials?.password === "password") {
           console.log("✅ Mock auth successful for:", credentials.email)
           return {
-            id: "mock-user-id",
+            id: "Maddy Estenson",
             email: credentials.email,
-            name: "Test User",
+            name: "Maddy Estenson",
             role: "admin",
             image: null,
           }
