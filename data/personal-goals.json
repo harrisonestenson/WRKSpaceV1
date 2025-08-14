@@ -1,37 +1,37 @@
 {
-  "Maddy Estenson": [
+  "Harrison Estenson": [
     {
       "id": "daily-billable",
       "name": "Daily Billable Hours",
       "type": "Personal Goal",
       "frequency": "daily",
-      "target": 8,
-      "current": 2.3,
+      "target": 7,
+      "current": 0,
       "status": "active",
       "description": "Daily billable hours target",
-      "progress": 28.7
+      "progress": 0
     },
     {
       "id": "weekly-billable",
       "name": "Weekly Billable Hours",
       "type": "Personal Goal",
       "frequency": "weekly",
-      "target": 40,
-      "current": 2.3,
+      "target": 33,
+      "current": 0,
       "status": "active",
       "description": "Weekly billable hours target",
-      "progress": 5.8
+      "progress": 0
     },
     {
       "id": "monthly-billable",
       "name": "Monthly Billable Hours",
       "type": "Personal Goal",
       "frequency": "monthly",
-      "target": 160,
-      "current": 2.3,
+      "target": 142,
+      "current": 0,
       "status": "active",
       "description": "Monthly billable hours target",
-      "progress": 1.4
+      "progress": 0
     }
   ]
 }

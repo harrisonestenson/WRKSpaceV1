@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import TeamMembersSection from "@/components/team-members-section"
 
 // Team members state - will be populated from API
 const mockTeams: any[] = []
@@ -23,12 +24,6 @@ const mockStreaks: any[] = []
 const mockRoles: any[] = []
 
 export default function ManageDashboard() {
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
-  const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [filterRole, setFilterRole] = useState("all")
-  const [filterTeam, setFilterTeam] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
-  const [searchQuery, setSearchQuery] = useState("")
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false)
   const [isViewMembersOpen, setIsViewMembersOpen] = useState(false)
   const [isManageGoalsOpen, setIsManageGoalsOpen] = useState(false)
@@ -76,11 +71,10 @@ export default function ManageDashboard() {
   
   // Filter team members based on search and filters
   const filteredMembers = teamMembers.filter((member: any) => {
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         member.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesRole = filterRole === "all" || member.role === filterRole
-    const matchesTeam = filterTeam === "all" || member.team === filterTeam
-    const matchesStatus = filterStatus === "all" || member.status === filterStatus
+    const matchesSearch = member.name?.toLowerCase().includes("") || member.email?.toLowerCase().includes("")
+    const matchesRole = true
+    const matchesTeam = true
+    const matchesStatus = true
     
     return matchesSearch && matchesRole && matchesTeam && matchesStatus
   })
@@ -142,292 +136,7 @@ export default function ManageDashboard() {
 
           {/* Team Members Tab */}
           <TabsContent value="team-members" className="space-y-6 mt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-semibold">👤 Team Members</h3>
-                <p className="text-muted-foreground">Manage all users in the platform</p>
-              </div>
-              <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-                <DialogTrigger asChild>
-                  <Button className="flex items-center gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    Add Member
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Add New Team Member</DialogTitle>
-                    <DialogDescription>
-                      Add a new team member to the platform. They will receive an invitation email.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
-                      <Input
-                        id="name"
-                        placeholder="Full name"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="email" className="text-right">
-                        Email
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="email@lawfirm.com"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="role" className="text-right">
-                        Role
-                      </Label>
-                      <Select>
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="attorney">Attorney</SelectItem>
-                          <SelectItem value="paralegal">Paralegal</SelectItem>
-                          <SelectItem value="intern">Intern</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="team" className="text-right">
-                        Team
-                      </Label>
-                      <Select>
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select team" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="divorce">Divorce Team</SelectItem>
-                          <SelectItem value="corporate">Corporate Team</SelectItem>
-                          <SelectItem value="real-estate">Real Estate Team</SelectItem>
-                          <SelectItem value="admin-support">Admin Support</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="employment-duration" className="text-right">
-                        Employment Duration
-                      </Label>
-                      <Input
-                        id="employment-duration"
-                        placeholder="e.g., 2 years"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="experience" className="text-right">
-                        Years of Experience
-                      </Label>
-                      <Input
-                        id="experience"
-                        placeholder="e.g., 5 years"
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="position-duration" className="text-right">
-                        Position Duration
-                      </Label>
-                      <Input
-                        id="position-duration"
-                        placeholder="e.g., 1 year"
-                        className="col-span-3"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={() => setIsAddMemberOpen(false)}>
-                      Add Member
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-            
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>All Team Members ({filteredMembers.length})</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      placeholder="Search members..." 
-                      className="w-64" 
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Filter className="h-4 w-4 mr-2" />
-                          Filter
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>Filter Team Members</DialogTitle>
-                          <DialogDescription>
-                            Filter the team members list by role, team, and status.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="filter-role" className="text-right">
-                              Role
-                            </Label>
-                            <Select value={filterRole} onValueChange={setFilterRole}>
-                              <SelectTrigger className="col-span-3">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Roles</SelectItem>
-                                <SelectItem value="Attorney">Attorney</SelectItem>
-                                <SelectItem value="Paralegal">Paralegal</SelectItem>
-                                <SelectItem value="Intern">Intern</SelectItem>
-                                <SelectItem value="Admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="filter-team" className="text-right">
-                              Team
-                            </Label>
-                            <Select value={filterTeam} onValueChange={setFilterTeam}>
-                              <SelectTrigger className="col-span-3">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Teams</SelectItem>
-                                <SelectItem value="Divorce Team">Divorce Team</SelectItem>
-                                <SelectItem value="Corporate Team">Corporate Team</SelectItem>
-                                <SelectItem value="Real Estate Team">Real Estate Team</SelectItem>
-                                <SelectItem value="Admin Support">Admin Support</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="filter-status" className="text-right">
-                              Status
-                            </Label>
-                            <Select value={filterStatus} onValueChange={setFilterStatus}>
-                              <SelectTrigger className="col-span-3">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="inactive">Inactive</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            onClick={() => {
-                              setFilterRole("all")
-                              setFilterTeam("all")
-                              setFilterStatus("all")
-                              setIsFilterOpen(false)
-                            }}
-                          >
-                            Clear Filters
-                          </Button>
-                          <Button onClick={() => setIsFilterOpen(false)}>
-                            Apply Filters
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Member</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>Employment Duration</TableHead>
-                      <TableHead>Experience</TableHead>
-                      <TableHead>Position Duration</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredMembers.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium">
-                              {member.avatar}
-                            </div>
-                            <div>
-                              <div className="font-medium">{member.name}</div>
-                              <div className="text-sm text-muted-foreground">{member.email}</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{member.role}</Badge>
-                        </TableCell>
-                        <TableCell>{member.team}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {member.durationOfEmployment || 'Not specified'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {member.yearsOfExperience || 'Not specified'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {member.durationOfPosition || 'Not specified'}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={member.status === "active" ? "default" : "secondary"}>
-                            {member.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(member.joinedDate).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Mail className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <TeamMembersSection />
           </TabsContent>
 
           {/* Teams Tab */}
@@ -471,9 +180,18 @@ export default function ManageDashboard() {
                           <SelectValue placeholder="Select team leader" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teamMembers && teamMembers.length > 0 ? teamMembers.filter((member: any) => member.role === "Attorney").map((member: any) => (
+                          {teamMembers && teamMembers.length > 0 ? teamMembers.filter((member: any) => 
+                            member.role === "Attorney" || member.isAdmin
+                          ).map((member: any) => (
                             <SelectItem key={member.id} value={member.id.toString()}>
-                              {member.name}
+                              <div className="flex items-center gap-2">
+                                <span>{member.name}</span>
+                                {member.isAdmin && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Admin
+                                  </Badge>
+                                )}
+                              </div>
                             </SelectItem>
                           )) : (
                             <SelectItem value="no-attorneys" disabled>
@@ -585,9 +303,14 @@ export default function ManageDashboard() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      {filteredMembers.filter(member => member.team === selectedTeam?.name).length} members
-                    </div>
+                                      <div className="text-sm text-muted-foreground">
+                    {filteredMembers.filter(member => member.team === selectedTeam?.name).length} members
+                    {filteredMembers.filter(member => member.team === selectedTeam?.name && member.isAdmin).length > 0 && (
+                      <span className="ml-2 text-blue-600">
+                        (includes admin)
+                      </span>
+                    )}
+                  </div>
                     <Button variant="outline" size="sm">
                       <UserPlus className="h-4 w-4 mr-2" />
                       Add Member

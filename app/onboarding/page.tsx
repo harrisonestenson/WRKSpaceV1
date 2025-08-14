@@ -1,180 +1,61 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  User,
-  Bell,
-  Users,
-  Target,
-  Settings,
-  Eye,
-
-  Upload,
-  Download,
-  Plus,
   Crown,
-  UserCheck,
-  BarChart3,
-  FileText,
-  Calendar,
-  Star,
   CheckCircle,
-  XCircle,
   AlertCircle,
-  Flame,
-  Trophy,
-  Zap,
-  AlertTriangle,
-  Edit,
+  Upload,
+  Plus,
   Trash2,
-  EyeOff,
-  Play,
-  Pause,
   X,
 } from "lucide-react"
 import Link from "next/link"
 
-// Role and goal type suggestions for onboarding
-const roleSuggestions = [
-  { id: "admin", name: "Admin", description: "Administrative access and full permissions" },
-  { id: "member", name: "Member", description: "Standard team member with limited permissions" },
-]
-
-const goalTypeSuggestions = [
-  { id: "billable", name: "Billable Hours", description: "Client billable work" },
-  { id: "time-management", name: "Time Management", description: "Efficiency goals" },
-  { id: "culture", name: "Culture", description: "Team contribution" },
-]
-
-// Team department suggestions
-const departmentSuggestions = [
-  "Litigation",
-  "Corporate",
-  "Real Estate",
-  "Family Law",
-  "Criminal Defense",
-  "Estate Planning",
-  "Intellectual Property",
-  "Employment Law",
-  "Tax Law",
-  "Other"
-]
-
-// Streak configuration data
-const streakCategories = [
-  { id: "time-management", name: "Time Management", description: "Track time-related behaviors" },
-  { id: "task-management", name: "Task / Work Management", description: "Track work output and goals" },
-  { id: "goal-alignment", name: "Goal Alignment", description: "Track alignment with company goals" },
-  { id: "engagement-culture", name: "Engagement / Culture", description: "Track team engagement" },
-]
-
-const streakTemplates = [
-  {
-    id: "start-work-early",
-    name: "Start Work Before 9AM",
-    category: "time-management",
-    frequency: "daily",
-    rule: {
-      type: "time-logged-before",
-      value: "9:00 AM",
-      description: "User logs time before 9:00 AM"
-    },
-    resetCondition: "missed-entry",
-    visibility: true,
-    active: true
-  },
-  {
-    id: "meet-billable-target",
-    name: "Meet Billable Hours Target",
-    category: "task-management",
-    frequency: "weekly",
-    rule: {
-      type: "billable-hours-target",
-      value: "35",
-      description: "Hit expected weekly hours set by admin"
-    },
-    resetCondition: "missed-threshold",
-    visibility: true,
-    active: true
-  },
-  {
-    id: "maintain-cvs-above-90",
-    name: "Maintain CVS Above 90%",
-    category: "task-management",
-    frequency: "weekly",
-    rule: {
-      type: "cvs-threshold",
-      value: "90",
-      description: "CVS ≥ 90% for the week"
-    },
-    resetCondition: "missed-threshold",
-    visibility: true,
-    active: true
-  },
-  {
-    id: "log-time-every-weekday",
-    name: "Log Time Every Weekday",
-    category: "time-management",
-    frequency: "weekly",
-    rule: {
-      type: "daily-logging",
-      value: "5",
-      description: "No days without logs"
-    },
-    resetCondition: "missed-entry",
-    visibility: true,
-    active: true
-  },
-  {
-    id: "average-8-hours-daily",
-    name: "Average 8 Hours Logged Daily",
-    category: "time-management",
-    frequency: "weekly",
-    rule: {
-      type: "weekly-average-hours",
-      value: "8",
-      description: "Weekly daily average ≥ 8 hours"
-    },
-    resetCondition: "missed-threshold",
-    visibility: true,
-    active: true
-  }
-]
-
-// Function to generate unique IDs for team members
-const generateTeamMemberId = (name: string, teamId: string) => {
-  const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '')
-  const randomSuffix = Math.random().toString(36).substr(2, 6)
-  return `${sanitizedName}-${teamId}-${randomSuffix}`
-}
+// Import extracted components and constants
+import { 
+  ProfileSetupStep, 
+  NotificationSettingsStep, 
+  TeamSetupStep 
+} from "./components/onboarding-steps"
+import { 
+  PersonalGoalsStep, 
+  PositionExpectationsStep, 
+  LegalCasesStep, 
+  CompanyGoalsStep 
+} from "./components/onboarding-steps-2"
+import { 
+  roleSuggestions, 
+  positionSuggestions 
+} from "./constants"
+import { useOnboardingState } from "./hooks/useOnboardingState"
 
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
   const initialRole = (searchParams?.get("role") as "admin" | "member") || "member"
   const router = useRouter()
   
-  // Onboarding state
+  // Core onboarding state
   const [currentStep, setCurrentStep] = useState(1)
   const [userRole, setUserRole] = useState(initialRole)
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false)
-  const [isLoading, setIsLoading] = useState(false) // Changed from true to false
+  const [isLoading, setIsLoading] = useState(false)
+  const [userName, setUserName] = useState("")
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Use custom hook for complex state management
+  const onboardingState = useOnboardingState(userRole, userName)
   
   console.log('Onboarding component - isOnboardingComplete:', isOnboardingComplete)
   console.log('Onboarding component - userRole:', userRole)
@@ -207,152 +88,6 @@ export default function OnboardingPage() {
     }
   }, [router])
   
-  // File input ref
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // Profile setup state
-  const [profilePhoto, setProfilePhoto] = useState("")
-  const [userName, setUserName] = useState("")
-  const [userTitle, setUserTitle] = useState("")
-  const [selectedRole, setSelectedRole] = useState("admin")
-  const [durationOfEmployment, setDurationOfEmployment] = useState("")
-  const [yearsOfExperience, setYearsOfExperience] = useState("")
-  const [durationOfPosition, setDurationOfPosition] = useState("")
-  const [productivityPreferences, setProductivityPreferences] = useState({
-    morningFocus: false,
-    reminderSettings: false,
-  })
-  
-  // Notification settings state
-  const [notificationSettings, setNotificationSettings] = useState({
-    dailyGoalReminders: true,
-    milestoneProgressAlerts: true,
-    deliveryMethod: "both", // email, in-app, both
-  })
-  
-  // Helper function to validate team data and ensure no empty names
-  const validateTeamData = useCallback((data: any) => {
-    if (!data || !data.teams) return data;
-    
-    return {
-      ...data,
-      teams: data.teams.filter((team: any) => 
-        team && team.name && team.name.trim() !== ''
-      ).map((team: any) => ({
-        ...team,
-        name: team.name.trim(),
-        members: team.members ? team.members.filter((member: any) => 
-          member && member.name && member.name.trim() !== ''
-        ).map((member: any) => ({
-          ...member,
-          name: member.name.trim()
-        })) : []
-      }))
-    };
-  }, []);
-  
-  // Helper function to ensure no empty values are passed to Select components
-  const safeSelectValue = useCallback((value: any, fallback: string = 'default') => {
-    if (!value || value === '' || value.trim() === '') {
-      return fallback;
-    }
-    return value.trim();
-  }, []);
-  
-  // Admin-specific state
-  const [teamData, setTeamData] = useState<{
-    teams: Array<{
-      name: string;
-      department: string;
-      members: Array<{
-        name: string;
-        email: string;
-        title: string;
-        role: string;
-        expectedBillableHours: number;
-        expectedNonBillablePoints?: number;
-        personalTarget?: string;
-        isAdmin?: boolean;
-      }>;
-    }>;
-    companyGoals: {
-      weeklyBillable: number;
-      monthlyBillable: number;
-      yearlyBillable: number;
-    };
-    defaultGoalTypes: string[];
-    userExpectations: any[];
-  }>({
-    teams: [],
-    companyGoals: {
-      weeklyBillable: 0,
-      monthlyBillable: 0,
-      yearlyBillable: 0,
-    },
-    defaultGoalTypes: [],
-    userExpectations: [],
-  })
-  
-  // Team member expectations state for admin editing - will be populated from teamData
-  const [teamMemberExpectations, setTeamMemberExpectations] = useState<any[]>([])
-  
-  // Success message state for team operations
-  const [teamSuccessMessage, setTeamSuccessMessage] = useState("")
-
-  // Legal cases state for admin
-  const [legalCases, setLegalCases] = useState<any[]>([])
-  const [showCaseEditor, setShowCaseEditor] = useState(false)
-  const [editingCase, setEditingCase] = useState<any>(null)
-  const [newCase, setNewCase] = useState({
-    name: "",
-    startDate: ""
-  })
-
-  // Streaks configuration state - start with empty array instead of templates
-  const [streaksConfig, setStreaksConfig] = useState<any[]>([])
-  const [showStreakEditor, setShowStreakEditor] = useState(false)
-  const [editingStreak, setEditingStreak] = useState<any>(null)
-  const [newStreak, setNewStreak] = useState({
-    name: "",
-    category: "time-management",
-    frequency: "daily",
-    rule: {
-      type: "time-logged-before",
-      value: "",
-      description: ""
-    },
-    resetCondition: "missed-entry",
-    visibility: true,
-    active: true
-  })
-  
-  // Team member-specific state
-  const [teamGoals, setTeamGoals] = useState<Array<{
-    name: string;
-    description: string;
-    targetHours: number;
-    currentHours: number;
-    deadline: string;
-    status: string;
-  }>>([])
-  
-  // Personal goals state
-  const [personalGoals, setPersonalGoals] = useState({
-    dailyBillable: 8,
-    weeklyBillable: 40,
-    monthlyBillable: 160,
-    customGoals: []
-  })
-
-  // Company goals state
-  const [companyGoals, setCompanyGoals] = useState({
-    weeklyBillable: 0,
-    monthlyBillable: 0,
-    yearlyBillable: 0
-  })
-
-
-  
   // Remove authentication check - just proceed with onboarding
   useEffect(() => {
     // Set loading to false immediately since we're not checking auth
@@ -366,6 +101,8 @@ export default function OnboardingPage() {
       console.log('Onboarding - Updated currentUserId to:', userName.trim())
     }
   }, [userName])
+
+
 
   // Calculate total steps based on role
   const totalSteps = 7
@@ -388,7 +125,7 @@ export default function OnboardingPage() {
     if (file) {
       const reader = new FileReader()
       reader.onload = (e) => {
-        setProfilePhoto(e.target?.result as string)
+        onboardingState.setProfilePhoto(e.target?.result as string)
       }
       reader.readAsDataURL(file)
     }
@@ -402,27 +139,27 @@ export default function OnboardingPage() {
       errors.push('Full name is required')
     }
     
-    if (!userTitle.trim()) {
+    if (!onboardingState.userTitle.trim()) {
       errors.push('Title is required')
     }
     
-    if (!selectedRole) {
+    if (!onboardingState.selectedRole) {
       errors.push('Role selection is required')
     }
     
     // Personal goals validation
-    if (personalGoals.dailyBillable <= 0 || personalGoals.weeklyBillable <= 0 || personalGoals.monthlyBillable <= 0) {
+    if (onboardingState.personalGoals.dailyBillable <= 0 || onboardingState.personalGoals.weeklyBillable <= 0 || onboardingState.personalGoals.monthlyBillable <= 0) {
       errors.push('Personal billable hour targets must be greater than 0')
     }
     
     // Admin-specific validation
     if (userRole === 'admin') {
-      if (!teamData.teams || teamData.teams.length === 0) {
+      if (!onboardingState.teamData.teams || onboardingState.teamData.teams.length === 0) {
         errors.push('At least one team is required')
       }
       
       // Check if admin is a member of at least one team
-      const adminInAnyTeam = teamData.teams.some((team: any) => 
+      const adminInAnyTeam = onboardingState.teamData.teams.some((team: any) => 
         team.members?.some((member: any) => 
           (member.name === userName || member.name === 'You') && member.isAdmin
         )
@@ -432,34 +169,32 @@ export default function OnboardingPage() {
         errors.push('You must be a member of at least one team. Use the "Add Team" button to create a team and add yourself as admin.')
       }
       
-      if (!companyGoals) {
+      if (!onboardingState.companyGoals) {
         errors.push('Company goals are required')
       } else {
-        const { weeklyBillable, monthlyBillable, yearlyBillable } = companyGoals
+        const { weeklyBillable, monthlyBillable, yearlyBillable } = onboardingState.companyGoals
         if (!weeklyBillable || !monthlyBillable || !yearlyBillable) {
           errors.push('All company goal fields are required')
         }
       }
       
       // Only require team member expectations if there are actual team members beyond the admin
-      const hasTeamMembersBeyondAdmin = teamData.teams.some((team: any) => 
+      const hasTeamMembersBeyondAdmin = onboardingState.teamData.teams.some((team: any) => 
         team.members && team.members.length > 1
       )
       
-      if (hasTeamMembersBeyondAdmin && teamMemberExpectations.length === 0) {
-        errors.push('Team member expectations must be set for additional team members')
+      // Validate position expectations are set
+      if (onboardingState.positionExpectations.length === 0) {
+        errors.push('Position expectations must be set for billable hours targets')
       }
       
-      // Validate team member expectations (only for non-admin members)
-      teamMemberExpectations.forEach((member, index) => {
-        if (!member.name.trim()) {
-          errors.push(`Team member ${index + 1} name is required`)
+      // Validate position expectations have valid values
+      onboardingState.positionExpectations.forEach((position) => {
+        if (!position.expectedBillableHours || position.expectedBillableHours <= 0) {
+          errors.push(`Position ${position.name} must have valid billable hours expectation`)
         }
-        if (!member.team || member.team === 'Select Team') {
-          errors.push(`Team member ${index + 1} must be assigned to a team`)
-        }
-        if (!member.expectedBillableHours || member.expectedBillableHours <= 0) {
-          errors.push(`Team member ${index + 1} must have valid billable hours`)
+        if (!position.expectedNonBillableHours || position.expectedNonBillableHours < 0) {
+          errors.push(`Position ${position.name} must have valid non-billable hours expectation`)
         }
       })
     }
@@ -495,7 +230,7 @@ export default function OnboardingPage() {
           companyGoals: companyGoals
         },
         streaksConfig,
-        teamMemberExpectations,
+        positionExpectations,
         legalCases,
         personalGoals,
       }
@@ -593,19 +328,19 @@ export default function OnboardingPage() {
       // If admin, also save team expectations and streaks separately
       if (userRole === 'admin') {
         try {
-          // Save team expectations
-          if (teamMemberExpectations.length > 0) {
+          // Save position expectations
+          if (positionExpectations.length > 0) {
             const expectationsResponse = await fetch('/api/team-expectations', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ teamExpectations: teamMemberExpectations }),
+              body: JSON.stringify({ positionExpectations: positionExpectations }),
             })
             
             if (expectationsResponse.ok) {
               const expectationsData = await expectationsResponse.json()
-              console.log('Team expectations saved:', expectationsData)
+              console.log('Position expectations saved:', expectationsData)
             }
           }
 
@@ -675,49 +410,28 @@ export default function OnboardingPage() {
     }
   }
   
-  const updateTeamMemberExpectation = (teamIndex: number, memberIndex: number, field: string, value: number | string) => {
-    setTeamData(prev => ({
-      ...prev,
-      teams: prev.teams.map((team, i) => 
-        i === teamIndex ? {
-          ...team,
-          members: team.members.map((member, mi) => 
-            mi === memberIndex ? { ...member, [field]: value } : member
-          )
-        } : team
+  // Function to update position expectations
+  const updatePositionExpectation = (positionId: string, field: string, value: any) => {
+    setPositionExpectations(prev => 
+      prev.map(position => 
+        position.id === positionId ? { ...position, [field]: value } : position
       )
-    }))
+    )
   }
 
-  // Function to populate team member expectations from team data
-  const populateTeamMemberExpectations = () => {
-    const allMembers: any[] = []
-    teamData.teams.forEach(team => {
-      if (team.members && team.members.length > 0) {
-        team.members.forEach(member => {
-          if (member.name && member.name.trim() !== '') {
-            // Always include the member, but mark if they're the admin
-            allMembers.push({
-              name: member.name,
-              team: team.name,
-              expectedBillableHours: member.expectedBillableHours || 1500, // Use existing value or default
-              expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
-              personalTarget: member.personalTarget || "6 hours/day",
-              isAdmin: member.isAdmin || false
-            })
-          }
-        })
-      }
-    })
-    setTeamMemberExpectations(allMembers)
-  }
-
-  // Update team member expectations when team data changes
-  useEffect(() => {
-    if (userRole === "admin" && teamData.teams.length > 0) {
-      populateTeamMemberExpectations()
+  // Function to update personal goals when position is selected
+  const updatePersonalGoalsFromPosition = (positionId: string) => {
+    const position = positionExpectations.find(p => p.id === positionId)
+    if (position) {
+      setPersonalGoals(prev => ({
+        ...prev,
+        selectedPosition: positionId,
+        dailyBillable: Math.round(position.expectedBillableHours / 260),
+        weeklyBillable: Math.round(position.expectedBillableHours / 52),
+        monthlyBillable: Math.round(position.expectedBillableHours / 12)
+      }))
     }
-  }, [teamData.teams, userRole])
+  }
   
   const filteredTeamData = useMemo(() => 
     teamData.teams.filter(team => team && team.name && team.name.trim() !== ''),
@@ -831,6 +545,7 @@ export default function OnboardingPage() {
                     userExpectations: []
                   })
                   setPersonalGoals({
+                    selectedPosition: '',
                     dailyBillable: 8,
                     weeklyBillable: 40,
                     monthlyBillable: 160,
@@ -1199,7 +914,42 @@ export default function OnboardingPage() {
               </div>
               
               <div className="space-y-6">
-              <div className="grid grid-cols-3 gap-4">
+                {/* Position Selection */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="position-select">Select Your Position</Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Choose your position to automatically set appropriate billable hours goals based on industry standards
+                    </p>
+                  </div>
+                  <Select 
+                    value={personalGoals.selectedPosition} 
+                    onValueChange={updatePersonalGoalsFromPosition}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose your position to auto-set goals" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {positionSuggestions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {personalGoals.selectedPosition && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-800">
+                        <strong>Selected:</strong> {positionSuggestions.find(p => p.id === personalGoals.selectedPosition)?.name}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Goals have been automatically set based on your position expectations
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                   <Label htmlFor="daily-billable">Daily Billable Hours</Label>
                     <Input
@@ -1259,18 +1009,33 @@ export default function OnboardingPage() {
                       {personalGoals.dailyBillable || 0}
                     </div>
                     <div className="text-muted-foreground">Daily Hours</div>
+                    <div className="text-xs text-muted-foreground">
+                      {personalGoals.selectedPosition && 
+                        `(${Math.round((personalGoals.dailyBillable || 0) * 260)}h/year)`
+                      }
+                    </div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-purple-600">
                       {personalGoals.weeklyBillable || 0}
                               </div>
                     <div className="text-muted-foreground">Weekly Hours</div>
+                    <div className="text-xs text-muted-foreground">
+                      {personalGoals.selectedPosition && 
+                        `(${Math.round((personalGoals.weeklyBillable || 0) * 52)}h/year)`
+                      }
+                    </div>
                               </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-purple-600">
                       {personalGoals.monthlyBillable || 0}
                             </div>
                     <div className="text-muted-foreground">Monthly Hours</div>
+                    <div className="text-xs text-muted-foreground">
+                      {personalGoals.selectedPosition && 
+                        `(${Math.round((personalGoals.monthlyBillable || 0) * 12)}h/year)`
+                      }
+                    </div>
                                   </div>
                                 </div>
                                   </div>
@@ -1283,85 +1048,70 @@ export default function OnboardingPage() {
             <div className="space-y-6">
               <div className="text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-                <Users className="h-8 w-8 text-orange-600" />
+                  <Target className="h-8 w-8 text-orange-600" />
                 </div>
                 <div>
-                <h3 className="text-lg font-semibold">Team Member Expectations</h3>
-                <p className="text-muted-foreground">Set performance targets for your team</p>
+                <h3 className="text-lg font-semibold">Position Billable Hours Expectations</h3>
+                <p className="text-muted-foreground">Set billable hours targets for each position/rank</p>
                 </div>
               </div>
               
               <div className="space-y-6">
-              {filteredTeamData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No teams created yet. Go back to Team Setup to create teams first.</p>
-                        </div>
-              ) : (
-                filteredTeamData.map((team, teamIndex) => (
-                  <Card key={teamIndex} className="p-6">
+                {positionExpectations.map((position) => (
+                  <Card key={position.id} className="p-6">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-lg">{team.name}</h4>
-                        <Badge variant="outline">{team.members?.length || 0} members</Badge>
-                                </div>
-                      
-                      {team.members?.map((member, memberIndex) => (
-                        <div key={memberIndex} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-3">
-                            <Avatar className="w-8 h-8">
-                              <AvatarFallback className="text-sm">
-                                {member.name?.charAt(0)?.toUpperCase() || 'M'}
-                              </AvatarFallback>
-                            </Avatar>
-                                <div>
-                              <div className="font-medium">{member.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {member.role === 'admin' ? 'Admin' : 'Member'}
-                                </div>
-                              </div>
-                              </div>
-                          
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <Label htmlFor={`${teamIndex}-${memberIndex}-billable`} className="text-xs">
-                                Billable Hours/Year
-                              </Label>
-                      <Input
-                                id={`${teamIndex}-${memberIndex}-billable`}
-                                type="number"
-                                className="w-20 h-8 text-sm"
-                                placeholder="1500"
-                                value={member.expectedBillableHours || ''}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value) || 0;
-                                  updateTeamMemberExpectation(teamIndex, memberIndex, 'expectedBillableHours', value);
-                                }}
-                              />
-                            </div>
-                            <div className="text-right">
-                              <Label htmlFor={`${teamIndex}-${memberIndex}-nonbillable`} className="text-xs">
-                                Non-Billable Hours/Year
-                              </Label>
-                      <Input
-                                id={`${teamIndex}-${memberIndex}-nonbillable`}
-                                type="number"
-                                className="w-20 h-8 text-sm"
-                                placeholder="120"
-                                value={member.expectedNonBillablePoints || ''}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value) || 0;
-                                  updateTeamMemberExpectation(teamIndex, memberIndex, 'expectedNonBillablePoints', value);
-                                }}
-                              />
-                            </div>
-                          </div>
+                        <div>
+                          <h4 className="font-semibold text-lg">{position.name}</h4>
+                          <p className="text-sm text-muted-foreground">{position.description}</p>
                         </div>
-                      ))}
+                        <Badge variant="outline">{position.expectedBillableHours}h/year</Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`${position.id}-billable`} className="text-sm font-medium">
+                            Billable Hours/Year
+                          </Label>
+                          <Input
+                            id={`${position.id}-billable`}
+                            type="number"
+                            className="w-full"
+                            placeholder="1500"
+                            value={position.expectedBillableHours || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              updatePositionExpectation(position.id, 'expectedBillableHours', value);
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Target: {Math.round(position.expectedBillableHours / 12)}h/month, {Math.round(position.expectedBillableHours / 52)}h/week, {Math.round(position.expectedBillableHours / 260)}h/day
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor={`${position.id}-nonbillable`} className="text-sm font-medium">
+                            Non-Billable Hours/Year
+                          </Label>
+                          <Input
+                            id={`${position.id}-nonbillable`}
+                            type="number"
+                            className="w-full"
+                            placeholder="200"
+                            value={position.expectedNonBillableHours || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              updatePositionExpectation(position.id, 'expectedNonBillableHours', value);
+                            }}
+                          />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Administrative, training, and development time
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </Card>
-                ))
-                      )}
+                ))}
                     </div>
               </div>
         );

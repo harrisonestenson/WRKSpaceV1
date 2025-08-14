@@ -1,6 +1,6 @@
 {
   "profile": {
-    "name": "Maddy Estenson",
+    "name": "Harrison Estenson",
     "title": "Partner",
     "role": "admin",
     "photo": "",
@@ -20,21 +20,11 @@
         "name": "Team 1",
         "members": [
           {
-            "name": "Maddy Estenson",
+            "name": "Harrison Estenson",
             "email": "",
             "title": "Admin",
             "role": "admin",
             "isAdmin": true,
-            "expectedBillableHours": 1500,
-            "expectedNonBillablePoints": 120,
-            "personalTarget": "6 hours/day"
-          },
-          {
-            "name": "member 2",
-            "email": "",
-            "title": "Team Member",
-            "role": "member",
-            "isAdmin": false,
             "expectedBillableHours": 1500,
             "expectedNonBillablePoints": 120,
             "personalTarget": "6 hours/day"
@@ -43,41 +33,32 @@
       }
     ],
     "companyGoals": {
-      "weeklyBillable": 300,
-      "monthlyBillable": 3000,
-      "yearlyBillable": 30000
+      "weeklyBillable": 500,
+      "monthlyBillable": 5000,
+      "yearlyBillable": 50000
     },
     "defaultGoalTypes": []
   },
-  "teamMemberExpectations": [
-    {
-      "name": "Maddy Estenson",
-      "team": "Team 1",
-      "expectedBillableHours": 1500,
-      "expectedNonBillablePoints": 120,
-      "personalTarget": "6 hours/day"
-    },
-    {
-      "name": "member 2",
-      "team": "Team 1",
-      "expectedBillableHours": 1500,
-      "expectedNonBillablePoints": 120,
-      "personalTarget": "6 hours/day"
-    }
-  ],
+  "teamMemberExpectations": [],
   "streaksConfig": [],
   "legalCases": [
     {
-      "id": "1755197328119",
-      "name": "naz",
+      "id": "1755212964587",
+      "name": "case1",
       "status": "active",
-      "createdAt": "2025-08-14T18:48:48.119Z"
+      "createdAt": "2025-08-14T23:09:24.587Z"
     },
     {
-      "id": "1755197332837",
-      "name": "gali",
+      "id": "1755212968057",
+      "name": "case 2",
       "status": "active",
-      "createdAt": "2025-08-14T18:48:52.837Z"
+      "createdAt": "2025-08-14T23:09:28.057Z"
+    },
+    {
+      "id": "1755212971435",
+      "name": "case 3",
+      "status": "active",
+      "createdAt": "2025-08-14T23:09:31.435Z"
     }
   ]
 }

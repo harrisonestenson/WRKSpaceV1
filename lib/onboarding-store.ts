@@ -125,20 +125,37 @@ class OnboardingStore {
   // Load data from the onboarding-data API
   async loadFromAPI() {
     try {
-      const response = await fetch('/api/onboarding-data')
+      console.log('🔄 Onboarding store: Loading data from API...')
+      
+      // Use absolute URL for server-side calls
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      const apiUrl = `${baseUrl}/api/onboarding-data`
+      
+      console.log('🌐 API URL:', apiUrl)
+      
+      const response = await fetch(apiUrl)
+      console.log('📡 Response status:', response.status)
+      
       if (response.ok) {
         const result = await response.json()
+        console.log('📊 API result:', result)
+        
         if (result.data) {
           this.data = result.data
           // Also save to localStorage for offline access
           if (typeof window !== 'undefined') {
             localStorage.setItem('onboardingData', JSON.stringify(this.data))
           }
-          console.log('Onboarding store loaded from API successfully')
+          console.log('✅ Onboarding store loaded from API successfully')
+          console.log('📁 Store data keys:', Object.keys(this.data))
+        } else {
+          console.log('⚠️ API returned no data')
         }
+      } else {
+        console.log('❌ API response not ok:', response.status)
       }
     } catch (error) {
-      console.error('Failed to load onboarding data from API:', error)
+      console.error('❌ Failed to load onboarding data from API:', error)
     }
   }
 

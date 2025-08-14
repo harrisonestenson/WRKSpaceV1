@@ -191,11 +191,20 @@ export default function DataDashboard() {
 
   // Initialize selectedUser based on role
   useEffect(() => {
+    console.log('🔄 useEffect for selectedUser triggered:', { 
+      sessionUserId: session?.user?.id, 
+      sessionStatus: status,
+      currentSelectedUser: selectedUser 
+    })
+    
     // Both admins and members see their own data by default
     if (session?.user?.id) {
+      console.log('✅ Setting selectedUser to session user ID:', session.user.id)
       setSelectedUser(session.user.id)
+    } else {
+      console.log('⚠️ No session user ID available, keeping selectedUser as:', selectedUser)
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, status])
 
   // Function to fetch team aggregation data
   const fetchTeamAggregation = async (timeFrame: string = 'monthly') => {
@@ -818,10 +827,9 @@ export default function DataDashboard() {
       console.log('Event type:', event.type)
       console.log('Event target:', event.target)
       
-      // Don't start sessions when viewing all users (team view)
+      // Allow clock-in events for all users, even without authentication
       if (selectedUser === 'all') {
-        console.log('Team view active - ignoring startLiveSession event')
-        return
+        console.log('Team view active - allowing clock-in with default user')
       }
       
       startLiveSession(event.detail.clockInTime)
@@ -860,7 +868,7 @@ export default function DataDashboard() {
       window.removeEventListener('endLiveSession', handleEndLiveSession)
       window.removeEventListener('addWorkHours', handleAddWorkHours as EventListener)
     }
-  }, [])
+  }, [selectedUser])
   
 
 
@@ -1175,12 +1183,30 @@ export default function DataDashboard() {
   // Live session management
   const startLiveSession = async (clockInTime: Date) => {
     try {
-      // Get the correct user ID from the database user
-      const userName = selectedUser || 'default-user'
+      console.log('🔍 startLiveSession called with:', { selectedUser, session: session?.user?.id, status })
       
-      // Don't allow clock-in when viewing 'all' users
+      // Get the correct user ID - prioritize session user ID over selectedUser
+      let userName = selectedUser
+      
+      // If selectedUser is 'all' but we have a session, use the session user
+      if (userName === 'all' && session?.user?.id) {
+        userName = session.user.id
+        console.log('✅ Using session user ID instead of selectedUser:', userName)
+      }
+      
+      console.log('🔍 Final userName before check:', userName)
+      
+      // Allow clock-in for unauthenticated users by using a default user
       if (userName === 'all') {
-        throw new Error('Cannot clock in when viewing all users. Please select a specific user.')
+        console.log('🔄 No specific user selected, using default user for clock-in')
+        userName = 'default-user'
+      }
+      
+      console.log('🎯 Final userName for clock-in:', userName)
+      
+      // Fallback to default user if no userName is set
+      if (!userName) {
+        userName = 'default-user'
       }
       
       const userId = getDatabaseUserId(userName)
@@ -1212,7 +1238,7 @@ export default function DataDashboard() {
       console.log('Clock in API response:', result)
 
       // Create local session with the database session ID
-      const session: LiveSession = {
+      const liveSessionData: LiveSession = {
         id: result.session?.id || `live-${Date.now()}`,
         clockInTime,
         currentTime: clockInTime,
@@ -1221,13 +1247,13 @@ export default function DataDashboard() {
         userId: userId
       }
       
-      console.log('Created session object:', session)
-      console.log('Session clockInTime type:', typeof session.clockInTime)
-      console.log('Session clockInTime instanceof Date:', session.clockInTime instanceof Date)
+      console.log('Created session object:', liveSessionData)
+      console.log('Session clockInTime type:', typeof liveSessionData.clockInTime)
+      console.log('Session clockInTime instanceof Date:', liveSessionData.clockInTime instanceof Date)
       
-      setLiveSession(session)
-      localStorage.setItem('clockSession', JSON.stringify(session))
-      console.log('Started live session in database:', session)
+      setLiveSession(liveSessionData)
+      localStorage.setItem('clockSession', JSON.stringify(liveSessionData))
+      console.log('Started live session in database:', liveSessionData)
       
     } catch (error) {
       console.error('Error starting live session:', error)
@@ -1425,6 +1451,7 @@ export default function DataDashboard() {
                 </>
               )}
             </Button>
+
             {process.env.NODE_ENV === 'development' && (
               <>
                 <Button variant="outline" onClick={async () => {
@@ -2309,7 +2336,7 @@ export default function DataDashboard() {
                               acc[e.caseId] = (acc[e.caseId] || 0) + 1
                               return acc
                             }, {} as Record<string, number>)
-                            const mostActive = Object.entries(caseCounts).sort(([,a], [,b]) => b - a)[0]
+                            const mostActive = Object.entries(caseCounts).sort(([,a], [,b]) => (b as number) - (a as number))[0]
                             return mostActive ? legalCases.find(c => c.id.toString() === mostActive[0])?.name || 'Unknown' : 'None'
                           })()
                         : 'None'}

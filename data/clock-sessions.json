@@ -75,5 +75,12 @@
     "clockIn": "2025-08-14T16:07:11.047Z",
     "clockOut": "2025-08-14T16:07:15.143Z",
     "totalHours": 0
+  },
+  {
+    "id": "session-1755208646620",
+    "userId": "Maddy Estenson",
+    "clockIn": "2025-08-14T21:57:26.286Z",
+    "clockOut": "2025-08-14T22:08:02.359Z",
+    "totalHours": 0.18
   }
 ]
