@@ -11,8 +11,6 @@ import {
   Clock, 
   Eye,
   Mail,
-  Phone,
-  MapPin,
   Loader2,
   Crown
 } from 'lucide-react'
@@ -36,14 +34,13 @@ interface TeamMember {
   personalTarget: string
   isAdmin: boolean
   // Optional fields that might not be available
-  phone?: string
   avatar?: string
   employmentDuration?: string
-  experience?: string
-  positionDuration?: string
   joined?: string
-  location?: string
-  specialization?: string
+  // Real data fields from API
+  dailyBillableTarget?: number
+  weeklyBillableTarget?: number
+  monthlyBillableTarget?: number
 }
 
 export default function TeamMembersSection() {
@@ -72,23 +69,13 @@ export default function TeamMembersSection() {
         if (data.success) {
           console.log('✅ API call successful, team members count:', data.teamMembers?.length || 0)
           
-          // Transform the data to include calculated fields
+          // Use real data from API, only add minimal calculated fields
           const transformedMembers = data.teamMembers.map((member: any) => ({
             ...member,
-            // Calculate employment duration based on join date or use default
-            employmentDuration: member.joined ? calculateDuration(new Date(member.joined)) : '1 year',
-            // Estimate experience based on role and billable hours
-            experience: estimateExperience(member.role, member.expectedBillableHours),
-            // Estimate position duration
-            positionDuration: estimatePositionDuration(member.role),
-            // Generate location based on team (for demo purposes)
-            location: generateLocation(member.team),
-            // Generate specialization based on team and role
-            specialization: generateSpecialization(member.team, member.role),
-            // Generate phone number
-            phone: generatePhoneNumber(member.name),
-            // Generate avatar placeholder
-            avatar: `/placeholder-user.jpg`
+            // Calculate employment duration based on join date
+            employmentDuration: member.joined ? calculateDuration(new Date(member.joined)) : '1 month',
+            // Use real avatar or placeholder
+            avatar: member.photo || `/placeholder-user.jpg`
           }))
           
           console.log('🔄 Transformed members:', transformedMembers)
@@ -127,76 +114,15 @@ export default function TeamMembersSection() {
     return `${diffYears} year${diffYears !== 1 ? 's' : ''}`
   }
 
-  const estimateExperience = (role: string, billableHours: number): string => {
-    const baseExperience = {
-      'Partner': 15,
-      'Senior Partner': 12,
-      'Junior Partner': 8,
-      'Senior Associate': 7,
-      'Mid-Level Associate': 5,
-      'Junior Associate': 2,
-      'Paralegal': 6,
-      'Legal Assistant': 3,
-      'Summer Associate': 1,
-      'Law Clerk': 2
-    }
-    
-    const base = baseExperience[role as keyof typeof baseExperience] || 3
-    const adjusted = Math.max(base, Math.floor(billableHours / 200))
-    return `${adjusted} year${adjusted !== 1 ? 's' : ''}`
-  }
 
-  const estimatePositionDuration = (role: string): string => {
-    const durations = {
-      'Partner': '5 years',
-      'Senior Partner': '3 years',
-      'Junior Partner': '2 years',
-      'Senior Associate': '4 years',
-      'Mid-Level Associate': '3 years',
-      'Junior Associate': '2 years',
-      'Paralegal': '3 years',
-      'Legal Assistant': '2 years',
-      'Summer Associate': '3 months',
-      'Law Clerk': '1 year'
-    }
-    
-    return durations[role as keyof typeof durations] || '2 years'
-  }
 
-  const generateLocation = (team: string): string => {
-    const locations = {
-      'Corporate Law': 'New York',
-      'Litigation': 'Los Angeles',
-      'Family Law': 'Chicago',
-      'Real Estate': 'Miami',
-      'Management': 'New York',
-      'Unassigned': 'New York'
-    }
-    
-    return locations[team as keyof typeof locations] || 'New York'
-  }
 
-  const generateSpecialization = (team: string, role: string): string => {
-    const specializations = {
-      'Corporate Law': 'Mergers & Acquisitions',
-      'Litigation': 'Civil Litigation',
-      'Family Law': 'Divorce & Custody',
-      'Real Estate': 'Commercial Real Estate',
-      'Management': 'Strategic Planning',
-      'Unassigned': 'General Practice'
-    }
-    
-    return specializations[team as keyof typeof specializations] || 'General Practice'
-  }
 
-  const generatePhoneNumber = (name: string): string => {
-    // Generate a consistent phone number based on name
-    const hash = name.split('').reduce((a, b) => a + b.charCodeAt(0), 0)
-    const areaCode = 555
-    const prefix = 100 + (hash % 900)
-    const suffix = 1000 + (hash % 9000)
-    return `+1 (${areaCode}) ${prefix}-${suffix}`
-  }
+
+
+
+
+
 
   const filteredMembers = teamMembers.filter(member =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -393,10 +319,10 @@ export default function TeamMembersSection() {
                     Employment Duration
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Experience
+                    Daily Target
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Position Duration
+                    Weekly Target
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -451,12 +377,12 @@ export default function TeamMembersSection() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{member.employmentDuration}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.experience}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{member.positionDuration}</div>
-                    </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member.dailyBillableTarget || 0}h/day</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{member.weeklyBillableTarget || 0}h/week</div>
+                  </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge className={getStatusColor(member.status)}>
                         {member.status}
@@ -538,18 +464,7 @@ export default function TeamMembersSection() {
                   <Mail className="h-5 w-5 text-gray-400" />
                   <span className="text-gray-700">{selectedMember.email}</span>
                 </div>
-                {selectedMember.phone && (
-                  <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-700">{selectedMember.phone}</span>
-                  </div>
-                )}
-                {selectedMember.location && (
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-700">{selectedMember.location}</span>
-                  </div>
-                )}
+
                 <div className="flex items-center space-x-3">
                   <Building className="h-5 w-5 text-gray-400" />
                   <span className="text-gray-700">{selectedMember.team}</span>
@@ -563,12 +478,12 @@ export default function TeamMembersSection() {
                   <p className="text-2xl font-bold text-blue-600">{selectedMember.employmentDuration}</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Total Experience</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.experience}</p>
+                  <h4 className="font-medium text-gray-900 mb-2">Daily Target</h4>
+                  <p className="text-2xl font-bold text-blue-600">{selectedMember.dailyBillableTarget || 0}h/day</p>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Current Position</h4>
-                  <p className="text-2xl font-bold text-blue-600">{selectedMember.positionDuration}</p>
+                  <h4 className="font-medium text-gray-900 mb-2">Weekly Target</h4>
+                  <p className="text-2xl font-bold text-blue-600">{selectedMember.weeklyBillableTarget || 0}h/week</p>
                 </div>
               </div>
 
@@ -609,13 +524,7 @@ export default function TeamMembersSection() {
                 <p className="text-sm text-gray-600">Daily goal for billable hours</p>
               </div>
 
-              {/* Specialization */}
-              {selectedMember.specialization && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Specialization</h4>
-                  <p className="text-gray-700">{selectedMember.specialization}</p>
-                </div>
-              )}
+
 
               {/* Quick Actions */}
               <div className="flex space-x-3 pt-4 border-t border-gray-200">

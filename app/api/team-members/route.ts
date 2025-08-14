@@ -3,6 +3,19 @@ import { onboardingStore } from '@/lib/onboarding-store'
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
+// Helper function to load personal goals data
+function loadPersonalGoals(): any {
+  try {
+    const goalsPath = join(process.cwd(), 'data', 'personal-goals.json')
+    if (existsSync(goalsPath)) {
+      return JSON.parse(readFileSync(goalsPath, 'utf8'))
+    }
+  } catch (error) {
+    console.error('Error loading personal goals:', error)
+  }
+  return {}
+}
+
 export async function GET() {
   try {
     // First, ensure the onboarding store has the latest data
@@ -42,9 +55,11 @@ export async function GET() {
         if (team.members && team.members.length > 0) {
           team.members.forEach((member: any) => {
             if (member.name && member.name.trim() !== '') {
-              // Generate realistic join date based on role and experience
-              const joinDate = generateJoinDate(member.role, member.expectedBillableHours)
+              // Load personal goals for this member
+              const personalGoals = loadPersonalGoals()
+              const memberGoals = personalGoals[member.name] || []
               
+              // Use actual data from onboarding instead of generating mock data
               registeredTeamMembers.push({
                 id: `member-${member.name}-${team.name}`,
                 name: member.name,
@@ -57,7 +72,12 @@ export async function GET() {
                 expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
                 personalTarget: member.personalTarget || "6 hours/day",
                 isAdmin: member.isAdmin || member.role === 'admin',
-                joined: joinDate
+                // Use actual onboarding date or reasonable default
+                joined: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+                // Add real personal goals data
+                dailyBillableTarget: memberGoals.find((g: any) => g.id === 'daily-billable')?.target || 0,
+                weeklyBillableTarget: memberGoals.find((g: any) => g.id === 'weekly-billable')?.target || 0,
+                monthlyBillableTarget: memberGoals.find((g: any) => g.id === 'monthly-billable')?.target || 0
               })
             }
           })
@@ -107,39 +127,7 @@ export async function GET() {
   }
 }
 
-// Helper function to generate realistic join dates based on role and experience
-function generateJoinDate(role: string, billableHours: number): string {
-  const now = new Date()
-  
-  // Base years ago for different roles
-  const roleBaseYears = {
-    'Partner': 8,
-    'Senior Partner': 12,
-    'Junior Partner': 5,
-    'Senior Associate': 6,
-    'Mid-Level Associate': 4,
-    'Junior Associate': 2,
-    'Paralegal': 4,
-    'Legal Assistant': 2,
-    'Summer Associate': 0.5,
-    'Law Clerk': 1
-  }
-  
-  const baseYears = roleBaseYears[role as keyof typeof roleBaseYears] || 3
-  
-  // Adjust based on billable hours (higher hours = more experience = longer ago)
-  const experienceAdjustment = Math.max(0, (billableHours - 1500) / 200)
-  const totalYears = baseYears + experienceAdjustment
-  
-  // Add some randomness (±1 year)
-  const randomVariation = (Math.random() - 0.5) * 2
-  const finalYears = Math.max(0.1, totalYears + randomVariation)
-  
-  // Calculate the join date
-  const joinDate = new Date(now.getTime() - finalYears * 365 * 24 * 60 * 60 * 1000)
-  
-  return joinDate.toISOString()
-}
+
 
 export async function POST(request: NextRequest) {
   try {
