@@ -17,5 +17,24 @@
     "workHours": null,
     "createdAt": "2025-08-14T19:03:34.329Z",
     "updatedAt": "2025-08-14T19:03:34.329Z"
+  },
+  {
+    "id": "entry-1755200370863",
+    "userId": "Maddy Estenson",
+    "teamId": null,
+    "caseId": "1755197332837",
+    "date": "2025-08-14T16:00:00.000Z",
+    "startTime": null,
+    "endTime": null,
+    "duration": 4500,
+    "billable": true,
+    "description": "new description",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "manual-form",
+    "workHours": null,
+    "createdAt": "2025-08-14T19:39:30.863Z",
+    "updatedAt": "2025-08-14T19:39:30.863Z"
   }
 ]

@@ -187,6 +187,7 @@ export default function DataDashboard() {
   // Copy-paste modal state
   const [showCopyPasteModal, setShowCopyPasteModal] = useState(false)
   const [copyPasteText, setCopyPasteText] = useState("")
+  const [allLogsDateRange, setAllLogsDateRange] = useState("monthly")
 
   // Initialize selectedUser based on role
   useEffect(() => {
@@ -306,6 +307,53 @@ export default function DataDashboard() {
     // Set the log text and show modal
     setCopyPasteText(logText)
     setShowCopyPasteModal(true)
+  }
+
+  // Function to show all logs modal
+  const showAllLogsModal = () => {
+    // Fetch all billable entries for the selected date range
+    fetch(`/api/time-entries?userId=all&timeFrame=${allLogsDateRange}&includeManual=true`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.timeEntries) {
+          // Filter only billable entries
+          const billableEntries = data.timeEntries.filter((entry: any) => entry.billable)
+          
+          // Generate consolidated log text
+          // Get user name from the first entry or session
+          const userName = billableEntries.length > 0 ? billableEntries[0].userId : (session?.user?.name || session?.user?.id || 'User')
+          let consolidatedText = `${userName}'s BILLABLE HOURS LOG - ${allLogsDateRange.toUpperCase()}\n`
+          consolidatedText += `Generated on: ${new Date().toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}\n\n`
+          
+          billableEntries.forEach((entry: any, index: number) => {
+            const hours = (entry.duration / 3600).toFixed(2)
+            const date = new Date(entry.date).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })
+            const caseName = legalCases.find(c => c.id.toString() === entry.caseId)?.name || 'Unknown Case'
+            
+            consolidatedText += `${index + 1}. Client: ${caseName}\n`
+            consolidatedText += `   Hours: ${hours}h\n`
+            consolidatedText += `   Date: ${date}\n`
+            consolidatedText += `   Description: ${entry.description}\n\n`
+          })
+          
+          consolidatedText += `TOTAL: ${billableEntries.reduce((sum: number, entry: any) => sum + (entry.duration / 3600), 0).toFixed(2)}h`
+          
+          // Set the consolidated log text and show modal
+          setCopyPasteText(consolidatedText)
+          setShowCopyPasteModal(true)
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching all logs:', error)
+      })
   }
 
   // Function to refresh time entries from API
@@ -2125,6 +2173,29 @@ export default function DataDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Select value={allLogsDateRange} onValueChange={setAllLogsDateRange}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Select date range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="quarterly">Quarterly</SelectItem>
+                <SelectItem value="thisweek">This Week</SelectItem>
+                <SelectItem value="last30days">Last 30 Days</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              onClick={() => showAllLogsModal()}
+              disabled={filteredEntries.length === 0}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              View All Logs
+            </Button>
             <Button 
               variant="outline" 
               onClick={() => fetchGoalHistory()}
@@ -2249,6 +2320,8 @@ export default function DataDashboard() {
                   </div>
                 </CardContent>
               </Card>
+
+
 
         {/* Billable Entries Cards */}
             <div className="space-y-4">
