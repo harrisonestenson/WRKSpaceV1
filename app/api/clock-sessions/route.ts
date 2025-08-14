@@ -2,6 +2,75 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
+
+const TIME_ENTRIES_FILE_PATH = join(process.cwd(), 'data', 'time-entries.json')
+
+// Helper function to read time entries
+function readTimeEntries(): any[] {
+  try {
+    if (existsSync(TIME_ENTRIES_FILE_PATH)) {
+      const raw = readFileSync(TIME_ENTRIES_FILE_PATH, 'utf8')
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    }
+  } catch (e) {
+    console.warn('Clock Sessions API - read time entries failed:', e)
+  }
+  return []
+}
+
+// Helper function to write time entries
+function writeTimeEntries(entries: any[]) {
+  try {
+    const dir = join(process.cwd(), 'data')
+    if (!existsSync(dir)) {
+      const fs = require('fs')
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(TIME_ENTRIES_FILE_PATH, JSON.stringify(entries, null, 2))
+  } catch (e) {
+    console.error('Clock Sessions API - write time entries failed:', e)
+  }
+}
+
+// Helper function to get current billable hours from personal goals
+async function getCurrentDailyBillableHours(userId: string): Promise<number> {
+  try {
+    console.log(`💰 Getting current daily billable hours for ${userId}`)
+    
+    // Call the personal goals API to get current billable hours
+    const response = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/personal-goals?memberId=${encodeURIComponent(userId)}`)
+    
+    if (!response.ok) {
+      console.log(`❌ Failed to fetch personal goals for ${userId}: ${response.status}`)
+      return 0
+    }
+    
+    const data = await response.json()
+    console.log(`📊 Personal goals response for ${userId}:`, data)
+    
+    if (data.success && data.personalGoals) {
+      // Find the daily billable hours goal
+      const dailyBillableGoal = data.personalGoals.find((goal: any) => 
+        goal.frequency === 'daily' && 
+        (goal.name?.toLowerCase().includes('billable') || goal.title?.toLowerCase().includes('billable'))
+      )
+      
+      if (dailyBillableGoal && typeof dailyBillableGoal.current === 'number') {
+        console.log(`💰 Current daily billable goal progress for ${userId}: ${dailyBillableGoal.current}h`)
+        return dailyBillableGoal.current
+      }
+    }
+    
+    console.log(`❌ No daily billable goal found for ${userId}`)
+    return 0
+  } catch (error) {
+    console.error(`❌ Error getting current daily billable hours for ${userId}:`, error)
+    return 0
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -149,6 +218,10 @@ export async function POST(request: NextRequest) {
       // Calculate session duration
       const sessionDuration = (now.getTime() - existingSession.clockIn.getTime()) / (1000 * 60 * 60)
 
+      // Get current daily billable hours for this user
+      const currentBillableHours = await getCurrentDailyBillableHours(userId)
+      console.log(`💰 Clock-out: ${userId} has ${currentBillableHours}h in daily billable hours`)
+
       // Update existing session
       const clockSession = await prisma.clockSession.update({
         where: {
@@ -160,10 +233,62 @@ export async function POST(request: NextRequest) {
         }
       })
 
+      // Create a time entry with the current billable hours as permanent work hours
+      try {
+        const allTimeEntries = readTimeEntries()
+        
+        // Create a new time entry for this clock session
+        const newTimeEntry = {
+          id: `clock-session-${sessionId}`,
+          userId: userId,
+          teamId: null,
+          caseId: null,
+          date: now.toISOString(),
+          startTime: existingSession.clockIn.toISOString(),
+          endTime: now.toISOString(),
+          duration: Math.round(sessionDuration * 3600), // Convert hours to seconds
+          billable: true,
+          description: `Office session completed - ${Math.round(sessionDuration * 100) / 100}h`,
+          status: 'COMPLETED',
+          nonBillableTaskId: null,
+          points: null,
+          source: 'clock-session',
+          workHours: currentBillableHours, // Permanent work hours snapshot
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        // Check if we already have an entry for this session
+        const existingEntryIndex = allTimeEntries.findIndex(entry => entry.id === newTimeEntry.id)
+        
+        if (existingEntryIndex !== -1) {
+          // Update existing entry with new work hours
+          allTimeEntries[existingEntryIndex] = {
+            ...allTimeEntries[existingEntryIndex],
+            workHours: currentBillableHours,
+            updatedAt: new Date().toISOString()
+          }
+          console.log(`✅ Updated existing time entry with work hours: ${currentBillableHours}h`)
+        } else {
+          // Add new entry
+          allTimeEntries.push(newTimeEntry)
+          console.log(`✅ Created new time entry with work hours: ${currentBillableHours}h`)
+        }
+        
+        // Save updated time entries
+        writeTimeEntries(allTimeEntries)
+        console.log(`💾 Saved time entries with work hours for ${userId}`)
+        
+      } catch (error) {
+        console.error(`❌ Error creating time entry with work hours for ${userId}:`, error)
+        // Don't fail the clock-out if time entry creation fails
+      }
+
       return NextResponse.json({ 
         success: true, 
         message: 'Clock out successful',
-        session: clockSession
+        session: clockSession,
+        workHours: currentBillableHours
       })
 
     } else {

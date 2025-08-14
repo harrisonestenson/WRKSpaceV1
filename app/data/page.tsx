@@ -436,20 +436,23 @@ export default function DataDashboard() {
           const data = await response.json()
           if (data.success && data.timeEntries) {
             // Transform API data to match the expected format
-            const transformedEntries = data.timeEntries.map((entry: any) => ({
-              id: entry.id,
-              date: new Date(entry.date).toLocaleDateString('en-CA'), // Convert to YYYY-MM-DD format using local date
-              clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-              clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-              totalHours: entry.duration ? entry.duration / 3600 : 0,
-              billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
-              duration: entry.duration, // Keep original duration for Work Hours calculation
-              billable: entry.billable, // Keep original billable flag
-              notes: entry.description || '',
-              status: entry.status || 'completed',
-              isOfficeSession: false, // Default to false for API entries
-              userId: entry.userId
-            }))
+            const transformedEntries = data.timeEntries.map((entry: any) => {
+              return {
+                id: entry.id,
+                date: new Date(entry.date).toLocaleDateString('en-CA'), // Convert to YYYY-MM-DD format using local date
+                clockIn: entry.startTime ? new Date(entry.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+                clockOut: entry.endTime ? new Date(entry.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
+                totalHours: entry.duration ? entry.duration / 3600 : 0,
+                billableHours: entry.billable ? (entry.duration ? entry.duration / 3600 : 0) : 0,
+                duration: entry.duration, // Keep original duration for Work Hours calculation
+                billable: entry.billable, // Keep original billable flag
+                workHours: entry.workHours || null, // Permanent work hours snapshot
+                notes: entry.description || '',
+                status: entry.status || 'completed',
+                isOfficeSession: false, // Default to false for API entries
+                userId: entry.userId
+              }
+            })
             setTimeEntries(transformedEntries)
             console.log('Fetched and transformed time entries for Work Hours column:', transformedEntries)
           }
@@ -945,8 +948,23 @@ export default function DataDashboard() {
 
   // Function to get historical billable hours for a specific date and user
   const getHistoricalDailyHours = (date: string, userId?: string) => {
-    // Convert date to YYYY-MM-DD format for lookup
+    // First, try to get work hours from the time entries (permanent snapshot)
     const dateStr = new Date(date).toLocaleDateString('en-CA')
+    
+    // Look for time entries with workHours for this date and user
+    const timeEntry = timeEntries.find(entry => {
+      const entryDate = new Date(entry.date).toLocaleDateString('en-CA')
+      const entryUserId = entry.userId || selectedUser
+      return entryDate === dateStr && entryUserId === (userId || selectedUser)
+    })
+    
+    // If we have a time entry with workHours, use that (permanent snapshot)
+    if (timeEntry && typeof timeEntry.workHours === 'number') {
+      console.log(`📊 Using permanent work hours snapshot for ${dateStr}: ${timeEntry.workHours}h`)
+      return timeEntry.workHours
+    }
+    
+    // Fall back to historical calculation if no workHours found
     const dateData = historicalDailyHours[dateStr]
     
     if (!dateData) return 0

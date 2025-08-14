@@ -192,8 +192,8 @@ export async function GET(request: NextRequest) {
       const d = new Date(e.date)
       const inRange = d >= range.start && d <= range.end
       const byUser = userId === 'all' || e.userId === userId
-      // Only show clock in/out entries, not manual time entries
-      const isClockEntry = !e.source || e.source !== 'manual-form'
+      // Show clock entries and clock-session entries, but not manual time entries
+      const isClockEntry = !e.source || e.source !== 'manual-form' || e.source === 'clock-session'
       return inRange && byUser && isClockEntry
     })
 
@@ -273,10 +273,11 @@ export async function POST(request: NextRequest) {
       nonBillableTaskId,
       points,
       teamId,
-      source
+      source,
+      workHours
     } = body
 
-    console.log('Time Entries API - Received data:', { userId, caseId, date, startTime, endTime, duration, billable, description, nonBillableTaskId, points, teamId, source })
+    console.log('Time Entries API - Received data:', { userId, caseId, date, startTime, endTime, duration, billable, description, nonBillableTaskId, points, teamId, source, workHours })
 
     if (!userId || !date || (!startTime && !endTime && !duration) || !description) {
       return NextResponse.json({ 
@@ -319,6 +320,7 @@ export async function POST(request: NextRequest) {
       nonBillableTaskId: nonBillableTaskId || null,
       points: typeof points === 'number' ? points : null,
       source: source || 'manual',
+      workHours: typeof workHours === 'number' ? workHours : null, // Permanent work hours snapshot
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
