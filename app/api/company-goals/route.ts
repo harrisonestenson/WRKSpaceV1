@@ -41,14 +41,14 @@ async function calculateCompanyGoalsProgress() {
   try {
     const timeEntriesPath = join(process.cwd(), 'data', 'time-entries.json')
     if (!existsSync(timeEntriesPath)) {
-      return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+      return { weeklyBillable: 0, monthlyBillable: 0, yearlyBillable: 0 }
     }
 
     const rawTimeEntries = readFileSync(timeEntriesPath, 'utf8')
     const timeEntries = JSON.parse(rawTimeEntries)
     
     if (!Array.isArray(timeEntries)) {
-      return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+      return { weeklyBillable: 0, monthlyBillable: 0, yearlyBillable: 0 }
     }
 
     const now = new Date()
@@ -79,18 +79,18 @@ async function calculateCompanyGoalsProgress() {
     const yearEnd = new Date(now.getFullYear(), 11, 31)
     yearEnd.setHours(23, 59, 59, 999)
     
-    const annualBillable = timeEntries
+    const yearlyBillable = timeEntries
       .filter((e: any) => e.billable && new Date(e.date) >= yearStart && new Date(e.date) <= yearEnd)
       .reduce((sum: number, e: any) => sum + e.duration / 3600, 0)
     
     return {
       weeklyBillable: Math.round(weeklyBillable * 100) / 100,
       monthlyBillable: Math.round(monthlyBillable * 100) / 100,
-      annualBillable: Math.round(annualBillable * 100) / 100
+      yearlyBillable: Math.round(yearlyBillable * 100) / 100
     }
   } catch (error) {
     console.error('Company Goals API - Error calculating progress:', error)
-    return { weeklyBillable: 0, monthlyBillable: 0, annualBillable: 0 }
+    return { weeklyBillable: 0, monthlyBillable: 0, yearlyBillable: 0 }
   }
 }
 
@@ -154,7 +154,7 @@ export async function GET() {
     const goalsToReturn = onboardingCompanyGoals || {
       weeklyBillable: 0,
       monthlyBillable: 0,
-      annualBillable: 0
+      yearlyBillable: 0
     }
     
     // Calculate current progress from time entries
@@ -196,11 +196,11 @@ export async function POST(request: NextRequest) {
         const merged = applyCanonicalToCompanyGoals(intents as any, {
           weeklyBillable: parseInt(data?.weeklyBillable) || 0,
           monthlyBillable: parseInt(data?.monthlyBillable) || 0,
-          annualBillable: parseInt(data?.annualBillable) || 0
+          yearlyBillable: parseInt(data?.yearlyBillable) || 0
         })
         data.weeklyBillable = merged.weeklyBillable
         data.monthlyBillable = merged.monthlyBillable
-        data.annualBillable = merged.annualBillable
+        data.yearlyBillable = merged.yearlyBillable
 
         // Note unsupported metrics
         intents.forEach((i: any) => {
@@ -260,7 +260,7 @@ export async function DELETE() {
           companyGoals: {
             weeklyBillable: 0,
             monthlyBillable: 0,
-            annualBillable: 0
+            yearlyBillable: 0
           },
           defaultGoalTypes: currentData.teamData.defaultGoalTypes || []
         }

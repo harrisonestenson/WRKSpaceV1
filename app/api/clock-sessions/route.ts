@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 const TIME_ENTRIES_FILE_PATH = join(process.cwd(), 'data', 'time-entries.json')
+const CLOCK_SESSIONS_FILE_PATH = join(process.cwd(), 'data', 'clock-sessions.json')
 
 // Helper function to read time entries
 function readTimeEntries(): any[] {
@@ -32,6 +32,34 @@ function writeTimeEntries(entries: any[]) {
     writeFileSync(TIME_ENTRIES_FILE_PATH, JSON.stringify(entries, null, 2))
   } catch (e) {
     console.error('Clock Sessions API - write time entries failed:', e)
+  }
+}
+
+// Helper function to read clock sessions
+function readClockSessions(): any[] {
+  try {
+    if (existsSync(CLOCK_SESSIONS_FILE_PATH)) {
+      const raw = readFileSync(CLOCK_SESSIONS_FILE_PATH, 'utf8')
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    }
+  } catch (e) {
+    console.warn('Clock Sessions API - read clock sessions failed:', e)
+  }
+  return []
+}
+
+// Helper function to write clock sessions
+function writeClockSessions(sessions: any[]) {
+  try {
+    const dir = join(process.cwd(), 'data')
+    if (!existsSync(dir)) {
+      const fs = require('fs')
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    writeFileSync(CLOCK_SESSIONS_FILE_PATH, JSON.stringify(sessions, null, 2))
+  } catch (e) {
+    console.error('Clock Sessions API - write clock sessions failed:', e)
   }
 }
 
@@ -94,20 +122,17 @@ export async function GET(request: NextRequest) {
     // Calculate date range based on time frame
     const dateRange = getTimeFrameDateRange(timeFrame)
 
-    // Get clock sessions from database
-    const clockSessions = await prisma.clockSession.findMany({
-      where: {
-        userId: userId,
-        clockIn: {
-          gte: dateRange.start,
-          lte: dateRange.end
-        },
-        ...(status !== 'all' && { clockOut: status === 'active' ? null : { not: null } })
-      },
-      orderBy: {
-        clockIn: 'desc'
-      }
-    })
+    // Get clock sessions from file storage
+    const allClockSessions = readClockSessions()
+    const clockSessions = allClockSessions.filter(session => {
+      const sessionDate = new Date(session.clockIn)
+      const isInDateRange = sessionDate >= dateRange.start && sessionDate <= dateRange.end
+      const matchesStatus = status === 'all' || 
+        (status === 'active' && session.clockOut === null) ||
+        (status === 'completed' && session.clockOut !== null)
+      
+      return session.userId === userId && isInDateRange && matchesStatus
+    }).sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime())
 
     // Calculate summary statistics
     const totalHours = clockSessions
@@ -182,14 +207,18 @@ export async function POST(request: NextRequest) {
 
     if (action === 'clock-in') {
       // Create new clock session
-      const clockSession = await prisma.clockSession.create({
-        data: {
-          userId: userId, // Use userId from body
-          clockIn: now,
-          clockOut: null,
-          totalHours: null
-        }
-      })
+      const allClockSessions = readClockSessions()
+      const newSession = {
+        id: `session-${Date.now()}`,
+        userId: userId,
+        clockIn: now,
+        clockOut: null,
+        totalHours: null
+      }
+      allClockSessions.push(newSession)
+      writeClockSessions(allClockSessions)
+      
+      const clockSession = newSession
 
       return NextResponse.json({ 
         success: true, 
@@ -199,9 +228,8 @@ export async function POST(request: NextRequest) {
 
     } else if (action === 'clock-out') {
       // Fetch the existing session to get the clock in time
-      const existingSession = await prisma.clockSession.findUnique({
-        where: { id: sessionId }
-      })
+      const allClockSessions = readClockSessions()
+      const existingSession = allClockSessions.find(session => session.id === sessionId)
 
       if (!existingSession) {
         return NextResponse.json({ 
@@ -216,22 +244,24 @@ export async function POST(request: NextRequest) {
       }
 
       // Calculate session duration
-      const sessionDuration = (now.getTime() - existingSession.clockIn.getTime()) / (1000 * 60 * 60)
+      const sessionDuration = (now.getTime() - new Date(existingSession.clockIn).getTime()) / (1000 * 60 * 60)
 
       // Get current daily billable hours for this user
       const currentBillableHours = await getCurrentDailyBillableHours(userId)
       console.log(`💰 Clock-out: ${userId} has ${currentBillableHours}h in daily billable hours`)
 
       // Update existing session
-      const clockSession = await prisma.clockSession.update({
-        where: {
-          id: sessionId
-        },
-        data: {
+      const sessionIndex = allClockSessions.findIndex(session => session.id === sessionId)
+      if (sessionIndex !== -1) {
+        allClockSessions[sessionIndex] = {
+          ...allClockSessions[sessionIndex],
           clockOut: now,
           totalHours: Math.round(sessionDuration * 100) / 100
         }
-      })
+        writeClockSessions(allClockSessions)
+      }
+      
+      const clockSession = allClockSessions[sessionIndex]
 
       // Create a time entry with the current billable hours as permanent work hours
       try {
@@ -244,7 +274,7 @@ export async function POST(request: NextRequest) {
           teamId: null,
           caseId: null,
           date: now.toISOString(),
-          startTime: existingSession.clockIn.toISOString(),
+          startTime: existingSession.clockIn,
           endTime: now.toISOString(),
           duration: Math.round(sessionDuration * 3600), // Convert hours to seconds
           billable: true,
@@ -311,14 +341,16 @@ export async function DELETE() {
   try {
     console.log('🗑️  Clearing all clock sessions...')
     
-    const deletedCount = await prisma.clockSession.deleteMany({})
+    const allClockSessions = readClockSessions()
+    const deletedCount = allClockSessions.length
+    writeClockSessions([])
     
-    console.log(`✅ Deleted ${deletedCount.count} clock sessions`)
+    console.log(`✅ Deleted ${deletedCount} clock sessions`)
     
     return NextResponse.json({ 
       success: true, 
-      message: `Cleared ${deletedCount.count} clock sessions`,
-      deletedCount: deletedCount.count
+      message: `Cleared ${deletedCount} clock sessions`,
+      deletedCount: deletedCount
     })
   } catch (error) {
     console.error('Error clearing clock sessions:', error)

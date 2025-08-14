@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Validate company goals
-      const { weeklyBillable, monthlyBillable, annualBillable } = teamData.companyGoals
-      if (!weeklyBillable || !monthlyBillable || !annualBillable) {
+      const { weeklyBillable, monthlyBillable, yearlyBillable } = teamData.companyGoals
+      if (!weeklyBillable || !monthlyBillable || !yearlyBillable) {
         return NextResponse.json({ 
           error: 'All company goal fields are required' 
         }, { status: 400 })
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         companyGoals: {
           weeklyBillable: parseInt(teamData.companyGoals?.weeklyBillable) || 0,
           monthlyBillable: parseInt(teamData.companyGoals?.monthlyBillable) || 0,
-          annualBillable: parseInt(teamData.companyGoals?.annualBillable) || 0
+          yearlyBillable: parseInt(teamData.companyGoals?.yearlyBillable) || 0
         },
         defaultGoalTypes: teamData.defaultGoalTypes || []
       },
@@ -332,13 +332,13 @@ export async function POST(request: NextRequest) {
         update: {
           weeklyBillable: parseInt(teamData.companyGoals.weeklyBillable) || 0,
           monthlyBillable: parseInt(teamData.companyGoals.monthlyBillable) || 0,
-          annualBillable: parseInt(teamData.companyGoals.annualBillable) || 0
+          yearlyBillable: parseInt(teamData.companyGoals.yearlyBillable) || 0
         },
         create: {
           organizationId: 'default',
           weeklyBillable: parseInt(teamData.companyGoals.weeklyBillable) || 0,
           monthlyBillable: parseInt(teamData.companyGoals.monthlyBillable) || 0,
-          annualBillable: parseInt(teamData.companyGoals.annualBillable) || 0
+          yearlyBillable: parseInt(teamData.companyGoals.yearlyBillable) || 0
         }
       })
     }

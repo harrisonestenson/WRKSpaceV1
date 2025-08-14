@@ -103,7 +103,7 @@ export default function GoalsDashboard() {
         const companyBillableMap: Record<string, number> = {
           weekly: goalsData.companyGoals?.currentProgress?.weeklyBillable ?? 0,
           monthly: goalsData.companyGoals?.currentProgress?.monthlyBillable ?? 0,
-          annual: goalsData.companyGoals?.currentProgress?.annualBillable ?? 0,
+          annual: goalsData.companyGoals?.currentProgress?.yearlyBillable ?? 0,
         }
         const personalBillableMap: Record<string, number> = {
           daily: dailyUser?.summary?.billableHours ?? 0,
@@ -113,6 +113,9 @@ export default function GoalsDashboard() {
         }
 
         // Transform onboarding data into goals format and plug in current actuals
+        console.log('Goals API Response:', goalsData)
+        console.log('Company Goals Data:', goalsData.companyGoals)
+        
         const transformedData = {
           personalGoals: personalGoalsData.success && personalGoalsData.personalGoals ? personalGoalsData.personalGoals.map((goal: any) => {
             const title = (goal.title || goal.name || '').toLowerCase()
@@ -160,9 +163,9 @@ export default function GoalsDashboard() {
               name: 'Annual Billable Hours',
               type: 'Company Goal',
               frequency: 'annual',
-              target: goalsData.companyGoals.annualBillable || 0,
+              target: goalsData.companyGoals.yearlyBillable || 0,
               current: companyBillableMap.annual || 0,
-              max: goalsData.companyGoals.annualBillable || 0,
+              max: goalsData.companyGoals.yearlyBillable || 0,
               status: 'active',
               description: 'Annual billable hours target'
             }
@@ -179,6 +182,9 @@ export default function GoalsDashboard() {
             description: streak.rule?.description || streak.description || 'Streak goal'
           })) : []
         }
+        
+        console.log('Transformed Company Goals:', transformedData.companyGoals)
+        console.log('Final Company Goals Count:', transformedData.companyGoals.length)
 
         setRealGoalsData(transformedData)
       } catch (err) {

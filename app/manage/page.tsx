@@ -475,11 +475,15 @@ export default function ManageDashboard() {
                           <SelectValue placeholder="Select team leader" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teamMembers.filter((member: any) => member.role === "Attorney").map((member: any) => (
+                          {teamMembers && teamMembers.length > 0 ? teamMembers.filter((member: any) => member.role === "Attorney").map((member: any) => (
                             <SelectItem key={member.id} value={member.id.toString()}>
                               {member.name}
                             </SelectItem>
-                          ))}
+                          )) : (
+                            <SelectItem value="no-attorneys" disabled>
+                              <div className="text-muted-foreground">No attorneys available</div>
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>

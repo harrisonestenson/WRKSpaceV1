@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -366,11 +366,11 @@ export default function LawFirmDashboard() {
         console.log('Initial load - onboardingData:', onboardingData)
         if (onboardingData?.teams) {
           const allMembers = onboardingData.teams.flatMap((team: any) => 
-            team.members?.map((member: any) => ({
+            team.members?.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any) => ({
               ...member,
               teamName: team.name,
               isAdmin: member.role === 'admin' || member.isAdmin,
-              uniqueId: `${team.name}-${member.name}-${member.email}` // Create unique ID
+              uniqueId: `${team.name}-${member.name}-${member.email}`
             })) || []
           )
           console.log('Initial load - allMembers:', allMembers)
@@ -479,11 +479,11 @@ export default function LawFirmDashboard() {
         console.log('Storage change - onboardingData:', onboardingData)
         if (onboardingData?.teams) {
           const allMembers = onboardingData.teams.flatMap((team: any) => 
-            team.members?.map((member: any) => ({
+            team.members?.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any) => ({
               ...member,
               teamName: team.name,
               isAdmin: member.role === 'admin' || member.isAdmin,
-              uniqueId: `${team.name}-${member.name}-${member.email}` // Create unique ID
+              uniqueId: `${team.name}-${member.name}-${member.email}`
             })) || []
           )
           console.log('Storage change - allMembers:', allMembers)
@@ -583,7 +583,7 @@ export default function LawFirmDashboard() {
               
               if (apiData.data?.teamData?.teams) {
                 const allMembers = apiData.data.teamData.teams.flatMap((team: any) => 
-                  team.members?.map((member: any) => ({
+                  team.members?.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any) => ({
                     ...member,
                     teamName: team.name,
                     isAdmin: member.role === 'admin' || member.isAdmin,
@@ -701,7 +701,7 @@ export default function LawFirmDashboard() {
           
           if (onboardingData?.teams) {
             const allMembers = onboardingData.teams.flatMap((team: any) => 
-              team.members?.map((member: any) => ({
+              team.members?.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any) => ({
                 ...member,
                 teamName: team.name,
                 isAdmin: member.role === 'admin' || member.isAdmin,
@@ -730,7 +730,7 @@ export default function LawFirmDashboard() {
               
               if (apiData.data?.teamData?.teams) {
                 const allMembers = apiData.data.teamData.teams.flatMap((team: any) => 
-                  team.members?.map((member: any) => ({
+                  team.members?.filter((member: any) => member && member.name && member.name.trim() !== '').map((member: any) => ({
                     ...member,
                     teamName: team.name,
                     isAdmin: member.role === 'admin' || member.isAdmin,
@@ -1716,15 +1716,19 @@ export default function LawFirmDashboard() {
   }
 
   const RoleSwitcher = () => {
-    // Use the teamMembers state that gets populated from onboarding data
     const allTeamMembers = teamMembers
+    const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
     
-    // Debug logging
-    console.log('RoleSwitcher - isOnboardingCompleted:', isOnboardingCompleted)
-    console.log('RoleSwitcher - teamMembers:', teamMembers)
     console.log('RoleSwitcher - allTeamMembers:', allTeamMembers)
+    
+    // Memoized filtered team members for better performance
+    const filteredTeamMembers = useMemo(() => 
+      allTeamMembers && allTeamMembers.length > 0 
+        ? allTeamMembers.filter(member => member && member.name && member.name.trim() !== '')
+        : [],
+      [allTeamMembers]
+    );
 
-    // If onboarding is completed and we have team members, show team member selector
     if (isOnboardingCompleted && allTeamMembers.length > 0) {
       return (
         <div className="flex items-center gap-2 mb-4">
@@ -1765,8 +1769,8 @@ export default function LawFirmDashboard() {
               <SelectValue placeholder="Select team member..." />
             </SelectTrigger>
             <SelectContent>
-              {allTeamMembers.map((member) => (
-                <SelectItem key={member.name} value={member.name}>
+              {filteredTeamMembers.length > 0 ? filteredTeamMembers.map((member) => (
+                <SelectItem key={member.id || `member-${member.name || 'unnamed'}-${member.teamName || 'team'}-${member.email || 'no-email'}`} value={member.name.trim()}>
                   <div className="flex items-center gap-2">
                     <span>{member.name}</span>
                     <Badge variant="outline" className="text-xs">
@@ -1775,7 +1779,11 @@ export default function LawFirmDashboard() {
                     <span className="text-xs text-muted-foreground">({member.teamName || 'Team'})</span>
                   </div>
                 </SelectItem>
-              ))}
+              )) : (
+                <SelectItem value="no-members" disabled>
+                  <div className="text-muted-foreground">No team members available</div>
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
           

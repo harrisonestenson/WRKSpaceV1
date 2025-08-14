@@ -1,0 +1,60 @@
+{
+  "profile": {
+    "name": "Maddy E",
+    "title": "Partner",
+    "role": "admin",
+    "photo": "",
+    "productivityPreferences": {
+      "morningFocus": false,
+      "reminderSettings": false
+    },
+    "notificationSettings": {
+      "dailyGoalReminders": true,
+      "milestoneProgressAlerts": true,
+      "deliveryMethod": "both"
+    }
+  },
+  "teamData": {
+    "teams": [
+      {
+        "name": "Team 1",
+        "members": [
+          {
+            "name": "Maddy E",
+            "email": "",
+            "title": "Admin",
+            "role": "admin",
+            "isAdmin": true,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
+          }
+        ]
+      }
+    ],
+    "companyGoals": {
+      "weeklyBillable": 500,
+      "monthlyBillable": 5000,
+      "yearlyBillable": 50000
+    },
+    "defaultGoalTypes": []
+  },
+  "teamMemberExpectations": [
+    {
+      "name": "Maddy E",
+      "team": "Team 1",
+      "expectedBillableHours": 1500,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    }
+  ],
+  "streaksConfig": [],
+  "legalCases": [
+    {
+      "id": "1755145954114",
+      "name": "new case",
+      "status": "active",
+      "createdAt": "2025-08-14T04:32:34.114Z"
+    }
+  ]
+}

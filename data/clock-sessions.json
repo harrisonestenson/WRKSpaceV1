@@ -1,0 +1,30 @@
+[
+  {
+    "id": "session-1755146613927",
+    "userId": "test-user",
+    "clockIn": "2025-01-14T10:00:00.000Z",
+    "clockOut": null,
+    "totalHours": null
+  },
+  {
+    "id": "session-1755146617592",
+    "userId": "test-user",
+    "clockIn": "2025-01-14T10:00:00.000Z",
+    "clockOut": "2025-01-14T12:00:00.000Z",
+    "totalHours": 2
+  },
+  {
+    "id": "session-1755146656916",
+    "userId": "test-user",
+    "clockIn": "2025-08-14T10:00:00.000Z",
+    "clockOut": "2025-08-14T12:00:00.000Z",
+    "totalHours": 2
+  },
+  {
+    "id": "session-1755146712834",
+    "userId": "maddy-e",
+    "clockIn": "2025-08-14T04:45:12.822Z",
+    "clockOut": "2025-08-14T04:45:15.120Z",
+    "totalHours": 0
+  }
+]

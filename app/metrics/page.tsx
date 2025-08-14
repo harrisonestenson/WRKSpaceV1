@@ -399,11 +399,15 @@ export default function MetricsDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Users (Team View)</SelectItem>
-                        {teamMembers.map((member: any) => (
+                        {teamMembers && teamMembers.length > 0 ? teamMembers.map((member: any) => (
                           <SelectItem key={member.id} value={member.id}>
                             {member.name}
                           </SelectItem>
-                        ))}
+                        )) : (
+                          <SelectItem value="no-team-members-metrics" disabled>
+                            <div className="text-muted-foreground">No team members available</div>
+                          </SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -702,7 +706,7 @@ export default function MetricsDashboard() {
                               </TableHeader>
                               <TableBody>
                                 {goal.members.map((member: any, memberIndex: number) => (
-                                  <TableRow key={memberIndex}>
+                                  <TableRow key={member.id || `goal-member-${memberIndex}-${member.name || 'unnamed'}`}>
                                     <TableCell className="font-medium">{member.name}</TableCell>
                                     <TableCell>{member.contributed}h</TableCell>
                                     <TableCell>{member.percentage}%</TableCell>
@@ -1010,7 +1014,7 @@ export default function MetricsDashboard() {
                                     <div className="space-y-2">
                                       <div className="text-sm font-medium">Team Progress</div>
                                                                              {teamData.cvs.team.map((member: any, memberIndex: number) => (
-                                         <div key={memberIndex} className="flex items-center justify-between p-2 bg-muted/20 rounded">
+                                         <div key={member.id || `member-streak-${memberIndex}-${member.name || 'unnamed'}`} className="flex items-center justify-between p-2 bg-muted/20 rounded">
                                            <div className="flex items-center gap-2">
                                              <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold">
                                                {memberIndex + 1}
@@ -1066,7 +1070,7 @@ export default function MetricsDashboard() {
                                     <div className="space-y-2">
                                       <div className="text-sm font-medium">Team Progress</div>
                                                                              {teamData.cvs.team.map((member: any, memberIndex: number) => (
-                                         <div key={memberIndex} className="flex items-center justify-between p-2 bg-muted/20 rounded">
+                                         <div key={member.id || `member-streak-${memberIndex}-${member.name || 'unnamed'}`} className="flex items-center justify-between p-2 bg-muted/20 rounded">
                                            <div className="flex items-center gap-2">
                                              <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold">
                                                {memberIndex + 1}

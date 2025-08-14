@@ -2946,14 +2946,18 @@ export default function DataDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">fc (Team View)</SelectItem>
-                      {teamMembers.map((member: any) => (
+                      {teamMembers && teamMembers.length > 0 ? teamMembers.map((member: any) => (
                         <SelectItem key={member.id} value={member.id}>
                           <div className="flex items-center gap-2">
                             <span>{member.name}</span>
                             <span className="text-muted-foreground">({member.role})</span>
                           </div>
                         </SelectItem>
-                      ))}
+                      )) : (
+                        <SelectItem value="no-team-members" disabled>
+                          <div className="text-muted-foreground">No team members available</div>
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -3380,7 +3384,7 @@ export default function DataDashboard() {
                           </TableHeader>
                           <TableBody>
                                                          {goal.members.map((member: any, memberIndex: number) => (
-                              <TableRow key={memberIndex}>
+                              <TableRow key={member.id || `goal-member-${memberIndex}-${member.name || 'unnamed'}`}>
                                 <TableCell className="font-medium">{member.name}</TableCell>
                                 <TableCell>{member.contributed}h</TableCell>
                                 <TableCell>{member.percentage}%</TableCell>
@@ -3452,14 +3456,18 @@ export default function DataDashboard() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">fc (Team View)</SelectItem>
-                    {teamMembers.map((member: any) => (
+                    {teamMembers && teamMembers.length > 0 ? teamMembers.map((member: any) => (
                       <SelectItem key={member.id} value={member.id}>
                         <div className="flex items-center gap-2">
                           <span>{member.name}</span>
                           <span className="text-muted-foreground">({member.role})</span>
                         </div>
                       </SelectItem>
-                    ))}
+                    )) : (
+                      <SelectItem value="no-team-members-2" disabled>
+                        <div className="text-muted-foreground">No team members available</div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

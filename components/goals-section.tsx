@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,10 +84,26 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
     notes: "",
   })
 
-  const getGoalTypeInfo = (type: string, isTeamGoal = false) => {
+  // Memoized filtered arrays for better performance
+  const filteredPersonalGoalTypes = useMemo(() => 
+    personalGoalTypes.filter(type => type.value && type.value.trim() !== ''),
+    []
+  );
+
+  const filteredTeamGoalTypes = useMemo(() => 
+    teamGoalTypes.filter(type => type.value && type.value.trim() !== ''),
+    []
+  );
+
+  const filteredFrequencies = useMemo(() => 
+    frequencies.filter(freq => freq.value && freq.value.trim() !== ''),
+    []
+  );
+
+  const getGoalTypeInfo = useCallback((type: string, isTeamGoal = false) => {
     const types = isTeamGoal ? teamGoalTypes : personalGoalTypes
     return types.find((t) => t.value === type || t.label === type) || types[0]
-  }
+  }, []);
 
   const handlePersonalGoalSubmit = () => {
     if (!personalGoalForm.name || !personalGoalForm.type || !personalGoalForm.frequency || !personalGoalForm.target) {
@@ -422,7 +438,7 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Types</SelectItem>
-                      {(activeTab === "personal" ? personalGoalTypes : teamGoalTypes).map((type) => (
+                      {(activeTab === "personal" ? filteredPersonalGoalTypes : filteredTeamGoalTypes).map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
                         </SelectItem>
@@ -438,7 +454,7 @@ export function GoalsSection({ userRole }: GoalsSectionProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Frequencies</SelectItem>
-                      {frequencies.map((freq) => (
+                      {filteredFrequencies.map((freq) => (
                         <SelectItem key={freq.value} value={freq.value}>
                           {freq.label}
                         </SelectItem>
