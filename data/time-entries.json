@@ -74,5 +74,43 @@
     "workHours": null,
     "createdAt": "2025-08-14T04:45:15.435Z",
     "updatedAt": "2025-08-14T04:45:15.435Z"
+  },
+  {
+    "id": "clock-session-session-1755177595100",
+    "userId": "maddy-e",
+    "teamId": null,
+    "caseId": null,
+    "date": "2025-08-14T13:20:01.599Z",
+    "startTime": "2025-08-14T13:19:26.775Z",
+    "endTime": "2025-08-14T13:20:01.599Z",
+    "duration": 35,
+    "billable": true,
+    "description": "Office session completed - 0.01h",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "clock-session",
+    "workHours": 0,
+    "createdAt": "2025-08-14T13:20:01.618Z",
+    "updatedAt": "2025-08-14T13:20:01.618Z"
+  },
+  {
+    "id": "entry-1755177601626",
+    "userId": "maddy-e",
+    "teamId": null,
+    "caseId": null,
+    "date": "2025-08-14T16:00:00.000Z",
+    "startTime": "2025-08-14T13:19:26.775Z",
+    "endTime": "2025-08-14T13:20:01.599Z",
+    "duration": 34,
+    "billable": false,
+    "description": "Office session completed",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "clock-session",
+    "workHours": null,
+    "createdAt": "2025-08-14T13:20:01.626Z",
+    "updatedAt": "2025-08-14T13:20:01.626Z"
   }
 ]

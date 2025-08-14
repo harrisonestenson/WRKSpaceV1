@@ -26,5 +26,26 @@
     "clockIn": "2025-08-14T04:45:12.822Z",
     "clockOut": "2025-08-14T04:45:15.120Z",
     "totalHours": 0
+  },
+  {
+    "id": "session-1755177566773",
+    "userId": "Maddy E",
+    "clockIn": "2025-08-14T13:19:26.519Z",
+    "clockOut": null,
+    "totalHours": null
+  },
+  {
+    "id": "session-1755177570972",
+    "userId": "maddy-e",
+    "clockIn": "2025-08-14T13:19:26.775Z",
+    "clockOut": null,
+    "totalHours": null
+  },
+  {
+    "id": "session-1755177595100",
+    "userId": "maddy-e",
+    "clockIn": "2025-08-14T13:19:26.775Z",
+    "clockOut": "2025-08-14T13:20:01.599Z",
+    "totalHours": 0.01
   }
 ]

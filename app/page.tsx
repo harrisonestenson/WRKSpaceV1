@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale } from "lucide-react"
+import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, LogOut as LogOutIcon, CheckCircle as CheckCircleIcon, Trophy, RefreshCw, Scale, ArrowLeft, Mic } from "lucide-react"
 
 import Link from "next/link"
 import { onboardingStore } from "@/lib/onboarding-store"
@@ -68,6 +68,50 @@ interface DashboardData {
     goalCompletionRate: number
     averageDailyHours: number
     activeCases: number
+  }
+}
+
+// Speech Recognition types
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start(): void
+  stop(): void
+  abort(): void
+  onstart: ((event: Event) => void) | null
+  onresult: ((event: SpeechRecognitionEvent) => void) | null
+  onerror: ((event: Event) => void) | null
+  onend: ((event: Event) => void) | null
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionResultList {
+  length: number
+  item(index: number): SpeechRecognitionResult
+  [index: number]: SpeechRecognitionResult
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean
+  length: number
+  item(index: number): SpeechRecognitionAlternative
+  [index: number]: SpeechRecognitionAlternative
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string
+  confidence: number
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognition
+    webkitSpeechRecognition: new () => SpeechRecognition
   }
 }
 
@@ -162,7 +206,18 @@ export default function LawFirmDashboard() {
   const [isTimerRunning, setIsTimerRunning] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(0)
   const [selectedCases, setSelectedCases] = useState<string[]>([])
-  const [workDescription, setWorkDescription] = useState("")
+
+
+  // Smart Timer States
+  const [activeCaseId, setActiveCaseId] = useState<string | null>(null)
+  const [caseTimers, setCaseTimers] = useState<Record<string, number>>({})
+  const [caseSwitchLog, setCaseSwitchLog] = useState<Array<{caseId: string, startTime: number, endTime?: number}>>([])
+  const [isReviewMode, setIsReviewMode] = useState(false)
+  const [reviewData, setReviewData] = useState<Array<{caseId: string, caseName: string, duration: number, description: string}>>([])
+
+  // Voice Typing States
+  const [isRecordingVoice, setIsRecordingVoice] = useState<number | null>(null)
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null)
 
   // Non-billable timer states
   const [isNonBillableTimerRunning, setIsNonBillableTimerRunning] = useState(false)
@@ -189,7 +244,7 @@ export default function LawFirmDashboard() {
           setTimerSeconds(Math.floor(elapsedMs / 1000))
           setIsTimerRunning(true)
           setSelectedCases(timerData.selectedCases || [])
-          setWorkDescription(timerData.workDescription || "")
+
         } else {
           // Clear stale timer
           localStorage.removeItem('billableTimer')
@@ -858,15 +913,20 @@ export default function LawFirmDashboard() {
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
-    if (isTimerRunning) {
+    if (isTimerRunning && activeCaseId) {
       interval = setInterval(() => {
         setTimerSeconds((seconds) => seconds + 1)
+        // Update active case timer
+        setCaseTimers(prev => ({
+          ...prev,
+          [activeCaseId]: (prev[activeCaseId] || 0) + 1
+        }))
       }, 1000)
     }
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [isTimerRunning])
+  }, [isTimerRunning, activeCaseId])
 
   // Personal goals state
   const [personalGoals, setPersonalGoals] = useState<any[]>([])
@@ -1142,14 +1202,27 @@ export default function LawFirmDashboard() {
 
   // Timer functions
   const startTimer = () => {
+    if (selectedCases.length === 0) {
+      alert("Please select at least one case before starting the timer")
+      return
+    }
+    
     setIsTimerRunning(true)
+    
+    // Start tracking the first selected case
+    const firstCaseId = selectedCases[0]
+    setActiveCaseId(firstCaseId)
+    setCaseTimers(prev => ({ ...prev, [firstCaseId]: 0 }))
+    setCaseSwitchLog([{ caseId: firstCaseId, startTime: Date.now() }])
     
     // Save timer state to localStorage
     const timerData = {
       startTime: new Date().toISOString(),
       isRunning: true,
       selectedCases,
-      workDescription
+      activeCaseId: firstCaseId,
+      caseTimers: { [firstCaseId]: 0 },
+      caseSwitchLog: [{ caseId: firstCaseId, startTime: Date.now() }]
     }
     localStorage.setItem('billableTimer', JSON.stringify(timerData))
     
@@ -1159,7 +1232,7 @@ export default function LawFirmDashboard() {
         type: 'billable',
         startTime: new Date(),
         selectedCases,
-        workDescription
+        activeCaseId: firstCaseId
       } 
     }))
   }
@@ -1172,7 +1245,9 @@ export default function LawFirmDashboard() {
       startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
       isRunning: false,
       selectedCases,
-      workDescription
+      activeCaseId,
+      caseTimers,
+      caseSwitchLog
     }
     localStorage.setItem('billableTimer', JSON.stringify(timerData))
     
@@ -1183,54 +1258,36 @@ export default function LawFirmDashboard() {
   }
 
   const stopTimer = async () => {
+    if (selectedCases.length === 0 || timerSeconds === 0) {
+      alert("Please select at least one case before stopping the timer")
+      return
+    }
+
+    // Stop the timer
     setIsTimerRunning(false)
-    if (selectedCases.length === 0 || !workDescription.trim() || timerSeconds === 0) {
-      alert("Please select at least one case and enter a work description")
-      return
-    }
-
-    const selectedCaseDetails = legalCases.filter((case_) => selectedCases.includes(case_.id.toString()))
-    const timeEntry = {
-      cases: selectedCaseDetails,
-      description: workDescription,
-      duration: formatTime(timerSeconds),
-      totalSeconds: timerSeconds,
-      timestamp: new Date(),
-    }
-
-    console.log("Time entry submitted for multiple cases:", timeEntry)
     
-    // Persist to backend: create one entry per selected case using duration
-    try {
-      const now = new Date()
-      const payloads = selectedCases.map((caseId) => ({
-        userId: currentUserId,
+    // Finalize the last case tracking
+    if (activeCaseId) {
+      setCaseSwitchLog(prev => prev.map(log => 
+        log.caseId === activeCaseId && !log.endTime 
+          ? { ...log, endTime: Date.now() }
+          : log
+      ))
+    }
+    
+    // Prepare review data with default descriptions
+    const reviewEntries = selectedCases.map(caseId => {
+      const case_ = legalCases.find(c => c.id.toString() === caseId)
+      return {
         caseId,
-        date: now.toISOString(),
-        duration: timerSeconds,
-        billable: true,
-        description: workDescription,
-        source: 'timer'
-      }))
-      await Promise.all(payloads.map(p => fetch('/api/time-entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p)
-      })))
-    } catch (e) {
-      console.error('Failed to store timer entry:', e)
-      alert('Failed to store time entry. Please try again.')
-      return
-    }
+        caseName: case_?.name || 'Unknown Case',
+        duration: caseTimers[caseId] || 0,
+        description: `Work performed on ${case_?.name || 'case'}`
+      }
+    })
     
-    // Add work hours to today's entry in data dashboard
-    const workSummary = `Billable work: ${selectedCaseDetails.map(c => c.name).join(", ")} - ${workDescription}`
-    window.dispatchEvent(new CustomEvent('addWorkHours', { 
-      detail: { 
-        billableHours: timerSeconds / 3600, 
-        description: workSummary 
-      } 
-    }))
+    setReviewData(reviewEntries)
+    setIsReviewMode(true)
     
     // Clear timer from localStorage
     localStorage.removeItem('billableTimer')
@@ -1239,24 +1296,45 @@ export default function LawFirmDashboard() {
     window.dispatchEvent(new CustomEvent('stopLiveTimer', { 
       detail: { type: 'billable' } 
     }))
-    
-    alert(`Time entry submitted for ${selectedCases.length} case(s)!`)
-
-    // Refresh personal goals to show updated progress
-    // fetchPersonalGoals() // Commented out - function not defined
-
-    // Reset form
-    setTimerSeconds(0)
-    setSelectedCases([])
-    setWorkDescription("")
   }
 
   // Handle case selection
   const handleCaseSelection = (caseId: string, checked: boolean) => {
     if (checked) {
       setSelectedCases((prev) => [...prev, caseId])
+      // If timer is running, switch to this case
+      if (isTimerRunning) {
+        switchToCase(caseId)
+      }
     } else {
       setSelectedCases((prev) => prev.filter((id) => id !== caseId))
+      // If this was the active case, stop tracking
+      if (activeCaseId === caseId) {
+        setActiveCaseId(null)
+      }
+    }
+  }
+
+  // Smart case switching function
+  const switchToCase = (caseId: string) => {
+    const now = Date.now()
+    
+    // End tracking for previous case if exists
+    if (activeCaseId) {
+      setCaseSwitchLog(prev => prev.map(log => 
+        log.caseId === activeCaseId && !log.endTime 
+          ? { ...log, endTime: now }
+          : log
+      ))
+    }
+    
+    // Start tracking new case
+    setActiveCaseId(caseId)
+    setCaseSwitchLog(prev => [...prev, { caseId, startTime: now }])
+    
+    // Initialize case timer if not exists
+    if (!caseTimers[caseId]) {
+      setCaseTimers(prev => ({ ...prev, [caseId]: 0 }))
     }
   }
 
@@ -1912,6 +1990,121 @@ export default function LawFirmDashboard() {
     </DropdownMenu>
   )
 
+  // Submit reviewed time entries
+  const submitReviewData = async () => {
+    try {
+      const now = new Date()
+      
+      // Create time entries for each case
+      const payloads = reviewData.map(entry => ({
+        userId: currentUserId,
+        caseId: entry.caseId,
+        date: now.toISOString(),
+        duration: entry.duration,
+        billable: true,
+        description: entry.description,
+        source: 'timer'
+      }))
+      
+      // Submit all entries
+      await Promise.all(payloads.map(p => fetch('/api/time-entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p)
+      })))
+      
+      // Success - reset everything
+      alert(`Time entry submitted for ${reviewData.length} case(s)!`)
+      
+      // Reset timer state
+      setTimerSeconds(0)
+      setSelectedCases([])
+      setActiveCaseId(null)
+      setCaseTimers({})
+      setCaseSwitchLog([])
+      setIsReviewMode(false)
+      setReviewData([])
+      
+      // Clear timer from localStorage
+      localStorage.removeItem('billableTimer')
+      
+    } catch (error) {
+      console.error('Failed to submit time entries:', error)
+      alert('Failed to submit time entries. Please try again.')
+    }
+  }
+
+  // Voice typing functions
+  const startVoiceTyping = (index: number) => {
+    if (!recognition) {
+      // Initialize speech recognition
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SpeechRecognition) {
+        alert('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
+        return
+      }
+      
+      const newRecognition = new SpeechRecognition()
+      newRecognition.continuous = false
+      newRecognition.interimResults = true
+      newRecognition.lang = 'en-US'
+      
+      newRecognition.onstart = () => {
+        setIsRecordingVoice(index)
+      }
+      
+      newRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('')
+        
+        setReviewData(prev => prev.map((item, i) => 
+          i === index ? { ...item, description: transcript } : item
+        ))
+      }
+      
+      newRecognition.onerror = (event) => {
+        console.error('Speech recognition error:', event)
+        setIsRecordingVoice(null)
+        alert('Speech recognition error. Please try again.')
+      }
+      
+      newRecognition.onend = () => {
+        setIsRecordingVoice(null)
+      }
+      
+      setRecognition(newRecognition)
+      newRecognition.start()
+    } else {
+      // Use existing recognition
+      recognition.start()
+      setIsRecordingVoice(index)
+    }
+  }
+
+  const stopVoiceTyping = () => {
+    if (recognition) {
+      recognition.stop()
+      setIsRecordingVoice(null)
+    }
+  }
+
+  // Cleanup voice recognition when component unmounts or review mode exits
+  useEffect(() => {
+    return () => {
+      if (recognition) {
+        recognition.stop()
+      }
+    }
+  }, [recognition])
+
+  useEffect(() => {
+    if (!isReviewMode && recognition) {
+      recognition.stop()
+      setIsRecordingVoice(null)
+    }
+  }, [isReviewMode, recognition])
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -2104,632 +2297,464 @@ export default function LawFirmDashboard() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 pb-4">
-        <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)]">
-          {/* Timer Section - 60% of screen */}
-          <div className="col-span-7 space-y-4">
-            {/* Billable Hours Timer */}
-            <Card className="h-1/2 flex flex-col">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="h-5 w-5" />
-                  Billable Hours Timer
-                  <span className="text-xs text-muted-foreground">(Works remotely)</span>
-                  {selectedCases.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {selectedCases.length} case{selectedCases.length !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col space-y-4">
-                {/* Large Timer Display */}
-                <div className="text-center">
-                  <div className="text-6xl font-mono font-bold text-primary mb-3">{formatTime(timerSeconds)}</div>
-                  <div className="flex items-center justify-center gap-3">
-                    {!isTimerRunning ? (
-                      <Button onClick={startTimer} className="px-6">
-                        <Play className="h-4 w-4 mr-2" />
-                        Start
-                      </Button>
-                    ) : (
-                      <Button onClick={pauseTimer} variant="secondary" className="px-6">
-                        <Pause className="h-4 w-4 mr-2" />
-                        Pause
-                      </Button>
-                    )}
-                    <Button onClick={stopTimer} variant="destructive" className="px-6">
-                      <Square className="h-4 w-4 mr-2" />
-                      Stop & Submit
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Case Selection */}
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-sm font-medium">Select Cases/Matters *</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Check all cases you worked on during this time period
-                    </p>
-                    <div className="border rounded-lg p-3 max-h-32 overflow-y-auto space-y-2">
-                      {isLoadingLegalCases ? (
-                        <div className="text-center text-xs text-muted-foreground py-2">
-                          Loading cases...
-                        </div>
-                      ) : legalCases.length > 0 ? (
-                        legalCases.map((case_) => (
-                          <div key={case_.id} className="flex items-start space-x-2">
-                            <Checkbox
-                              id={`case-${case_.id}`}
-                              checked={selectedCases.includes(case_.id.toString())}
-                              onCheckedChange={(checked) => handleCaseSelection(case_.id.toString(), checked as boolean)}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <label htmlFor={`case-${case_.id}`} className="text-xs font-medium cursor-pointer block">
-                                {case_.name}
-                              </label>
-                              <p className="text-xs text-muted-foreground truncate">
-                                Started: {new Date(case_.startDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center text-xs text-muted-foreground py-2">
-                          No legal cases available
-                        </div>
-                      )}
+        {/* Full-Width Timer Section */}
+        <div className="mb-8">
+          {/* Hero Timer Card */}
+          <Card className="w-full">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-2xl">
+                <Clock className="h-7 w-7" />
+                Billable Hours Timer
+                <span className="text-sm text-muted-foreground font-normal">(Works remotely)</span>
+                {isTimerRunning && (
+                  <Badge variant="default" className="text-xs bg-green-600">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-1"></div>
+                    Active
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {/* Large Timer Display */}
+              <div className="text-center">
+                <div className="text-8xl font-mono font-bold text-primary mb-6">{formatTime(timerSeconds)}</div>
+                
+                {/* Active Case Indicator */}
+                {isTimerRunning && activeCaseId && (
+                  <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+                    <div className="text-sm text-muted-foreground mb-2">Currently Tracking:</div>
+                    <div className="text-lg font-semibold">
+                      {legalCases.find(c => c.id.toString() === activeCaseId)?.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Time on this case: {formatTime(caseTimers[activeCaseId] || 0)}
                     </div>
                   </div>
-
-                  <div>
-                    <Label htmlFor="work-description" className="text-sm font-medium">
-                      Work Description *
-                    </Label>
-                    <Textarea
-                      id="work-description"
-                      placeholder="Describe the work performed across the selected cases..."
-                      value={workDescription}
-                      onChange={(e) => setWorkDescription(e.target.value)}
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Non-Billable Hours Timer */}
-            <Card className="h-1/2 flex flex-col">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Target className="h-5 w-5" />
-                  Non-Billable Hours Timer
-                  <span className="text-xs text-muted-foreground">(Works remotely)</span>
-                  {selectedNonBillableTask && (
-                    <Badge variant="outline" className="text-xs">
-                      {nonBillableTasks.find(task => task.id === selectedNonBillableTask)?.points || 0.5} pts/hr
-                    </Badge>
+                )}
+                
+                <div className="flex items-center justify-center gap-4">
+                  {!isTimerRunning ? (
+                    <Button onClick={startTimer} size="lg" className="px-8 py-3 text-lg">
+                      <Play className="h-5 w-5 mr-2" />
+                      Start Timer
+                    </Button>
+                  ) : (
+                    <Button onClick={pauseTimer} variant="secondary" size="lg" className="px-8 py-3 text-lg">
+                      <Pause className="h-5 w-5 mr-2" />
+                      Pause
+                    </Button>
                   )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col space-y-4">
-                {/* Large Timer Display */}
+                  <Button onClick={stopTimer} variant="destructive" size="lg" className="px-8 py-3 text-lg">
+                    <Square className="h-5 w-5 mr-2" />
+                    Stop & Submit
+                  </Button>
+                </div>
+              </div>
+
+              {/* Case Buttons Grid */}
+              <div className="space-y-4">
                 <div className="text-center">
-                  <div className="text-6xl font-mono font-bold text-orange-600 mb-3">{formatTime(nonBillableTimerSeconds)}</div>
-                  <div className="flex items-center justify-center gap-3">
-                    {!isNonBillableTimerRunning ? (
-                      <Button onClick={startNonBillableTimer} className="px-6 bg-orange-600 hover:bg-orange-700">
-                        <Play className="h-4 w-4 mr-2" />
-                        Start
+                  <Label className="text-lg font-semibold">Select Case to Track</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Click a case button to start tracking time for that specific case
+                  </p>
+                </div>
+                
+                {isLoadingLegalCases ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading cases...</p>
+                  </div>
+                ) : legalCases.length > 0 ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {legalCases.map((case_) => (
+                      <Button
+                        key={case_.id}
+                        variant={selectedCases.includes(case_.id.toString()) ? "default" : "outline"}
+                        className={`h-20 p-3 flex flex-col items-center justify-center text-center transition-all duration-200 relative ${
+                          activeCaseId === case_.id.toString() && isTimerRunning
+                            ? "bg-primary text-primary-foreground shadow-lg scale-105 ring-2 ring-primary/50"
+                            : selectedCases.includes(case_.id.toString())
+                            ? "bg-primary/80 text-primary-foreground hover:bg-primary"
+                            : "hover:scale-105"
+                        }`}
+                        onClick={() => handleCaseSelection(case_.id.toString(), !selectedCases.includes(case_.id.toString()))}
+                      >
+                        <div className="text-xs font-medium leading-tight mb-1">
+                          {case_.name.length > 20 ? case_.name.substring(0, 20) + "..." : case_.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(case_.startDate).toLocaleDateString()}
+                        </div>
+                        {activeCaseId === case_.id.toString() && isTimerRunning && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        )}
+                        {selectedCases.includes(case_.id.toString()) && !isTimerRunning && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-blue-400 rounded-full"></div>
+                        )}
                       </Button>
-                    ) : (
-                      <Button onClick={pauseNonBillableTimer} variant="secondary" className="px-6">
-                        <Pause className="h-4 w-4 mr-2" />
-                        Pause
-                      </Button>
-                    )}
-                    <Button onClick={stopNonBillableTimer} variant="destructive" className="px-6">
-                      <Square className="h-4 w-4 mr-2" />
-                      Stop & Submit
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Scale className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">No legal cases available</p>
+                    <p className="text-xs">Add cases in the onboarding section to start tracking time</p>
+                  </div>
+                )}
+              </div>
+
+
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Review Section - Appears after stopping timer */}
+        {isReviewMode && (
+          <div className="mb-8">
+            <Card className="w-full">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-2xl">
+                  <Eye className="h-7 w-7" />
+                  Review Time Entry
+                  <Badge variant="outline" className="text-sm">
+                    Total: {formatTime(timerSeconds)}
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Review and edit your time entries before submitting. Each case needs its own work description and duration.
+                  <span className="block mt-1 text-xs">
+                    💡 Tip: Use the microphone button next to each description field for voice typing.
+                  </span>
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Review Table */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Case Breakdown</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Add new case to review
+                        const availableCases = legalCases.filter(c => 
+                          !reviewData.some(rd => rd.caseId === c.id.toString())
+                        )
+                        if (availableCases.length > 0) {
+                          const newCase = availableCases[0]
+                          setReviewData(prev => [...prev, {
+                            caseId: newCase.id.toString(),
+                            caseName: newCase.name,
+                            duration: 0,
+                            description: `Work performed on ${newCase.name}`
+                          }])
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Case
                     </Button>
                   </div>
-                </div>
-
-                {/* Non-Billable Task Selection */}
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-sm font-medium">Select Non-Billable Task *</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Choose the type of non-billable work you performed
-                    </p>
-                    <Select value={selectedNonBillableTask || ""} onValueChange={setSelectedNonBillableTask}>
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="Select a non-billable task..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {nonBillableTasks.map((task) => (
-                          <SelectItem key={task.id} value={task.id}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{task.name}</span>
-                              <Badge variant="outline" className="text-xs ml-2">
-                                {task.points} pts/hr
-                              </Badge>
-                            </div>
-                          </SelectItem>
+                  
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Case</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reviewData.map((entry, index) => (
+                          <TableRow key={entry.caseId}>
+                            <TableCell className="font-medium">
+                              {entry.caseName}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max={timerSeconds}
+                                  value={Math.round(entry.duration / 60)}
+                                  onChange={(e) => {
+                                    const newDuration = parseInt(e.target.value) * 60
+                                    setReviewData(prev => prev.map((item, i) => 
+                                      i === index ? { ...item, duration: newDuration } : item
+                                    ))
+                                  }}
+                                  className="w-20"
+                                />
+                                <span className="text-sm text-muted-foreground">minutes</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Textarea
+                                    value={entry.description}
+                                    onChange={(e) => {
+                                      setReviewData(prev => prev.map((item, i) => 
+                                        i === index ? { ...item, description: e.target.value } : item
+                                      ))
+                                    }}
+                                    placeholder={`Describe the specific work performed on ${entry.caseName}...`}
+                                    rows={3}
+                                    className="text-sm resize-none min-w-[200px]"
+                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => startVoiceTyping(index)}
+                                      className="h-8 w-8 p-0 flex-shrink-0"
+                                      title="Voice type description (Click to start recording)"
+                                      disabled={isRecordingVoice !== null && isRecordingVoice !== index}
+                                    >
+                                      {isRecordingVoice === index ? (
+                                        <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+                                      ) : (
+                                        <Mic className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    {isRecordingVoice === index && (
+                                      <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => stopVoiceTyping()}
+                                        className="h-8 w-8 p-0 flex-shrink-0"
+                                        title="Stop recording"
+                                      >
+                                        <Square className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {isRecordingVoice === index && (
+                                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                    Listening... Speak now
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setReviewData(prev => prev.filter((_, i) => i !== index))
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    {selectedNonBillableTask && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {nonBillableTasks.find(task => task.id === selectedNonBillableTask)?.description}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  {/* Time Validation */}
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-center gap-4">
+                      <div>
+                        <span className="text-sm text-muted-foreground">Total Timer Time:</span>
+                        <div className="text-lg font-mono font-bold">{formatTime(timerSeconds)}</div>
+                      </div>
+                      <div>
+                        <span className="text-sm text-muted-foreground">Total Case Time:</span>
+                        <div className={`text-lg font-mono font-bold ${
+                          reviewData.reduce((sum, entry) => sum + entry.duration, 0) === timerSeconds
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}>
+                          {formatTime(reviewData.reduce((sum, entry) => sum + entry.duration, 0))}
+                        </div>
+                      </div>
+                    </div>
+                    {reviewData.reduce((sum, entry) => sum + entry.duration, 0) !== timerSeconds && (
+                      <p className="text-sm text-red-600 mt-2">
+                        ⚠️ Case times must equal total timer time
                       </p>
                     )}
                   </div>
-
-                  <div>
-                    <Label htmlFor="non-billable-description" className="text-sm font-medium">
-                      Work Description *
-                    </Label>
-                    <Textarea
-                      id="non-billable-description"
-                      placeholder="Describe the non-billable work you performed..."
-                      value={nonBillableDescription}
-                      onChange={(e) => setNonBillableDescription(e.target.value)}
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
+                  
+                  {/* Description Validation */}
+                  {reviewData.some(entry => !entry.description.trim()) && (
+                    <div className="text-center p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-sm text-red-600">
+                        ⚠️ All cases must have work descriptions before submitting
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsReviewMode(false)
+                      setIsTimerRunning(true)
+                      // Restore timer state
+                      if (activeCaseId) {
+                        setCaseSwitchLog(prev => prev.map(log => 
+                          log.caseId === activeCaseId && log.endTime 
+                            ? { ...log, endTime: undefined }
+                            : log
+                        ))
+                      }
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Continue Timer
+                  </Button>
+                  <Button
+                    onClick={submitReviewData}
+                    disabled={
+                      reviewData.reduce((sum, entry) => sum + entry.duration, 0) !== timerSeconds ||
+                      reviewData.some(entry => !entry.description.trim())
+                    }
+                    className="px-8"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Submit Time Entry
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
+        )}
 
-          {/* Right Side - Manual Log and Progress */}
-          <div className="col-span-5 space-y-4">
-            {/* Billable Manual Log Section */}
-            <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Billable Manual Time Entry</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="manual-date" className="text-xs">
-                      Date
-                    </Label>
-                    <Input
-                      id="manual-date"
-                      type="date"
-                      value={manualDate}
-                      onChange={(e) => setManualDate(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Cases *</Label>
-                    <Select onValueChange={handleManualCaseDropdownSelect}>
-                      <SelectTrigger className="text-sm">
-                        <SelectValue
-                          placeholder={
-                            manualSelectedCases.length === 0
-                              ? "Select cases..."
-                              : `${manualSelectedCases.length} case${manualSelectedCases.length !== 1 ? "s" : ""} selected`
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isLoadingLegalCases ? (
-                          <SelectItem value="loading" disabled>
-                            Loading cases...
-                          </SelectItem>
-                        ) : legalCases.length > 0 ? (
-                          legalCases
-                            .filter((case_) => !manualSelectedCases.includes(case_.id.toString()))
-                            .map((case_) => (
-                              <SelectItem key={case_.id} value={case_.id.toString()}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-xs">{case_.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    Started: {new Date(case_.startDate).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))
-                        ) : (
-                          <SelectItem value="no-cases" disabled>
-                            No cases available
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {manualSelectedCases.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {manualSelectedCases.map((caseId) => {
-                          const case_ = legalCases.find((c) => c.id.toString() === caseId)
-                          return (
-                            <Badge key={caseId} variant="secondary" className="text-xs">
-                              {case_?.name}
-                              <button
-                                onClick={() => removeManualCase(caseId)}
-                                className="ml-1 hover:bg-destructive/20 rounded-full"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-
-
+        {/* Manual Entry Section - Below the fold */}
+        <div className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold">Manual Time Entry</h2>
+            <p className="text-sm text-muted-foreground">Need to log time manually? Use the form below</p>
+          </div>
+          
+          {/* Billable Manual Log Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Billable Manual Time Entry</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs">Or pick a Duration</Label>
-                  <Select onValueChange={(v) => setManualDurationSeconds(parseInt(v, 10))}>
-                    <SelectTrigger className="text-sm w-full">
-                      <SelectValue placeholder="Select duration (optional)" />
+                  <Label htmlFor="manual-date" className="text-sm font-medium">
+                    Date
+                  </Label>
+                  <Input
+                    id="manual-date"
+                    type="date"
+                    value={manualDate}
+                    onChange={(e) => setManualDate(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Cases *</Label>
+                  <Select onValueChange={handleManualCaseDropdownSelect}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue
+                        placeholder={
+                          manualSelectedCases.length === 0
+                            ? "Select cases..."
+                            : `${manualSelectedCases.length} case${manualSelectedCases.length !== 1 ? "s" : ""} selected`
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {manualDurationOptions.map(opt => (
-                        <SelectItem key={opt.seconds} value={String(opt.seconds)}>
-                          {opt.label}
+                      {isLoadingLegalCases ? (
+                        <SelectItem value="loading" disabled>
+                          Loading cases...
                         </SelectItem>
-                      ))}
+                      ) : legalCases.length > 0 ? (
+                        legalCases
+                          .filter((case_) => !manualSelectedCases.includes(case_.id.toString()))
+                          .map((case_) => (
+                            <SelectItem key={case_.id} value={case_.id.toString()}>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">{case_.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  Started: {new Date(case_.startDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="no-cases" disabled>
+                          No cases available
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
-                  {manualDurationSeconds != null && (
-                    <p className="text-xs text-muted-foreground mt-1">Selected: {Math.round(manualDurationSeconds/60)} minutes</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="manual-description" className="text-xs">
-                    Description
-                  </Label>
-                  <Textarea
-                    id="manual-description"
-                    placeholder="Work description..."
-                    value={manualDescription}
-                    onChange={(e) => setManualDescription(e.target.value)}
-                    rows={2}
-                    className="text-sm"
-                  />
-                </div>
-
-                <Button onClick={submitManualEntry} className="w-full" size="sm">
-                  Submit Entry
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Non-Billable Manual Log Section */}
-            <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Non-Billable Manual Time Entry</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="non-billable-manual-date" className="text-xs">
-                      Date
-                    </Label>
-                    <Input
-                      id="non-billable-manual-date"
-                      type="date"
-                      value={nonBillableManualDate}
-                      onChange={(e) => setNonBillableManualDate(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Non-Billable Task *</Label>
-                    <Select value={nonBillableManualSelectedTask || ""} onValueChange={setNonBillableManualSelectedTask}>
-                      <SelectTrigger className="text-sm">
-                        <SelectValue placeholder="Select task..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {nonBillableTasks.map((task) => (
-                          <SelectItem key={task.id} value={task.id}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{task.name}</span>
-                              <Badge variant="outline" className="text-xs ml-2">
-                                {task.points} pts/hr
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="non-billable-manual-start" className="text-xs">
-                      Start Time
-                    </Label>
-                    <Input
-                      id="non-billable-manual-start"
-                      type="time"
-                      value={nonBillableManualStartTime}
-                      onChange={(e) => setNonBillableManualStartTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="non-billable-manual-end" className="text-xs">
-                      End Time
-                    </Label>
-                    <Input
-                      id="non-billable-manual-end"
-                      type="time"
-                      value={nonBillableManualEndTime}
-                      onChange={(e) => setNonBillableManualEndTime(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="non-billable-manual-description" className="text-xs">
-                    Description
-                  </Label>
-                  <Textarea
-                    id="non-billable-manual-description"
-                    placeholder="Non-billable work description..."
-                    value={nonBillableManualDescription}
-                    onChange={(e) => setNonBillableManualDescription(e.target.value)}
-                    rows={2}
-                    className="text-sm"
-                  />
-                </div>
-
-                <Button onClick={submitNonBillableManualEntry} className="w-full" size="sm">
-                  Submit Non-Billable Entry
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Daily Pledge Section */}
-            <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Daily Pledge</CardTitle>
-                  {userRole === "admin" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsEditingPledge(!isEditingPledge)}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-full flex flex-col">
-                  {isEditingPledge && userRole === "admin" ? (
-                    <div className="space-y-3">
-                      <Textarea
-                        value={dailyPledge}
-                        onChange={(e) => setDailyPledge(e.target.value)}
-                        placeholder="Enter the daily pledge for the team..."
-                        className="flex-1 min-h-[120px] resize-none"
-                      />
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => setIsEditingPledge(false)}
-                          className="flex-1"
-                        >
-                          Save Pledge
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setIsEditingPledge(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-full flex flex-col justify-center">
-                      <div className="text-center space-y-4">
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mx-auto w-12 h-12 flex items-center justify-center">
-                          <Target className="h-6 w-6" />
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">
-                            Today's Pledge
-                          </p>
-                          <p className="text-sm leading-relaxed text-center">
-                            {dailyPledge}
-                          </p>
-                        </div>
-                        {userRole === "member" && (
-                          <div className="pt-2">
-                            <Badge variant="outline" className="text-xs">
-                              Set by Admin
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
+                  {manualSelectedCases.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {manualSelectedCases.map((caseId) => {
+                        const case_ = legalCases.find((c) => c.id.toString() === caseId)
+                        return (
+                          <Badge key={caseId} variant="secondary" className="text-sm">
+                            {case_?.name}
+                            <button
+                              onClick={() => removeManualCase(caseId)}
+                              className="ml-1 hover:bg-destructive/20 rounded-full"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Personal Goals Section - REMOVED FROM MAIN DASHBOARD */}
-            {/* <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Personal Goals
-                  {isLoadingPersonalGoals && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingPersonalGoals ? (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Loading personal goals...
-                  </div>
-                ) : personalGoals.length > 0 ? (
-                  <div className="space-y-4">
-                    {personalGoals.slice(0, 3).map((goal) => (
-                      <div key={goal.id} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium truncate">{goal.name || goal.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {goal.current || goal.actual || 0}/{goal.target || goal.max || 0}
-                          </span>
-                        </div>
-                        <Progress 
-                          value={Math.min(goal.progress || 0, 100)} 
-                          className="h-2"
-                        />
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">{goal.type || goal.frequency}</span>
-                          <span className={(goal.progress || 0) >= 100 ? "text-green-600" : (goal.progress || 0) >= 90 ? "text-yellow-600" : "text-muted-foreground"}>
-                            {(goal.progress || 0).toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
+              <div>
+                <Label className="text-sm font-medium">Duration</Label>
+                <Select onValueChange={(v) => setManualDurationSeconds(parseInt(v, 10))}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select duration (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualDurationOptions.map(opt => (
+                      <SelectItem key={opt.seconds} value={String(opt.seconds)}>
+                        {opt.label}
+                      </SelectItem>
                     ))}
-                  </div>
-                ) : (
-                  <div className="text-center text-sm text-muted-foreground">
-                    No personal goals set yet
-                  </div>
+                  </SelectContent>
+                </Select>
+                {manualDurationSeconds != null && (
+                  <p className="text-xs text-muted-foreground mt-1">Selected: {Math.round(manualDurationSeconds/60)} minutes</p>
                 )}
-              </CardContent>
-            </Card> */}
+              </div>
 
-            {/* Company Goals Section - REMOVED FROM MAIN DASHBOARD */}
-            {/* 
-            <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Company Goals
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Weekly Billable</span>
-                      <span className="text-xs text-muted-foreground">
-                        {companyProgress.weekly.actual}/{companyProgress.weekly.target}h
-                      </span>
-                    </div>
-                    <Progress 
-                      value={Math.min(companyProgress.weekly.percentage, 100)} 
-                      className="h-2"
-                    />
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Target: {companyGoals.weeklyBillable}h</span>
-                      <span className={companyProgress.weekly.percentage >= 100 ? "text-green-600" : "text-muted-foreground"}>
-                        {companyProgress.weekly.percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
+              <div>
+                <Label htmlFor="manual-description" className="text-sm font-medium">
+                  Description
+                </Label>
+                <Textarea
+                  id="manual-description"
+                  placeholder="Work description..."
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Monthly Billable</span>
-                      <span className="text-xs text-muted-foreground">
-                        {companyProgress.monthly.actual}/{companyProgress.monthly.target}h
-                      </span>
-                    </div>
-                    <Progress 
-                      value={Math.min(companyProgress.monthly.percentage, 100)} 
-                      className="h-2"
-                    />
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Target: {companyGoals.monthlyBillable}h</span>
-                      <span className={companyProgress.monthly.percentage >= 100 ? "text-green-600" : "text-muted-foreground"}>
-                        {companyProgress.monthly.percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Annual Billable</span>
-                      <span className="text-xs text-muted-foreground">
-                        {companyProgress.annual.actual}/{companyProgress.annual.target}h
-                      </span>
-                    </div>
-                    <Progress 
-                      value={Math.min(companyProgress.annual.percentage, 100)} 
-                      className="h-2"
-                    />
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Target: {companyGoals.annualBillable}h</span>
-                      <span className={companyProgress.annual.percentage >= 100 ? "text-green-600" : "text-muted-foreground"}>
-                        {companyProgress.annual.percentage.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            */}
-
-            {/* Legal Cases Section */}
-            <Card className="h-1/3">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Scale className="h-4 w-4" />
-                  Legal Cases
-                  {isLoadingLegalCases && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {isLoadingLegalCases ? (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Loading legal cases...
-                  </div>
-                ) : legalCases.length > 0 ? (
-                  <div className="space-y-3">
-                    {legalCases.slice(0, 3).map((caseItem) => (
-                      <div key={caseItem.id} className="flex items-center justify-between p-2 rounded-lg border">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{caseItem.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Started: {new Date(caseItem.startDate).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          Active
-                        </Badge>
-                      </div>
-                    ))}
-                    {legalCases.length > 3 && (
-                      <div className="text-center text-xs text-muted-foreground">
-                        +{legalCases.length - 3} more cases
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center text-sm text-muted-foreground">
-                    No legal cases added yet
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+              <Button onClick={submitManualEntry} className="w-full">
+                Submit Entry
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>
