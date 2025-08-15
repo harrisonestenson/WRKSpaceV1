@@ -201,6 +201,27 @@ export default function LawFirmDashboard() {
     }
   }, [])
 
+  // Clear corrupted localStorage data
+  const clearCorruptedData = () => {
+    try {
+      // Test and clear potentially corrupted timer data
+      const keys = ['billableTimer', 'nonBillableTimer', 'clockSession']
+      keys.forEach(key => {
+        try {
+          const data = localStorage.getItem(key)
+          if (data) {
+            JSON.parse(data) // Test if valid JSON
+          }
+        } catch (error) {
+          console.warn(`Clearing corrupted ${key} data:`, error)
+          localStorage.removeItem(key)
+        }
+      })
+    } catch (error) {
+      console.error('Error clearing corrupted data:', error)
+    }
+  }
+
   // Handle profile actions
   const handleProfileAction = (action: string) => {
     switch (action) {
@@ -212,6 +233,7 @@ export default function LawFirmDashboard() {
         break
       case 'logout':
         // Clear user data and redirect to role selection
+        clearCorruptedData() // Clear any corrupted data first
         localStorage.removeItem('currentUserId')
         localStorage.removeItem('onboardingComplete')
         router.push('/role-select')
@@ -279,11 +301,42 @@ export default function LawFirmDashboard() {
   const [isTimerRestored, setIsTimerRestored] = useState(false)
   
   useEffect(() => {
+    // Clear any corrupted localStorage data first
+    try {
+      const savedBillableTimer = localStorage.getItem('billableTimer')
+      if (savedBillableTimer) {
+        JSON.parse(savedBillableTimer) // Test if valid JSON
+      }
+    } catch (error) {
+      console.warn('Corrupted billableTimer data found, clearing...')
+      localStorage.removeItem('billableTimer')
+    }
+
+    try {
+      const savedNonBillableTimer = localStorage.getItem('nonBillableTimer')
+      if (savedNonBillableTimer) {
+        JSON.parse(savedNonBillableTimer) // Test if valid JSON
+      }
+    } catch (error) {
+      console.warn('Corrupted nonBillableTimer data found, clearing...')
+      localStorage.removeItem('nonBillableTimer')
+    }
+
     // Restore billable timer
     const savedBillableTimer = localStorage.getItem('billableTimer')
     if (savedBillableTimer) {
       try {
         const timerData = JSON.parse(savedBillableTimer)
+        
+        // Validate timer data structure
+        if (!timerData || typeof timerData !== 'object') {
+          throw new Error('Invalid timer data structure')
+        }
+        
+        if (!timerData.startTime || isNaN(new Date(timerData.startTime).getTime())) {
+          throw new Error('Invalid start time')
+        }
+        
         const startTime = new Date(timerData.startTime)
         const now = new Date()
         const elapsedMs = now.getTime() - startTime.getTime()
@@ -302,6 +355,7 @@ export default function LawFirmDashboard() {
             selectedCases: timerData.selectedCases,
             caseTimers: timerData.caseTimers
           })
+          
           // Use saved timerSeconds and lastUpdatedAt to avoid 1s drift
           const savedTimerSeconds = typeof timerData.timerSeconds === 'number' ? timerData.timerSeconds : elapsedSeconds
           const lastUpdatedAt = timerData.lastUpdatedAt ? new Date(timerData.lastUpdatedAt) : new Date(timerData.startTime)
@@ -312,6 +366,7 @@ export default function LawFirmDashboard() {
           setIsTimerRunning(timerData.isRunning || false)
           setSelectedCases(timerData.selectedCases || [])
           setActiveCaseId(timerData.activeCaseId || null)
+          
           // Adjust active case timer by the delta since last save if running
           const restoredCaseTimers = { ...(timerData.caseTimers || {}) }
           if ((timerData.isRunning && timerData.activeCaseId)) {
@@ -351,6 +406,16 @@ export default function LawFirmDashboard() {
     if (savedNonBillableTimer) {
       try {
         const timerData = JSON.parse(savedNonBillableTimer)
+        
+        // Validate timer data structure
+        if (!timerData || typeof timerData !== 'object') {
+          throw new Error('Invalid non-billable timer data structure')
+        }
+        
+        if (!timerData.startTime || isNaN(new Date(timerData.startTime).getTime())) {
+          throw new Error('Invalid non-billable start time')
+        }
+        
         const startTime = new Date(timerData.startTime)
         const now = new Date()
         const elapsedMs = now.getTime() - startTime.getTime()
@@ -1049,27 +1114,7 @@ export default function LawFirmDashboard() {
   // Save timer state to localStorage whenever it changes
   useEffect(() => {
     if (activeCaseId && isTimerRestored) {
-      const nowIso = new Date().toISOString()
-      const timerData = {
-        startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
-        lastUpdatedAt: nowIso,
-        timerSeconds,
-        isRunning: isTimerRunning, // Respect the actual running state
-        selectedCases,
-        activeCaseId,
-        caseTimers,
-        caseSwitchLog
-      }
-      localStorage.setItem('billableTimer', JSON.stringify(timerData))
-      console.log('💾 Saved timer state to localStorage:', { isRunning: isTimerRunning, timerSeconds })
-    }
-  }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
-
-  // Cleanup effect to save timer state when component unmounts
-  useEffect(() => {
-    return () => {
-      // Save current timer state when component unmounts
-      if (activeCaseId && isTimerRestored) {
+      try {
         const nowIso = new Date().toISOString()
         const timerData = {
           startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
@@ -1081,8 +1126,48 @@ export default function LawFirmDashboard() {
           caseTimers,
           caseSwitchLog
         }
-        localStorage.setItem('billableTimer', JSON.stringify(timerData))
-        console.log('💾 Cleanup: Saved timer state on unmount:', { isRunning: isTimerRunning, timerSeconds })
+        
+        // Validate data before saving
+        if (timerData.startTime && !isNaN(new Date(timerData.startTime).getTime())) {
+          localStorage.setItem('billableTimer', JSON.stringify(timerData))
+          console.log('💾 Saved timer state to localStorage:', { isRunning: isTimerRunning, timerSeconds })
+        } else {
+          console.warn('Invalid timer data, skipping localStorage save')
+        }
+      } catch (error) {
+        console.error('Error saving timer state to localStorage:', error)
+      }
+    }
+  }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
+
+  // Cleanup effect to save timer state when component unmounts
+  useEffect(() => {
+    return () => {
+      // Save current timer state when component unmounts
+      if (activeCaseId && isTimerRestored) {
+        try {
+          const nowIso = new Date().toISOString()
+          const timerData = {
+            startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+            lastUpdatedAt: nowIso,
+            timerSeconds,
+            isRunning: isTimerRunning, // Respect the actual running state
+            selectedCases,
+            activeCaseId,
+            caseTimers,
+            caseSwitchLog
+          }
+          
+          // Validate data before saving
+          if (timerData.startTime && !isNaN(new Date(timerData.startTime).getTime())) {
+            localStorage.setItem('billableTimer', JSON.stringify(timerData))
+            console.log('💾 Cleanup: Saved timer state on unmount:', { isRunning: isTimerRunning, timerSeconds })
+          } else {
+            console.warn('Invalid timer data during cleanup, skipping localStorage save')
+          }
+        } catch (error) {
+          console.error('Error saving timer state during cleanup:', error)
+        }
       }
     }
   }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
