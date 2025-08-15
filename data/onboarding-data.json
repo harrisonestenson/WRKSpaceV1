@@ -1,7 +1,7 @@
 {
   "profile": {
-    "name": "Harrison",
-    "title": "partner",
+    "name": "Harrison Estenson",
+    "title": "Partner",
     "role": "",
     "photo": "",
     "productivityPreferences": {
@@ -31,10 +31,10 @@
             "personalTarget": "6 hours/day"
           },
           {
-            "name": "heather",
-            "email": "heather.estenson@gmail.com",
-            "title": "senior partner",
-            "role": "senior-partner",
+            "name": "Maddy E",
+            "email": "maddye@gmail.com",
+            "title": "Team Member",
+            "role": "mid-level-associate",
             "isAdmin": false,
             "expectedBillableHours": 1500,
             "expectedNonBillablePoints": 120,
@@ -53,7 +53,7 @@
   "teamMemberExpectations": [
     {
       "name": "Partner",
-      "expectedBillableHours": 2000,
+      "expectedBillableHours": 2200,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
     },
@@ -115,10 +115,10 @@
   "streaksConfig": [],
   "legalCases": [
     {
-      "id": "1755288278892",
-      "name": "case 2",
+      "id": "1755290357735",
+      "name": "case 1",
       "status": "active",
-      "createdAt": "2025-08-15T20:04:38.892Z"
+      "createdAt": "2025-08-15T20:39:17.735Z"
     }
   ]
 }

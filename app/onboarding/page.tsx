@@ -543,6 +543,37 @@ export default function OnboardingPage() {
             } else {
               console.error('Failed to save team data to onboarding API:', await teamDataResponse.text())
             }
+
+            // Save personal goals to personal-goals API for dashboard access
+            if (personalGoals && personalGoals.length > 0) {
+              console.log('Saving personal goals to personal-goals API:', personalGoals)
+              
+              const personalGoalsResponse = await fetch('/api/personal-goals', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  memberId: userName,
+                  personalGoals: personalGoals.map((goal: any) => ({
+                    name: goal.name,
+                    description: goal.description || '',
+                    type: goal.type || 'billable',
+                    frequency: goal.frequency || 'monthly',
+                    target: goal.target || 0,
+                    current: 0,
+                    status: 'active'
+                  }))
+                }),
+              })
+              
+              if (personalGoalsResponse.ok) {
+                const personalGoalsResult = await personalGoalsResponse.json()
+                console.log('Personal goals saved to personal-goals API:', personalGoalsResult)
+              } else {
+                console.error('Failed to save personal goals:', await personalGoalsResponse.text())
+              }
+            }
           }
         } catch (error) {
           console.error('Error saving additional admin data:', error)
