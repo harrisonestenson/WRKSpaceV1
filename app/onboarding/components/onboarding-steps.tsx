@@ -695,7 +695,11 @@ export const TeamSetupStep = ({
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleCreateMember}
+                  onClick={() => {
+                    console.log('Add Member button clicked!')
+                    alert('Button clicked - testing if function works')
+                    handleCreateMember()
+                  }}
                   disabled={!newMemberData.name.trim() || !newMemberData.email.trim()}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
