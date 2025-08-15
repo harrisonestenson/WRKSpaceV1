@@ -426,17 +426,7 @@ export const TeamSetupStep = ({
             </Button>
           </div>
           
-          {/* Debug display */}
-          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 mb-4">
-            <h5 className="font-medium text-yellow-800 mb-2">Debug Info</h5>
-            <div className="text-sm text-yellow-700">
-              <div>Total teams: {teamData.teams.length}</div>
-              <div>Selected Role: {selectedRole || 'Not set'}</div>
-              <div>Position Expectations Count: {positionExpectations?.length || 0}</div>
-              <div>Available Roles: {availableRoles.length}</div>
-              <div>Teams data: {JSON.stringify(teamData.teams, null, 2)}</div>
-            </div>
-          </div>
+          
           
           <div className="space-y-3">
             {teamData.teams.map((team: any, index: number) => (
@@ -497,10 +487,7 @@ export const TeamSetupStep = ({
                     Members: {team.members?.length || 0}
                   </h5>
                   
-                  {/* Debug member info */}
-                  <div className="p-2 bg-gray-100 rounded text-xs">
-                    <div>Members array: {JSON.stringify(team.members || [], null, 2)}</div>
-                  </div>
+                  
                   
                                     {team.members && team.members.length > 0 ? (
                     <div className="space-y-2">
@@ -647,43 +634,7 @@ export const TeamSetupStep = ({
                     Role will determine billable hour expectations
                   </p>
                   
-                  {/* Show selected role expectations */}
-                  {newMemberData.role && (() => {
-                    const selectedRoleExpectations = positionExpectations?.find(p => p.id === newMemberData.role)
-                    if (selectedRoleExpectations) {
-                      return (
-                        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                          <div className="text-sm font-medium text-green-800 mb-2">
-                            {selectedRoleExpectations.name} Expectations:
-                          </div>
-                          <div className="grid grid-cols-3 gap-3 text-xs">
-                            <div className="text-center">
-                              <div className="font-bold text-green-600">
-                                {Math.round(selectedRoleExpectations.expectedBillableHours / 260)}
-                              </div>
-                              <div className="text-green-700">Daily</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="font-bold text-green-600">
-                                {Math.round(selectedRoleExpectations.expectedBillableHours / 52)}
-                              </div>
-                              <div className="text-green-700">Weekly</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="font-bold text-green-600">
-                                {Math.round(selectedRoleExpectations.expectedBillableHours / 12)}
-                              </div>
-                              <div className="text-green-700">Monthly</div>
-                            </div>
-                          </div>
-                          <div className="text-xs text-green-600 mt-2 text-center">
-                            {selectedRoleExpectations.expectedBillableHours}h/year • {selectedRoleExpectations.expectedNonBillableHours}h non-billable
-                          </div>
-                        </div>
-                      )
-                    }
-                    return null
-                  })()}
+                  
                 </div>
 
                 <div>

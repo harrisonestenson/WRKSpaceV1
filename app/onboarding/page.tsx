@@ -728,12 +728,7 @@ export default function OnboardingPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {/* Debug info */}
-                  <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
-                    <div>Selected Role: {selectedRole || 'None'}</div>
-                    <div>Available Positions: {positionSuggestions.length}</div>
-                    <div>Position IDs: {positionSuggestions.map(p => p.id).join(', ')}</div>
-                  </div>
+
                 </div>
                 
                 {/* Role-based Goals Preview */}
