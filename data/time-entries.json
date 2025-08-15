@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "id": "entry-1755275474072",
+    "userId": "Harrison Estenson",
+    "teamId": null,
+    "caseId": "1755273033100",
+    "date": "2025-08-15T16:00:00.000Z",
+    "startTime": null,
+    "endTime": null,
+    "duration": 4500,
+    "billable": true,
+    "description": "Test on how the description works",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "manual-form",
+    "workHours": null,
+    "createdAt": "2025-08-15T16:31:14.072Z",
+    "updatedAt": "2025-08-15T16:31:14.072Z"
+  }
+]

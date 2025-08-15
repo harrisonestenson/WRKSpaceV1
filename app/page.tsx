@@ -19,6 +19,7 @@ import { Clock, Target, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut
 
 import Link from "next/link"
 import { onboardingStore } from "@/lib/onboarding-store"
+import { useUserProfile } from "@/hooks/useUserProfile"
 
 // TypeScript interfaces for dashboard data
 interface DashboardGoal {
@@ -127,6 +128,9 @@ export default function LawFirmDashboard() {
   // User ID state - get from onboarding store or localStorage
   const [currentUserId, setCurrentUserId] = useState<string>('default-user')
   
+  // User profile data
+  const { profile: userProfile, loading: profileLoading } = useUserProfile(currentUserId)
+  
   // Impersonation state
   const [isImpersonating, setIsImpersonating] = useState(false)
   const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
@@ -196,6 +200,26 @@ export default function LawFirmDashboard() {
       }
     }
   }, [])
+
+  // Handle profile actions
+  const handleProfileAction = (action: string) => {
+    switch (action) {
+      case 'edit':
+        router.push(`/onboarding?role=${userRole}`)
+        break
+      case 'preferences':
+        router.push(`/onboarding?role=${userRole}`)
+        break
+      case 'logout':
+        // Clear user data and redirect to role selection
+        localStorage.removeItem('currentUserId')
+        localStorage.removeItem('onboardingComplete')
+        router.push('/role-select')
+        break
+      default:
+        break
+    }
+  }
 
   // Get current user ID from onboarding store or localStorage
   const getCurrentUserId = () => {
@@ -2490,9 +2514,9 @@ export default function LawFirmDashboard() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
+                      <AvatarImage src={userProfile?.photo || "/placeholder-user.jpg"} alt="Profile" />
                       <AvatarFallback>
-                        <User className="h-4 w-4" />
+                        {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -2502,55 +2526,59 @@ export default function LawFirmDashboard() {
                     <div className="flex flex-col space-y-2">
                       <div className="flex items-center space-x-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src="/placeholder-user.jpg" alt="Profile" />
+                          <AvatarImage src={userProfile?.photo || "/placeholder-user.jpg"} alt="Profile" />
                           <AvatarFallback>
-                            <User className="h-4 w-4" />
+                            {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <p className="text-sm font-medium leading-none">Zac</p>
-                          <p className="text-xs leading-none text-muted-foreground">Partner</p>
+                          <p className="text-sm font-medium leading-none">
+                            {profileLoading ? 'Loading...' : userProfile?.name || 'User'}
+                          </p>
+                          <p className="text-xs leading-none text-muted-foreground">
+                            {userProfile?.title || 'Member'}
+                          </p>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Role:</span>
-                          <span className="font-medium">Partner</span>
+                          <span className="font-medium">{userProfile?.role || 'Member'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Email:</span>
-                          <span className="font-medium">admin@lawfirm.com</span>
+                          <span className="font-medium">{userProfile?.email || 'No email'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Focus:</span>
-                          <span className="font-medium">Morning</span>
+                          <span className="font-medium">{userProfile?.focus || 'Standard'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Reminders:</span>
-                          <span className="font-medium">Enabled</span>
+                          <span className="font-medium">{userProfile?.reminders ? 'Enabled' : 'Disabled'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Team:</span>
-                          <span className="font-medium">Litigation Team</span>
+                          <span className="font-medium">{userProfile?.team || 'No team'}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Department:</span>
-                          <span className="font-medium">Litigation</span>
+                          <span className="font-medium">{userProfile?.department || 'No department'}</span>
                         </div>
                       </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleProfileAction('edit')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Edit Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleProfileAction('preferences')}>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Preferences</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleProfileAction('logout')}>
                     <LogOutIcon className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>

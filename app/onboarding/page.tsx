@@ -664,8 +664,8 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">Profile Setup</h3>
-                  <p className="text-muted-foreground">Let&apos;s get to know you better</p>
+                  <h3 className="text-heading-3 font-professional">Profile Setup</h3>
+                  <p className="text-body text-muted-foreground">Let&apos;s get to know you better</p>
                 </div>
               </div>
               
