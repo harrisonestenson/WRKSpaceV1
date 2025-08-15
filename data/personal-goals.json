@@ -1,11 +1,11 @@
 {
-  "Harrison Estenson": [
+  "Harrison E": [
     {
       "id": "daily-billable",
       "name": "Daily Billable Hours",
       "type": "Personal Goal",
       "frequency": "daily",
-      "target": 8,
+      "target": 7,
       "current": 0,
       "status": "active",
       "description": "Daily billable hours target",
@@ -16,7 +16,7 @@
       "name": "Weekly Billable Hours",
       "type": "Personal Goal",
       "frequency": "weekly",
-      "target": 42,
+      "target": 37,
       "current": 0,
       "status": "active",
       "description": "Weekly billable hours target",
@@ -27,11 +27,12 @@
       "name": "Monthly Billable Hours",
       "type": "Personal Goal",
       "frequency": "monthly",
-      "target": 183,
+      "target": 158,
       "current": 0,
       "status": "active",
       "description": "Monthly billable hours target",
       "progress": 0
     }
-  ]
+  ],
+  "test-user": []
 }

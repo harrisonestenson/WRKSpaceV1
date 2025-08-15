@@ -1,6 +1,6 @@
 {
   "profile": {
-    "name": "Harrison Estenson",
+    "name": "Harrison E",
     "title": "Partner",
     "role": "",
     "photo": "",
@@ -53,7 +53,7 @@
   "teamMemberExpectations": [
     {
       "name": "Partner",
-      "expectedBillableHours": 2200,
+      "expectedBillableHours": 1900,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
     },
@@ -115,10 +115,10 @@
   "streaksConfig": [],
   "legalCases": [
     {
-      "id": "1755290357735",
-      "name": "case 1",
+      "id": "1755290728511",
+      "name": "pop",
       "status": "active",
-      "createdAt": "2025-08-15T20:39:17.735Z"
+      "createdAt": "2025-08-15T20:45:28.511Z"
     }
   ]
 }

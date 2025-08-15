@@ -548,6 +548,24 @@ export default function OnboardingPage() {
             if (personalGoals && personalGoals.length > 0) {
               console.log('Saving personal goals to personal-goals API:', personalGoals)
               
+              // Convert personal goals to the format expected by the API
+              const customGoals = personalGoals.map((goal: any) => ({
+                id: `goal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                name: goal.name,
+                type: goal.type || 'Personal Goal',
+                frequency: goal.frequency || 'monthly',
+                target: goal.target || 0,
+                current: 0,
+                status: 'active',
+                description: goal.description || ''
+              }))
+              
+              // Get user's position expectations for billable hours
+              const userPosition = positionExpectations?.find(p => p.id === selectedRole)
+              const dailyBillable = userPosition ? Math.round(userPosition.expectedBillableHours / 260) : 8
+              const weeklyBillable = userPosition ? Math.round(userPosition.expectedBillableHours / 52) : 40
+              const monthlyBillable = userPosition ? Math.round(userPosition.expectedBillableHours / 12) : 160
+              
               const personalGoalsResponse = await fetch('/api/personal-goals', {
                 method: 'POST',
                 headers: {
@@ -555,15 +573,10 @@ export default function OnboardingPage() {
                 },
                 body: JSON.stringify({
                   memberId: userName,
-                  personalGoals: personalGoals.map((goal: any) => ({
-                    name: goal.name,
-                    description: goal.description || '',
-                    type: goal.type || 'billable',
-                    frequency: goal.frequency || 'monthly',
-                    target: goal.target || 0,
-                    current: 0,
-                    status: 'active'
-                  }))
+                  dailyBillable: dailyBillable,
+                  weeklyBillable: weeklyBillable,
+                  monthlyBillable: monthlyBillable,
+                  customGoals: customGoals
                 }),
               })
               
