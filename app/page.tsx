@@ -222,6 +222,27 @@ export default function LawFirmDashboard() {
     }
   }
 
+  // Handle global errors to prevent crashes
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      console.warn('Global error caught:', event.message)
+      // Don't prevent default to allow normal error handling
+    }
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.warn('Unhandled promise rejection:', event.reason)
+      // Don't prevent default to allow normal error handling
+    }
+
+    window.addEventListener('error', handleGlobalError)
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError)
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+    }
+  }, [])
+
   // Handle profile actions
   const handleProfileAction = (action: string) => {
     switch (action) {
@@ -2405,7 +2426,7 @@ export default function LawFirmDashboard() {
       }
       
       newRecognition.onerror = (event) => {
-        console.error('Speech recognition error:', event)
+        console.error('Speech recognition error:', event.type || 'Unknown error')
         setIsRecordingVoice(null)
         alert('Speech recognition error. Please try again.')
       }
@@ -2451,7 +2472,7 @@ export default function LawFirmDashboard() {
       }
       
       newRecognition.onerror = (event) => {
-        console.error('Speech recognition error:', event)
+        console.error('Speech recognition error:', event.type || 'Unknown error')
         setIsRecordingVoice(null)
         alert('Speech recognition error. Please try again.')
       }

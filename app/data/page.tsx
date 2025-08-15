@@ -918,10 +918,10 @@ export default function DataDashboard() {
     
     // Add global event listener to debug
     window.addEventListener('startLiveSession', (event) => {
-      console.log('Global startLiveSession event received:', event)
+      console.log('Global startLiveSession event received:', event.type)
     })
     window.addEventListener('endLiveSession', (event) => {
-      console.log('Global endLiveSession event received:', event)
+      console.log('Global endLiveSession event received:', event.type)
     })
     
     window.addEventListener('startLiveSession', handleStartLiveSession as EventListener)
