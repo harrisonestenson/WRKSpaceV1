@@ -37,6 +37,17 @@ interface OnboardingData {
     expectedNonBillablePoints: number
     personalTarget: string
   }>
+  // Add role-based expectations for positions/roles
+  roleBasedExpectations?: Array<{
+    id: string
+    name: string
+    description: string
+    expectedBillableHours: number
+    expectedNonBillableHours: number
+    dailyBillable: number
+    weeklyBillable: number
+    monthlyBillable: number
+  }>
   streaksConfig?: Array<{
     name: string
     category: string
@@ -116,6 +127,48 @@ class OnboardingStore {
     return this.data.streaksConfig || []
   }
 
+  getRoleBasedExpectations() {
+    return this.data.roleBasedExpectations || []
+  }
+
+  setRoleBasedExpectations(expectations: Array<{
+    id: string
+    name: string
+    description: string
+    expectedBillableHours: number
+    expectedNonBillableHours: number
+    dailyBillable: number
+    weeklyBillable: number
+    monthlyBillable: number
+  }>) {
+    this.data.roleBasedExpectations = expectations
+    this.setData(this.data)
+  }
+
+  // Helper method to get expectations for a specific role
+  getExpectationsForRole(roleId: string) {
+    const expectations = this.getRoleBasedExpectations()
+    return expectations.find(exp => exp.id === roleId)
+  }
+
+  // Helper method to get all available role IDs
+  getAvailableRoleIds() {
+    const expectations = this.getRoleBasedExpectations()
+    return expectations.map(exp => exp.id)
+  }
+
+  // Helper method to get default role (associate if available, otherwise first available)
+  getDefaultRole() {
+    const expectations = this.getRoleBasedExpectations()
+    if (expectations.length === 0) return 'member'
+    
+    // Prefer 'associate' if available
+    const associate = expectations.find(exp => exp.id === 'associate')
+    if (associate) return 'associate'
+    
+    // Otherwise return the first available role
+    return expectations[0].id
+  }
 
 
   getLegalCases() {

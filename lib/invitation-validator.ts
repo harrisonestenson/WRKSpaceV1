@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
 export interface InvitationValidationResult {
   isValid: boolean
@@ -8,21 +7,26 @@ export interface InvitationValidationResult {
   error?: string
 }
 
+// Helper function to load team invitations data
+function loadTeamInvitations(): any[] {
+  try {
+    const invitationsPath = join(process.cwd(), 'data', 'team-invitations.json')
+    if (existsSync(invitationsPath)) {
+      return JSON.parse(readFileSync(invitationsPath, 'utf8'))
+    }
+  } catch (error) {
+    console.error('Error loading team invitations:', error)
+  }
+  return []
+}
+
 export async function validateInvitationToken(token: string): Promise<InvitationValidationResult> {
   try {
+    // Load invitations from file
+    const invitations = loadTeamInvitations()
+    
     // Find the invitation by ID
-    const invitation = await prisma.teamInvitation.findUnique({
-      where: { id: token },
-      include: {
-        team: true,
-        inviter: {
-          select: {
-            name: true,
-            email: true
-          }
-        }
-      }
-    })
+    const invitation = invitations.find(inv => inv.id === token)
 
     if (!invitation) {
       return {
@@ -40,7 +44,7 @@ export async function validateInvitationToken(token: string): Promise<Invitation
     }
 
     // Check if invitation has expired
-    if (new Date() > invitation.expiresAt) {
+    if (new Date() > new Date(invitation.expiresAt)) {
       return {
         isValid: false,
         error: 'Invitation has expired'
@@ -62,13 +66,9 @@ export async function validateInvitationToken(token: string): Promise<Invitation
 
 export async function markInvitationAsViewed(token: string): Promise<void> {
   try {
-    await prisma.teamInvitation.update({
-      where: { id: token },
-      data: {
-        // You could add a viewedAt field if you want to track this
-        // For now, we'll just log it
-      }
-    })
+    // For now, we'll just log that the invitation was viewed
+    // In a full implementation, you could update a viewedAt field
+    console.log(`Invitation ${token} was viewed`)
   } catch (error) {
     console.error('Error marking invitation as viewed:', error)
   }

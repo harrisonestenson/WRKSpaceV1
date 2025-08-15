@@ -95,54 +95,59 @@ export async function POST(request: NextRequest) {
     // }
 
     const body = await request.json()
-    const { teamExpectations } = body
+    const { positionExpectations } = body
 
     console.log('Team Expectations API - Received data:', {
-      expectationsCount: teamExpectations?.length || 0,
-      sampleExpectation: teamExpectations?.[0]
+      expectationsCount: positionExpectations?.length || 0,
+      sampleExpectation: positionExpectations?.[0]
     })
 
     // Validate the data structure
-    if (!Array.isArray(teamExpectations)) {
+    if (!Array.isArray(positionExpectations)) {
       return NextResponse.json({ 
-        error: 'Team expectations must be an array' 
+        error: 'Position expectations must be an array' 
       }, { status: 400 })
     }
 
     // Process and validate each expectation
-    const processedExpectations = teamExpectations.map((expectation: any, index: number) => {
-      if (!expectation.name) {
-        throw new Error(`Expectation ${index + 1} is missing name`)
+    const processedExpectations = positionExpectations.map((expectation: any, index: number) => {
+      if (!expectation.id || !expectation.name) {
+        throw new Error(`Expectation ${index + 1} is missing id or name`)
       }
 
       return {
+        id: expectation.id,
         name: expectation.name,
-        team: expectation.team || 'Unassigned',
+        description: expectation.description || '',
         expectedBillableHours: parseInt(expectation.expectedBillableHours) || 1500,
-        expectedNonBillablePoints: parseInt(expectation.expectedNonBillablePoints) || 120,
-        personalTarget: expectation.personalTarget || "6 hours/day",
-        role: expectation.role || 'Member',
-        department: expectation.department || 'General'
+        expectedNonBillableHours: parseInt(expectation.expectedNonBillableHours) || 120,
+        dailyBillable: Math.round((parseInt(expectation.expectedBillableHours) || 1500) / 260),
+        weeklyBillable: Math.round((parseInt(expectation.expectedBillableHours) || 1500) / 52),
+        monthlyBillable: Math.round((parseInt(expectation.expectedBillableHours) || 1500) / 12)
       }
     })
+
+    // Store in onboarding store for role-based defaults
+    const onboardingStore = require('@/lib/onboarding-store').onboardingStore
+    onboardingStore.setRoleBasedExpectations(processedExpectations)
 
     // For now, just return success without database operations
     return NextResponse.json({ 
       success: true, 
-      message: 'Team expectations saved successfully (bypassed for testing)',
+      message: 'Position expectations saved successfully and stored for role-based defaults',
       processedExpectations,
       summary: {
-        totalMembers: processedExpectations.length,
+        totalPositions: processedExpectations.length,
         averageBillableHours: Math.round(
           processedExpectations.reduce((sum, exp) => sum + exp.expectedBillableHours, 0) / processedExpectations.length
         ),
-        averageNonBillablePoints: Math.round(
-          processedExpectations.reduce((sum, exp) => sum + exp.expectedNonBillablePoints, 0) / processedExpectations.length
+        averageNonBillableHours: Math.round(
+          processedExpectations.reduce((sum, exp) => sum + exp.expectedNonBillableHours, 0) / processedExpectations.length
         ),
-        cvsIntegration: {
-          description: "These expectations will be used for CVS calculations",
-          formula: "CVS = (Actual Billable Hours + Actual Non-Billable Points) / (Expected Billable Hours + Expected Non-Billable Points)",
-          note: "Non-billable points use admin-set values (0.3-0.8) rather than full hour equivalents"
+        roleBasedDefaults: {
+          description: "These expectations will now be used as defaults when adding team members",
+          usage: "Team members will automatically get expectations based on their role",
+          note: "If no role-specific expectations exist, the system will fall back to 'associate' defaults"
         }
       }
     })

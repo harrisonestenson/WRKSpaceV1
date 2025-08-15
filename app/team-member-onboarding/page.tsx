@@ -157,7 +157,10 @@ export default function TeamMemberOnboardingPage() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              invitationId: invitationToken
+              invitationId: invitationToken,
+              userEmail: invitationData.email,
+              userName: profileData.name,
+              userTitle: profileData.title
             }),
           })
           

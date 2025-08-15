@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -219,158 +219,327 @@ export const TeamSetupStep = ({
   teamData, 
   setTeamData, 
   userName, 
-  validateTeamData 
-}: any) => (
-  <div className="space-y-6">
-    <div className="text-center space-y-4">
-      <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-        <Users className="h-8 w-8 text-green-600" />
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold">Team Setup</h3>
-        <p className="text-muted-foreground">Create your team structure</p>
-        <p className="text-sm text-muted-foreground">💡 Creating a team automatically adds you as the admin</p>
-      </div>
-    </div>
+  validateTeamData,
+  onboardingStore
+}: any) => {
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false)
+  const [selectedTeamIndex, setSelectedTeamIndex] = useState<number | null>(null)
+  const [newMemberData, setNewMemberData] = useState({
+    name: '',
+    email: '',
+    role: '',
+    title: ''
+  })
+
+  const handleAddMember = (teamIndex: number) => {
+    setSelectedTeamIndex(teamIndex)
+    setNewMemberData({
+      name: '',
+      email: '',
+      role: '',
+      title: ''
+    })
+    setShowAddMemberModal(true)
+  }
+
+  const handleCreateMember = () => {
+    if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
+      return
+    }
+
+    // Get role-based expectations from onboarding store
+    const roleBasedExpectations = onboardingStore.getRoleBasedExpectations()
     
+    // Use selected role or default to 'associate'
+    const selectedRole = newMemberData.role || onboardingStore.getDefaultRole()
+    const roleExpectations = onboardingStore.getExpectationsForRole(selectedRole)
+    
+    const newMember = {
+      id: `member-${Date.now()}`,
+      name: newMemberData.name.trim(),
+      email: newMemberData.email.trim(),
+      role: selectedRole,
+      title: newMemberData.title.trim() || roleExpectations?.name || 'Team Member',
+      expectedBillableHours: roleExpectations?.expectedBillableHours || 1500,
+      expectedNonBillablePoints: roleExpectations?.expectedNonBillableHours || 120
+    }
+
+    setTeamData((prev: any) => validateTeamData({
+      ...prev,
+      teams: prev.teams.map((t: any, i: number) => 
+        i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
+      )
+    }))
+
+    // Reset form and close modal
+    setNewMemberData({ name: '', email: '', role: '', title: '' })
+    setShowAddMemberModal(false)
+    setSelectedTeamIndex(null)
+  }
+
+  const availableRoles = onboardingStore.getRoleBasedExpectations()
+  const defaultRole = onboardingStore.getDefaultRole()
+
+  return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-medium">Your Teams ({teamData.teams.length})</h4>
-          <Button
-            onClick={() => {
-              const newTeam = {
-                name: `Team ${teamData.teams.length + 1}`,
-                members: [{
-                  id: 'admin',
-                  name: userName || 'You',
-                  role: 'admin',
-                  title: 'Admin',
-                  expectedBillableHours: 1500,
-                  expectedNonBillablePoints: 120,
-                  isAdmin: true
-                }]
-              };
-              setTeamData((prev: any) => validateTeamData({
-                ...prev,
-                teams: [...prev.teams, newTeam]
-              }));
-            }}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Team
-          </Button>
+      <div className="text-center space-y-4">
+        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+          <Users className="h-8 w-8 text-green-600" />
         </div>
-        
-        <div className="space-y-3">
-          {teamData.teams.map((team: any, index: number) => (
-            <Card key={index} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Team name"
-                      value={team.name || ''}
-                      onChange={(e) => {
-                        const teamName = e.target.value.trim()
-                        if (teamName) {
-                          setTeamData((prev: any) => validateTeamData({
-                            ...prev,
-                            teams: prev.teams.map((t: any, i: number) => 
-                              i === index ? { ...t, name: teamName } : t
-                            )
-                          }));
-                        }
-                      }}
-                      className="font-medium"
-                    />
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+        <div>
+          <h3 className="text-lg font-semibold">Team Setup</h3>
+          <p className="text-muted-foreground">Create your team structure</p>
+          <p className="text-sm text-muted-foreground">💡 Creating a team automatically adds you as the admin</p>
+        </div>
+      </div>
+      
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium">Your Teams ({teamData.teams.length})</h4>
+            <Button
+              onClick={() => {
+                const newTeam = {
+                  name: `Team ${teamData.teams.length + 1}`,
+                  members: [{
+                    id: 'admin',
+                    name: userName || 'You',
+                    role: 'admin',
+                    title: 'Admin',
+                    expectedBillableHours: 1500,
+                    expectedNonBillablePoints: 120,
+                    isAdmin: true
+                  }]
+                };
+                setTeamData((prev: any) => validateTeamData({
+                  ...prev,
+                  teams: [...prev.teams, newTeam]
+                }));
+              }}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Team
+            </Button>
+          </div>
+          
+          <div className="space-y-3">
+            {teamData.teams.map((team: any, index: number) => (
+              <Card key={index} className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Team name"
+                        value={team.name || ''}
+                        onChange={(e) => {
+                          const teamName = e.target.value.trim()
+                          if (teamName) {
+                            setTeamData((prev: any) => validateTeamData({
+                              ...prev,
+                              teams: prev.teams.map((t: any, i: number) => 
+                                i === index ? { ...t, name: teamName } : t
+                              )
+                            }));
+                          }
+                        }}
+                        className="font-medium"
+                      />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => {
-                      const memberName = prompt('Enter team member name:');
-                      if (memberName && memberName.trim()) {
-                        const newMember = {
-                          id: `member-${Date.now()}`,
-                          name: memberName.trim(),
-                          role: 'member',
-                          title: 'Team Member',
-                          expectedBillableHours: 1500,
-                          expectedNonBillablePoints: 120
-                        };
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => handleAddMember(index)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Member
+                    </Button>
+                    <Button
+                      onClick={() => {
                         setTeamData((prev: any) => validateTeamData({
                           ...prev,
-                          teams: prev.teams.map((t: any, i: number) => 
-                            i === index ? { ...t, members: [...t.members, newMember] } : t
-                          )
+                          teams: prev.teams.filter((_: any, i: number) => i !== index)
                         }));
-                      }
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Member
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setTeamData((prev: any) => validateTeamData({
-                        ...prev,
-                        teams: prev.teams.filter((_: any, i: number) => i !== index)
-                      }));
-                    }}
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="mt-3 space-y-2">
-                {team.members.map((member: any, memberIndex: number) => (
-                  <div key={memberIndex} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                    <div className="flex items-center gap-2">
-                      {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-600" />}
-                      <span className="text-sm font-medium">{member.name}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {member.role === 'admin' ? 'Admin' : 'Member'}
-                      </Badge>
-                    </div>
-                    {member.role !== 'admin' && (
-                      <Button
-                        onClick={() => {
-                          setTeamData((prev: any) => validateTeamData({
-                            ...prev,
-                            teams: prev.teams.map((t: any, i: number) => 
-                              i === index ? {
-                                ...t,
-                                members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
-                              } : t
-                            )
-                          }));
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </Card>
-          ))}
+                </div>
+
+                {/* Team Members List */}
+                {team.members.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h5 className="text-sm font-medium text-muted-foreground">Members:</h5>
+                    <div className="space-y-2">
+                      {team.members.map((member: any, memberIndex: number) => (
+                        <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback className="text-xs">
+                                {member.name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium text-sm">{member.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {member.title} • {member.expectedBillableHours}h/year
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {member.isAdmin && (
+                              <Badge variant="secondary" className="text-xs">
+                                <Crown className="h-3 w-3 mr-1" />
+                                Admin
+                              </Badge>
+                            )}
+                            {!member.isAdmin && (
+                              <Button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to remove ${member.name} from the team?`)) {
+                                    setTeamData((prev: any) => validateTeamData({
+                                      ...prev,
+                                      teams: prev.teams.map((t: any, i: number) => 
+                                        i === index ? {
+                                          ...t,
+                                          members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
+                                        } : t
+                                      )
+                                    }))
+                                  }
+                                }}
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border border-gray-200">
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Add Team Member</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Add a new member to <span className="font-medium">{teamData.teams[selectedTeamIndex!]?.name || 'your team'}</span>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="member-name" className="text-sm font-medium text-gray-700">Full Name *</Label>
+                  <Input
+                    id="member-name"
+                    placeholder="Enter full name"
+                    value={newMemberData.name}
+                    onChange={(e) => setNewMemberData(prev => ({ ...prev, name: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="member-email" className="text-sm font-medium text-gray-700">Email *</Label>
+                  <Input
+                    id="member-email"
+                    type="email"
+                    placeholder="Enter email address"
+                    value={newMemberData.email}
+                    onChange={(e) => setNewMemberData(prev => ({ ...prev, email: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="member-role" className="text-sm font-medium text-gray-700">Role</Label>
+                  <Select
+                    value={newMemberData.role}
+                    onValueChange={(value) => setNewMemberData(prev => ({ ...prev, role: value }))}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder={`Select role (default: ${defaultRole})`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{role.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {role.expectedBillableHours}h/year
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Role will determine billable hour expectations
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="member-title" className="text-sm font-medium text-gray-700">Title (Optional)</Label>
+                  <Input
+                    id="member-title"
+                    placeholder="e.g., Senior Associate, Paralegal"
+                    value={newMemberData.title}
+                    onChange={(e) => setNewMemberData(prev => ({ ...prev, title: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddMemberModal(false)
+                    setSelectedTeamIndex(null)
+                    setNewMemberData({ name: '', email: '', role: '', title: '' })
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateMember}
+                  disabled={!newMemberData.name.trim() || !newMemberData.email.trim()}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Member
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-)
+  )
+}

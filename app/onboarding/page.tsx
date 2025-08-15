@@ -49,6 +49,7 @@ import {
   positionSuggestions 
 } from "./constants"
 import { useOnboardingState } from "./hooks/useOnboardingState"
+import { onboardingStore } from "@/lib/onboarding-store"
 
 export default function OnboardingPage() {
   const searchParams = useSearchParams()
@@ -392,8 +393,24 @@ export default function OnboardingPage() {
       // If admin, also save team expectations and streaks separately
       if (userRole === 'admin') {
         try {
-          // Save position expectations
+          // Save position expectations to onboarding store for role-based defaults
           if (positionExpectations.length > 0) {
+            // Convert position expectations to the format needed for role-based defaults
+            const roleBasedExpectations = positionExpectations.map((position: any) => ({
+              id: position.id,
+              name: position.name,
+              description: position.description,
+              expectedBillableHours: position.expectedBillableHours,
+              expectedNonBillableHours: position.expectedNonBillableHours,
+              dailyBillable: Math.round(position.expectedBillableHours / 260),
+              weeklyBillable: Math.round(position.expectedBillableHours / 52),
+              monthlyBillable: Math.round(position.expectedBillableHours / 12)
+            }))
+            
+            // Save to onboarding store for immediate use
+            onboardingStore.setRoleBasedExpectations(roleBasedExpectations)
+            
+            // Also save to API for persistence
             const expectationsResponse = await fetch('/api/team-expectations', {
               method: 'POST',
               headers: {
@@ -1153,161 +1170,75 @@ export default function OnboardingPage() {
           return (
             <div className="space-y-6">
               <div className="text-center space-y-4">
-                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                  <Users className="h-8 w-8 text-green-600" />
+                <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Target className="h-8 w-8 text-orange-600" />
                 </div>
                 <div>
-                <h3 className="text-lg font-semibold">Team Setup</h3>
-                <p className="text-muted-foreground">Create your team structure</p>
-                <p className="text-sm text-muted-foreground">💡 Creating a team automatically adds you as the admin</p>
+                <h3 className="text-lg font-semibold">Position Billable Hours Expectations</h3>
+                <p className="text-muted-foreground">Set billable hours targets for each position/rank</p>
                 </div>
               </div>
               
               <div className="space-y-6">
-              {/* Simple Team Creation */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Your Teams ({teamData.teams.length})</h4>
-                          <Button
-                            onClick={() => {
-                      const newTeam = {
-                        name: `Team ${teamData.teams.length + 1}`,
-                        members: [{
-                          id: 'admin',
-                          name: userName || 'You',
-                          role: 'admin',
-                          title: 'Admin',
-                          expectedBillableHours: 1500,
-                          expectedNonBillablePoints: 120,
-                          isAdmin: true
-                        }]
-                      };
-                      setTeamData(prev => validateTeamData({
-                                ...prev,
-                        teams: [...prev.teams, newTeam]
-                      }));
-                            }}
-                    className="flex items-center gap-2"
-                          >
-                    <Plus className="h-4 w-4" />
-                    Add Team
-                          </Button>
-                        </div>
-                
-                {/* Team List */}
-                <div className="space-y-3">
-                  {teamData.teams.map((team, index) => (
-                    <Card key={index} className="p-4">
+                {positionExpectations.map((position) => (
+                  <Card key={position.id} className="p-6">
+                    <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="space-y-2">
-                          <Input
-                            placeholder="Team name"
-                            value={team.name || ''}
-                            onChange={(e) => {
-                              const teamName = e.target.value.trim()
-                                if (teamName) {
-                                  setTeamData(prev => validateTeamData({
-                                  ...prev,
-                                    teams: prev.teams.map((t, i) => 
-                                    i === index ? { ...t, name: teamName } : t
-                                  )
-                                  }));
-                                }
-                              }}
-                              className="font-medium"
-                            />
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Users className="h-4 w-4" />
-                              {team.members.length} member{team.members.length !== 1 ? 's' : ''}
+                        <div>
+                          <h4 className="font-semibold text-lg">{position.name}</h4>
+                          <p className="text-sm text-muted-foreground">{position.description}</p>
                         </div>
-                                </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                                <Button
-                                  onClick={() => {
-                              const memberName = prompt('Enter team member name:');
-                              if (memberName && memberName.trim()) {
-                                const newMember = {
-                                  id: `member-${Date.now()}`,
-                                  name: memberName.trim(),
-                                  role: 'member',
-                                  title: 'Team Member',
-                                  expectedBillableHours: 1500,
-                                  expectedNonBillablePoints: 120
-                                };
-                                setTeamData(prev => validateTeamData({
-                                      ...prev,
-                                  teams: prev.teams.map((t, i) => 
-                                    i === index ? { ...t, members: [...t.members, newMember] } : t
-                                  )
-                                }));
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add Member
-                                </Button>
-                            <Button
-                              onClick={() => {
-                              setTeamData(prev => validateTeamData({
-                                  ...prev,
-                                teams: prev.teams.filter((_, i) => i !== index)
-                              }));
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
+                        <Badge variant="outline">{position.expectedBillableHours}h/year</Badge>
                       </div>
                       
-                      {/* Team Members */}
-                      <div className="mt-3 space-y-2">
-                        {team.members.map((member, memberIndex) => (
-                          <div key={memberIndex} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                            <div className="flex items-center gap-2">
-                              {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-600" />}
-                              <span className="text-sm font-medium">{member.name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {member.role === 'admin' ? 'Admin' : 'Member'}
-                              </Badge>
-                            </div>
-                            {member.role !== 'admin' && (
-                            <Button
-                              onClick={() => {
-                                  setTeamData(prev => validateTeamData({
-                                  ...prev,
-                                    teams: prev.teams.map((t, i) => 
-                                    i === index ? {
-                                      ...t,
-                                        members: t.members.filter((_, mi) => mi !== memberIndex)
-                                      } : t
-                                    )
-                                  }));
-                                }}
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                              >
-                                <X className="h-4 w-4" />
-                            </Button>
-                            )}
-                  </div>
-                        ))}
-                </div>
-                    </Card>
-                  ))}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor={`${position.id}-billable`} className="text-sm font-medium">
+                            Billable Hours/Year
+                          </Label>
+                          <Input
+                            id={`${position.id}-billable`}
+                            type="number"
+                            className="w-full"
+                            placeholder="1500"
+                            value={position.expectedBillableHours || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              updatePositionExpectation(position.id, 'expectedBillableHours', value);
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Target: {Math.round(position.expectedBillableHours / 12)}h/month, {Math.round(position.expectedBillableHours / 52)}h/week, {Math.round(position.expectedBillableHours / 260)}h/day
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor={`${position.id}-nonbillable`} className="text-sm font-medium">
+                            Non-Billable Hours/Year
+                          </Label>
+                          <Input
+                            id={`${position.id}-nonbillable`}
+                            type="number"
+                            className="w-full"
+                            placeholder="200"
+                            value={position.expectedNonBillableHours || ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              updatePositionExpectation(position.id, 'expectedNonBillableHours', value);
+                            }}
+                          />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Administrative, training, and development time
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                    </div>
               </div>
-            </div>
-                </div>
-                </div>
         );
-        
+
       case 4:
           return (
             <div className="space-y-6">
@@ -1452,77 +1383,15 @@ export default function OnboardingPage() {
         );
 
       case 5:
-          return (
-            <div className="space-y-6">
-              <div className="text-center space-y-4">
-                <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Target className="h-8 w-8 text-orange-600" />
-                </div>
-                <div>
-                <h3 className="text-lg font-semibold">Position Billable Hours Expectations</h3>
-                <p className="text-muted-foreground">Set billable hours targets for each position/rank</p>
-                </div>
-              </div>
-              
-              <div className="space-y-6">
-                {positionExpectations.map((position) => (
-                  <Card key={position.id} className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-lg">{position.name}</h4>
-                          <p className="text-sm text-muted-foreground">{position.description}</p>
-                        </div>
-                        <Badge variant="outline">{position.expectedBillableHours}h/year</Badge>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor={`${position.id}-billable`} className="text-sm font-medium">
-                            Billable Hours/Year
-                          </Label>
-                          <Input
-                            id={`${position.id}-billable`}
-                            type="number"
-                            className="w-full"
-                            placeholder="1500"
-                            value={position.expectedBillableHours || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              updatePositionExpectation(position.id, 'expectedBillableHours', value);
-                            }}
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Target: {Math.round(position.expectedBillableHours / 12)}h/month, {Math.round(position.expectedBillableHours / 52)}h/week, {Math.round(position.expectedBillableHours / 260)}h/day
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor={`${position.id}-nonbillable`} className="text-sm font-medium">
-                            Non-Billable Hours/Year
-                          </Label>
-                          <Input
-                            id={`${position.id}-nonbillable`}
-                            type="number"
-                            className="w-full"
-                            placeholder="200"
-                            value={position.expectedNonBillableHours || ''}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0;
-                              updatePositionExpectation(position.id, 'expectedNonBillableHours', value);
-                            }}
-                          />
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Administrative, training, and development time
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                    </div>
-              </div>
-        );
+        return (
+          <TeamSetupStep
+            teamData={teamData}
+            setTeamData={setTeamData}
+            userName={userName}
+            validateTeamData={validateTeamData}
+            onboardingStore={onboardingStore}
+          />
+        )
 
               case 6:
           return (
