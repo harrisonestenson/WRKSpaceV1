@@ -414,6 +414,15 @@ export const TeamSetupStep = ({
             </Button>
           </div>
           
+          {/* Debug display */}
+          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200 mb-4">
+            <h5 className="font-medium text-yellow-800 mb-2">Debug Info</h5>
+            <div className="text-sm text-yellow-700">
+              <div>Total teams: {teamData.teams.length}</div>
+              <div>Teams data: {JSON.stringify(teamData.teams, null, 2)}</div>
+            </div>
+          </div>
+          
           <div className="space-y-3">
             {teamData.teams.map((team: any, index: number) => (
               <Card key={index} className="p-4">
@@ -468,9 +477,17 @@ export const TeamSetupStep = ({
                 </div>
 
                 {/* Team Members List */}
-                {team.members.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <h5 className="text-sm font-medium text-muted-foreground">Members:</h5>
+                <div className="mt-4 space-y-2">
+                  <h5 className="text-sm font-medium text-muted-foreground">
+                    Members: {team.members?.length || 0}
+                  </h5>
+                  
+                  {/* Debug member info */}
+                  <div className="p-2 bg-gray-100 rounded text-xs">
+                    <div>Members array: {JSON.stringify(team.members || [], null, 2)}</div>
+                  </div>
+                  
+                                    {team.members && team.members.length > 0 ? (
                     <div className="space-y-2">
                       {team.members.map((member: any, memberIndex: number) => (
                         <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
@@ -496,31 +513,31 @@ export const TeamSetupStep = ({
                             )}
                             {!member.isAdmin && (
                               <Button
-                                                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove ${member.name} from the team?`)) {
-                                  setTeamData((prev: any) => {
-                                    const updatedData = validateTeamData({
-                                      ...prev,
-                                      teams: prev.teams.map((t: any, i: number) => 
-                                        i === index ? {
-                                          ...t,
-                                          members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
-                                        } : t
-                                      )
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to remove ${member.name} from the team?`)) {
+                                    setTeamData((prev: any) => {
+                                      const updatedData = validateTeamData({
+                                        ...prev,
+                                        teams: prev.teams.map((t: any, i: number) => 
+                                          i === index ? {
+                                            ...t,
+                                            members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
+                                          } : t
+                                        )
+                                      })
+                                      
+                                      // Save to localStorage for persistence
+                                      try {
+                                        localStorage.setItem('teamData', JSON.stringify(updatedData))
+                                        console.log('Team data saved to localStorage after member removal')
+                                      } catch (error) {
+                                        console.error('Error saving team data to localStorage:', error)
+                                      }
+                                      
+                                      return updatedData
                                     })
-                                    
-                                    // Save to localStorage for persistence
-                                    try {
-                                      localStorage.setItem('teamData', JSON.stringify(updatedData))
-                                      console.log('Team data saved to localStorage after member removal')
-                                    } catch (error) {
-                                      console.error('Error saving team data to localStorage:', error)
-                                    }
-                                    
-                                    return updatedData
-                                  })
-                                }
-                              }}
+                                  }
+                                }}
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -532,8 +549,12 @@ export const TeamSetupStep = ({
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p>No members yet. Add your first team member above.</p>
+                    </div>
+                  )}
+                </div>
               </Card>
             ))}
           </div>
