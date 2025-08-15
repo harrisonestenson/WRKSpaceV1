@@ -259,67 +259,51 @@ export const TeamSetupStep = ({
   }
 
   const handleCreateMember = () => {
-    try {
-      console.log('handleCreateMember called with:', { selectedTeamIndex, newMemberData })
-      
-      if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
-        console.log('Validation failed:', { selectedTeamIndex, name: newMemberData.name, email: newMemberData.email })
-        return
-      }
-      
-      console.log('Validation passed, proceeding with member creation...')
-
-      // Get role-based expectations from positionExpectations (step 3)
-      const selectedRole = newMemberData.role || defaultRole
-      const roleExpectations = positionExpectations?.find(p => p.id === selectedRole)
-      
-      const newMember = {
-        id: `member-${Date.now()}`,
-        name: newMemberData.name.trim(),
-        email: newMemberData.email.trim(),
-        role: selectedRole,
-        title: newMemberData.title.trim() || roleExpectations?.name || 'Team Member',
-        expectedBillableHours: roleExpectations?.expectedBillableHours || 1500,
-        expectedNonBillablePoints: roleExpectations?.expectedNonBillableHours || 120
-      }
-
-      console.log('Adding new member:', newMember)
-      console.log('Current team data:', teamData)
-      console.log('Selected team index:', selectedTeamIndex)
-
-      setTeamData((prev: any) => {
-        const updatedData = validateTeamData({
-          ...prev,
-          teams: prev.teams.map((t: any, i: number) => 
-            i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
-          )
-        })
-        console.log('Updated team data:', updatedData)
-        
-        // Save to localStorage for persistence
-        try {
-          localStorage.setItem('teamData', JSON.stringify(updatedData))
-          console.log('Team data saved to localStorage')
-        } catch (error) {
-          console.error('Error saving team data to localStorage:', error)
-        }
-        
-        return updatedData
-      })
-
-      // Show success message
-      alert(`Successfully added ${newMember.name} as ${newMember.title} to the team!`)
-
-      // Reset form and close modal
-      setNewMemberData({ name: '', email: '', role: '', title: '' })
-      setShowAddMemberModal(false)
-      setSelectedTeamIndex(null)
-      
-      console.log('Member creation completed successfully')
-    } catch (error) {
-      console.error('Error in handleCreateMember:', error)
-      alert(`Error creating member: ${error.message}`)
+    // Debug: show what we actually have
+    console.log('Form data check:', {
+      selectedTeamIndex,
+      name: newMemberData.name,
+      email: newMemberData.email,
+      nameTrimmed: newMemberData.name?.trim(),
+      emailTrimmed: newMemberData.email?.trim()
+    })
+    
+    // Simple validation
+    if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
+      alert(`Validation failed: selectedTeamIndex=${selectedTeamIndex}, name="${newMemberData.name}", email="${newMemberData.email}"`)
+      return
     }
+
+    // Create simple member object
+    const newMember = {
+      id: `member-${Date.now()}`,
+      name: newMemberData.name.trim(),
+      email: newMemberData.email.trim(),
+      role: newMemberData.role || 'member',
+      title: newMemberData.title.trim() || 'Team Member'
+    }
+
+    // Add member to team - simple approach
+    const updatedTeams = [...teamData.teams]
+    updatedTeams[selectedTeamIndex].members.push(newMember)
+    
+    // Update state
+    setTeamData({
+      ...teamData,
+      teams: updatedTeams
+    })
+
+    // Save to localStorage
+    localStorage.setItem('teamData', JSON.stringify({
+      ...teamData,
+      teams: updatedTeams
+    }))
+
+    // Show success and close modal
+    alert(`Added ${newMember.name} to the team!`)
+    setShowAddMemberModal(false)
+    setSelectedTeamIndex(null)
+    setNewMemberData({ name: '', email: '', role: '', title: '' })
   }
 
   // Use positionExpectations from step 3 instead of onboardingStore
