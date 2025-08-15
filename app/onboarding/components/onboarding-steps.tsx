@@ -259,6 +259,8 @@ export const TeamSetupStep = ({
   }
 
   const handleCreateMember = () => {
+    console.log('handleCreateMember called with:', { selectedTeamIndex, newMemberData })
+    
     if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
       console.log('Validation failed:', { selectedTeamIndex, name: newMemberData.name, email: newMemberData.email })
       return
@@ -427,6 +429,16 @@ export const TeamSetupStep = ({
           </div>
           
           
+          
+          {/* Debug: Show current team data */}
+          <div className="p-3 bg-yellow-50 rounded border border-yellow-200 mb-4">
+            <div className="text-sm font-medium text-yellow-800">Debug: Current Team Data</div>
+            <div className="text-xs text-yellow-700 mt-1">
+              Teams: {teamData.teams.length} | 
+              Selected Team: {selectedTeamIndex !== null ? selectedTeamIndex : 'None'} |
+              Modal Open: {showAddMemberModal ? 'Yes' : 'No'}
+            </div>
+          </div>
           
           <div className="space-y-3">
             {teamData.teams.map((team: any, index: number) => (
