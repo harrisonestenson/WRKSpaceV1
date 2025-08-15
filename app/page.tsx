@@ -333,6 +333,22 @@ export default function LawFirmDashboard() {
       localStorage.removeItem('billableTimer')
     }
 
+    // Clear timer state when onboarding is completed
+    if (isOnboardingCompleted) {
+      console.log('🧹 Onboarding completed - clearing timer state')
+      localStorage.removeItem('billableTimer')
+      localStorage.removeItem('nonBillableTimer')
+      setTimerSeconds(0)
+      setNonBillableTimerSeconds(0)
+      setIsTimerRunning(false)
+      setIsNonBillableTimerRunning(false)
+      setCaseTimers({})
+      setCaseSwitchLog([])
+      setActiveCaseId(null)
+      setSelectedCases([])
+      return // Don't restore timer state if onboarding just completed
+    }
+
     try {
       const savedNonBillableTimer = localStorage.getItem('nonBillableTimer')
       if (savedNonBillableTimer) {
