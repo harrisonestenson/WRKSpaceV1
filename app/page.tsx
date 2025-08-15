@@ -268,18 +268,19 @@ export default function LawFirmDashboard() {
         const isToday = startTime.toDateString() === now.toDateString()
         const isLessThan24Hours = elapsedMs < 24 * 60 * 60 * 1000
         
-        if (isToday && isLessThan24Hours && timerData.isRunning) {
+        if (isToday && isLessThan24Hours) {
           // Calculate elapsed time since timer was started
           const elapsedSeconds = Math.floor(elapsedMs / 1000)
           console.log('🔄 Restoring timer state:', {
             elapsedSeconds,
+            isRunning: timerData.isRunning,
             activeCaseId: timerData.activeCaseId,
             selectedCases: timerData.selectedCases,
             caseTimers: timerData.caseTimers
           })
           
           setTimerSeconds(elapsedSeconds)
-          setIsTimerRunning(true)
+          setIsTimerRunning(timerData.isRunning || false)
           setSelectedCases(timerData.selectedCases || [])
           setActiveCaseId(timerData.activeCaseId || null)
           setCaseTimers(timerData.caseTimers || {})
@@ -298,7 +299,7 @@ export default function LawFirmDashboard() {
           // Update localStorage with corrected start time to ensure smooth continuation
           const correctedTimerData = {
             startTime: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
-            isRunning: true,
+            isRunning: timerData.isRunning || false, // Preserve the actual running state
             selectedCases: timerData.selectedCases || [],
             activeCaseId: timerData.activeCaseId,
             caseTimers: timerData.caseTimers || {},
@@ -1021,17 +1022,17 @@ export default function LawFirmDashboard() {
 
   // Save timer state to localStorage whenever it changes
   useEffect(() => {
-    if (isTimerRunning && activeCaseId && isTimerRestored) {
+    if (activeCaseId && isTimerRestored) {
       const timerData = {
         startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
-        isRunning: true,
+        isRunning: isTimerRunning, // Respect the actual running state
         selectedCases,
         activeCaseId,
         caseTimers,
         caseSwitchLog
       }
       localStorage.setItem('billableTimer', JSON.stringify(timerData))
-      console.log('💾 Saved timer state to localStorage:', timerData)
+      console.log('💾 Saved timer state to localStorage:', { isRunning: isTimerRunning, timerSeconds })
     }
   }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
 
@@ -1039,16 +1040,17 @@ export default function LawFirmDashboard() {
   useEffect(() => {
     return () => {
       // Save current timer state when component unmounts
-      if (isTimerRunning && activeCaseId && isTimerRestored) {
+      if (activeCaseId && isTimerRestored) {
         const timerData = {
           startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
-          isRunning: true,
+          isRunning: isTimerRunning, // Respect the actual running state
           selectedCases,
           activeCaseId,
           caseTimers,
           caseSwitchLog
         }
         localStorage.setItem('billableTimer', JSON.stringify(timerData))
+        console.log('💾 Cleanup: Saved timer state on unmount:', { isRunning: isTimerRunning, timerSeconds })
       }
     }
   }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
@@ -1389,6 +1391,7 @@ export default function LawFirmDashboard() {
       caseSwitchLog
     }
     localStorage.setItem('billableTimer', JSON.stringify(timerData))
+    console.log('💾 Pause: Saved paused timer state to localStorage')
     
     // Dispatch pause timer event
     window.dispatchEvent(new CustomEvent('pauseLiveTimer', { 
