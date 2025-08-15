@@ -462,6 +462,39 @@ export default function OnboardingPage() {
           if (teamData.teams && teamData.teams.length > 0) {
             console.log('Saving team data to database:', teamData)
             
+            // Save teams to the teams API (Prisma database)
+            const teamsResponse = await fetch('/api/teams', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                teams: teamData.teams.map((team: any) => ({
+                  name: team.name,
+                  department: team.department || '',
+                  members: team.members.map((member: any) => ({
+                    name: member.name,
+                    email: member.email || '',
+                    title: member.title || '',
+                    role: member.role || 'member',
+                    isAdmin: member.isAdmin || false,
+                    expectedBillableHours: member.expectedBillableHours || 1500,
+                    expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
+                    personalTarget: member.personalTarget || "6 hours/day"
+                  }))
+                })),
+                managerEmail: 'admin@lawfirm.com' // This should be the actual admin's email
+              }),
+            })
+            
+            if (teamsResponse.ok) {
+              const teamsResult = await teamsResponse.json()
+              console.log('Teams saved to database:', teamsResult)
+            } else {
+              console.error('Failed to save teams to database:', await teamsResponse.text())
+            }
+            
+            // Also save to onboarding API for other data
             const teamDataResponse = await fetch('/api/onboarding', {
               method: 'POST',
               headers: {
@@ -506,9 +539,9 @@ export default function OnboardingPage() {
             
             if (teamDataResponse.ok) {
               const teamDataResult = await teamDataResponse.json()
-              console.log('Team data saved to database:', teamDataResult)
+              console.log('Team data saved to onboarding API:', teamDataResult)
             } else {
-              console.error('Failed to save team data:', await teamDataResponse.text())
+              console.error('Failed to save team data to onboarding API:', await teamDataResponse.text())
             }
           }
         } catch (error) {

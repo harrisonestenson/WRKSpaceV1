@@ -1,0 +1,124 @@
+{
+  "profile": {
+    "name": "Harrison",
+    "title": "partner",
+    "role": "",
+    "photo": "",
+    "productivityPreferences": {
+      "morningFocus": false,
+      "reminderSettings": false
+    },
+    "notificationSettings": {
+      "dailyGoalReminders": true,
+      "milestoneProgressAlerts": true,
+      "deliveryMethod": "both"
+    }
+  },
+  "teamData": {
+    "teams": [
+      {
+        "name": "Team 1",
+        "department": "",
+        "members": [
+          {
+            "name": "You",
+            "email": "",
+            "title": "Admin",
+            "role": "admin",
+            "isAdmin": true,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
+          },
+          {
+            "name": "heather",
+            "email": "heather.estenson@gmail.com",
+            "title": "senior partner",
+            "role": "senior-partner",
+            "isAdmin": false,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
+          }
+        ]
+      }
+    ],
+    "companyGoals": {
+      "weeklyBillable": 0,
+      "monthlyBillable": 0,
+      "yearlyBillable": 0
+    },
+    "defaultGoalTypes": []
+  },
+  "teamMemberExpectations": [
+    {
+      "name": "Partner",
+      "expectedBillableHours": 2000,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Senior Partner",
+      "expectedBillableHours": 1700,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Junior Partner",
+      "expectedBillableHours": 1600,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Senior Associate",
+      "expectedBillableHours": 1900,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Mid-Level Associate",
+      "expectedBillableHours": 2000,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Junior Associate",
+      "expectedBillableHours": 2100,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Paralegal",
+      "expectedBillableHours": 1600,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Legal Assistant",
+      "expectedBillableHours": 1200,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Summer Associate",
+      "expectedBillableHours": 800,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    },
+    {
+      "name": "Law Clerk",
+      "expectedBillableHours": 1000,
+      "expectedNonBillablePoints": 120,
+      "personalTarget": "6 hours/day"
+    }
+  ],
+  "streaksConfig": [],
+  "legalCases": [
+    {
+      "id": "1755288278892",
+      "name": "case 2",
+      "status": "active",
+      "createdAt": "2025-08-15T20:04:38.892Z"
+    }
+  ]
+}
