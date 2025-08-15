@@ -211,8 +211,8 @@ export default function OnboardingPage() {
       errors.push('Title is required')
     }
     
-    if (!onboardingState.selectedRole) {
-      errors.push('Role selection is required')
+    if (!onboardingState.selectedRole || onboardingState.selectedRole === 'admin') {
+      errors.push('Please select your actual position/role (not admin)')
     }
     
     // Personal goals validation

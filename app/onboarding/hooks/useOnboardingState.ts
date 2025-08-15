@@ -4,7 +4,7 @@ export const useOnboardingState = (userRole: string, userName: string) => {
   // Profile setup state
   const [profilePhoto, setProfilePhoto] = useState("")
   const [userTitle, setUserTitle] = useState("")
-  const [selectedRole, setSelectedRole] = useState("admin")
+  const [selectedRole, setSelectedRole] = useState("")
   const [durationOfEmployment, setDurationOfEmployment] = useState("")
   const [yearsOfExperience, setYearsOfExperience] = useState("")
   const [durationOfPosition, setDurationOfPosition] = useState("")
