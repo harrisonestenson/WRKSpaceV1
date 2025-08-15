@@ -1390,6 +1390,8 @@ export default function OnboardingPage() {
             userName={userName}
             validateTeamData={validateTeamData}
             onboardingStore={onboardingStore}
+            selectedRole={selectedRole}
+            positionExpectations={positionExpectations}
           />
         )
 

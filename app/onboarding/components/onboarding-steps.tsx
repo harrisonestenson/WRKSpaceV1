@@ -220,7 +220,9 @@ export const TeamSetupStep = ({
   setTeamData, 
   userName, 
   validateTeamData,
-  onboardingStore
+  onboardingStore,
+  selectedRole,
+  positionExpectations
 }: any) => {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false)
   const [selectedTeamIndex, setSelectedTeamIndex] = useState<number | null>(null)
@@ -247,12 +249,9 @@ export const TeamSetupStep = ({
       return
     }
 
-    // Get role-based expectations from onboarding store
-    const roleBasedExpectations = onboardingStore.getRoleBasedExpectations()
-    
-    // Use selected role or default to 'associate'
-    const selectedRole = newMemberData.role || onboardingStore.getDefaultRole()
-    const roleExpectations = onboardingStore.getExpectationsForRole(selectedRole)
+    // Get role-based expectations from positionExpectations (step 3)
+    const selectedRole = newMemberData.role || defaultRole
+    const roleExpectations = positionExpectations?.find(p => p.id === selectedRole)
     
     const newMember = {
       id: `member-${Date.now()}`,
@@ -277,8 +276,9 @@ export const TeamSetupStep = ({
     setSelectedTeamIndex(null)
   }
 
-  const availableRoles = onboardingStore.getRoleBasedExpectations()
-  const defaultRole = onboardingStore.getDefaultRole()
+  // Use positionExpectations from step 3 instead of onboardingStore
+  const availableRoles = positionExpectations || []
+  const defaultRole = selectedRole || 'associate'
 
   return (
     <div className="space-y-6">
@@ -295,19 +295,63 @@ export const TeamSetupStep = ({
       
       <div className="space-y-6">
         <div className="space-y-4">
+          {/* Show user's position expectations */}
+          {selectedRole && positionExpectations && (
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h5 className="font-medium text-blue-800 mb-2">Your Position Expectations</h5>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {(() => {
+                      const position = positionExpectations.find(p => p.id === selectedRole)
+                      return position ? Math.round(position.expectedBillableHours / 260) : 'N/A'
+                    })()}
+                  </div>
+                  <div className="text-blue-700">Daily Hours</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {(() => {
+                      const position = positionExpectations.find(p => p.id === selectedRole)
+                      return position ? Math.round(position.expectedBillableHours / 52) : 'N/A'
+                    })()}
+                  </div>
+                  <div className="text-blue-700">Weekly Hours</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {(() => {
+                      const position = positionExpectations.find(p => p.id === selectedRole)
+                      return position ? Math.round(position.expectedBillableHours / 12) : 'N/A'
+                    })()}
+                  </div>
+                  <div className="text-blue-700">Monthly Hours</div>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 mt-2 text-center">
+                When you create a team, you'll be added as a member with these expectations
+              </p>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Your Teams ({teamData.teams.length})</h4>
             <Button
               onClick={() => {
+                // Get the user's actual position expectations based on their selected role
+                const userPosition = positionExpectations?.find(p => p.id === selectedRole)
+                const userBillableHours = userPosition?.expectedBillableHours || 1500
+                const userNonBillableHours = userPosition?.expectedNonBillableHours || 120
+                
                 const newTeam = {
                   name: `Team ${teamData.teams.length + 1}`,
                   members: [{
                     id: 'admin',
                     name: userName || 'You',
-                    role: 'admin',
-                    title: 'Admin',
-                    expectedBillableHours: 1500,
-                    expectedNonBillablePoints: 120,
+                    role: selectedRole || 'admin',
+                    title: userPosition?.name || 'Admin',
+                    expectedBillableHours: userBillableHours,
+                    expectedNonBillablePoints: userNonBillableHours,
                     isAdmin: true
                   }]
                 };
@@ -489,10 +533,16 @@ export const TeamSetupStep = ({
                       {availableRoles.map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           <div className="flex items-center justify-between w-full">
-                            <span>{role.name}</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {role.expectedBillableHours}h/year
-                            </span>
+                            <div>
+                              <div className="font-medium">{role.name}</div>
+                              <div className="text-xs text-muted-foreground">{role.description}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-semibold">{role.expectedBillableHours}h/year</div>
+                              <div className="text-xs text-muted-foreground">
+                                {Math.round(role.expectedBillableHours / 52)}h/week
+                              </div>
+                            </div>
                           </div>
                         </SelectItem>
                       ))}
@@ -501,6 +551,44 @@ export const TeamSetupStep = ({
                   <p className="text-xs text-gray-500 mt-1">
                     Role will determine billable hour expectations
                   </p>
+                  
+                  {/* Show selected role expectations */}
+                  {newMemberData.role && (() => {
+                    const selectedRoleExpectations = positionExpectations?.find(p => p.id === newMemberData.role)
+                    if (selectedRoleExpectations) {
+                      return (
+                        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <div className="text-sm font-medium text-green-800 mb-2">
+                            {selectedRoleExpectations.name} Expectations:
+                          </div>
+                          <div className="grid grid-cols-3 gap-3 text-xs">
+                            <div className="text-center">
+                              <div className="font-bold text-green-600">
+                                {Math.round(selectedRoleExpectations.expectedBillableHours / 260)}
+                              </div>
+                              <div className="text-green-700">Daily</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-bold text-green-600">
+                                {Math.round(selectedRoleExpectations.expectedBillableHours / 52)}
+                              </div>
+                              <div className="text-green-700">Weekly</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="font-bold text-green-600">
+                                {Math.round(selectedRoleExpectations.expectedBillableHours / 12)}
+                              </div>
+                              <div className="text-green-700">Monthly</div>
+                            </div>
+                          </div>
+                          <div className="text-xs text-green-600 mt-2 text-center">
+                            {selectedRoleExpectations.expectedBillableHours}h/year • {selectedRoleExpectations.expectedNonBillableHours}h non-billable
+                          </div>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
 
                 <div>
