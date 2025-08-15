@@ -1,0 +1,58 @@
+{
+  "profile": {
+    "name": "Harry Estenson",
+    "title": "Partner",
+    "role": "admin",
+    "photo": "",
+    "productivityPreferences": {
+      "morningFocus": false,
+      "reminderSettings": false
+    },
+    "notificationSettings": {
+      "dailyGoalReminders": true,
+      "milestoneProgressAlerts": true,
+      "deliveryMethod": "both"
+    }
+  },
+  "teamData": {
+    "teams": [
+      {
+        "name": "Team 1",
+        "members": [
+          {
+            "name": "Harry Estenson",
+            "email": "",
+            "title": "Admin",
+            "role": "admin",
+            "isAdmin": true,
+            "expectedBillableHours": 1500,
+            "expectedNonBillablePoints": 120,
+            "personalTarget": "6 hours/day"
+          }
+        ]
+      }
+    ],
+    "companyGoals": {
+      "weeklyBillable": 1000,
+      "monthlyBillable": 10000,
+      "yearlyBillable": 100000
+    },
+    "defaultGoalTypes": []
+  },
+  "teamMemberExpectations": [],
+  "streaksConfig": [],
+  "legalCases": [
+    {
+      "id": "1755263453638",
+      "name": "hodge",
+      "status": "active",
+      "createdAt": "2025-08-15T13:10:53.638Z"
+    },
+    {
+      "id": "1755263458303",
+      "name": "mack",
+      "status": "active",
+      "createdAt": "2025-08-15T13:10:58.303Z"
+    }
+  ]
+}

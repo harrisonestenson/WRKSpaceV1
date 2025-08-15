@@ -355,11 +355,12 @@ export default function TeamMembersSection() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleMemberClick(member)
+                          // Redirect to dashboard with impersonation
+                          window.location.href = `/data?impersonate=${member.id}&role=${member.isAdmin ? 'admin' : 'member'}`
                         }}
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        View Profile
+                        View Dashboard
                       </Button>
                     </td>
                   </tr>

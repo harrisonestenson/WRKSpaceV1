@@ -137,6 +137,30 @@ export default function DataDashboard() {
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
   const { data: session, status } = useSession()
   
+  // Handle loading and error states for session
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+          <p className="text-muted-foreground mb-4">Please sign in to access the dashboard.</p>
+          <a href="/auth/signin" className="text-blue-600 hover:underline">Sign In</a>
+        </div>
+      </div>
+    )
+  }
+  
   // No authentication required - users can access and delete time entries without logging in
   
   const [activeSection, setActiveSection] = useState<string | null>(null)
@@ -189,8 +213,16 @@ export default function DataDashboard() {
   const [copyPasteText, setCopyPasteText] = useState("")
   const [allLogsDateRange, setAllLogsDateRange] = useState("monthly")
 
+  // Impersonation state
+  const [isImpersonating, setIsImpersonating] = useState(false)
+  const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
+  const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null)
+
   // Initialize selectedUser based on role
   useEffect(() => {
+    // Only proceed if session is available
+    if (status !== "authenticated") return
+    
     console.log('🔄 useEffect for selectedUser triggered:', { 
       sessionUserId: session?.user?.id, 
       sessionStatus: status,
@@ -205,6 +237,68 @@ export default function DataDashboard() {
       console.log('⚠️ No session user ID available, keeping selectedUser as:', selectedUser)
     }
   }, [session?.user?.id, status])
+
+  // Handle impersonation from URL parameters
+  useEffect(() => {
+    // Only proceed if session is available
+    if (status !== "authenticated") return
+    
+    const impersonateId = searchParams?.get("impersonate")
+    const impersonateRole = searchParams?.get("role")
+    
+    if (impersonateId && impersonateRole) {
+      // Security check: Only allow admins to impersonate
+      if (userRole !== 'admin') {
+        console.error('❌ Non-admin user attempted to impersonate:', { userRole, impersonateId })
+        alert('Access denied: Only administrators can view other user dashboards')
+        window.location.href = '/data?role=member'
+        return
+      }
+      
+      console.log('🎭 Impersonation detected:', { impersonateId, impersonateRole })
+      setIsImpersonating(true)
+      setImpersonatedUserId(impersonateId)
+      setSelectedUser(impersonateId)
+      
+      // Fetch the impersonated user's data
+      fetchImpersonatedUserData(impersonateId)
+    } else {
+      setIsImpersonating(false)
+      setImpersonatedUser(null)
+      setImpersonatedUserId(null)
+    }
+  }, [searchParams, userRole, status])
+
+  // Function to fetch impersonated user data
+  const fetchImpersonatedUserData = async (userId: string) => {
+    try {
+      console.log('🔍 Fetching data for impersonated user:', userId)
+      
+      // Fetch user profile data
+      const userResponse = await fetch(`/api/team-members`)
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        if (userData.success && userData.teamMembers) {
+          const targetUser = userData.teamMembers.find((user: any) => user.id === userId)
+          if (targetUser) {
+            setImpersonatedUser({
+              id: targetUser.id,
+              name: targetUser.name,
+              role: targetUser.isAdmin ? 'admin' : 'member',
+              email: targetUser.email,
+              team: targetUser.team
+            })
+            console.log('✅ Impersonated user data loaded:', targetUser)
+          }
+        }
+      }
+      
+      // Set the selected user to load their data
+      setSelectedUser(userId)
+    } catch (error) {
+      console.error('❌ Error fetching impersonated user data:', error)
+    }
+  }
 
   // Function to fetch team aggregation data
   const fetchTeamAggregation = async (timeFrame: string = 'monthly') => {
@@ -2921,15 +3015,24 @@ export default function DataDashboard() {
               <div>
                 <h1 className="text-2xl font-bold flex items-center gap-2">
                   <User className="h-6 w-6" />
-                  {userRole === "admin" ? "Admin Data Dashboard" : "User Data Dashboard"}
+                  {isImpersonating 
+                    ? `Viewing ${impersonatedUser?.role === 'admin' ? 'Admin' : 'Member'} Dashboard` 
+                    : userRole === "admin" ? "Admin Data Dashboard" : "User Data Dashboard"
+                  }
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {userRole === "admin" ? "Team data monitoring and analytics" : "Personal time tracking and goal management"}
+                  {isImpersonating 
+                    ? `Viewing data for ${impersonatedUser?.name || `User ${impersonatedUserId}`}`
+                    : userRole === "admin" ? "Team data monitoring and analytics" : "Personal time tracking and goal management"
+                  }
                 </p>
               </div>
             </div>
             <Badge variant="outline" className="text-sm">
-              {userRole === "admin" ? "Admin View" : "Member View"}
+              {isImpersonating 
+                ? `Viewing as ${impersonatedUser?.role === 'admin' ? 'Admin' : 'Member'}`
+                : userRole === "admin" ? "Admin View" : "Member View"
+              }
             </Badge>
 
           </div>
@@ -2942,6 +3045,38 @@ export default function DataDashboard() {
           )}
         </div>
       </header>
+
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    Viewing as: {impersonatedUser?.name || `User ${impersonatedUserId}`}
+                  </span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    {impersonatedUser?.role === 'admin' ? 'Admin' : 'Member'}
+                  </Badge>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // Clear impersonation and return to admin view
+                  window.location.href = '/data?role=admin'
+                }}
+                className="text-blue-700 border-blue-300 hover:bg-blue-100"
+              >
+                Return to My Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
