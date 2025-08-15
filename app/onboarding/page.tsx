@@ -85,10 +85,13 @@ export default function OnboardingPage() {
   
   // Helper function to validate team data
   const validateTeamData = (data: any) => {
-    // Basic validation - ensure teams have names and at least one member
+    // Basic validation - ensure teams have names and preserve all data
     return {
       ...data,
-      teams: data.teams.filter((team: any) => team && team.name && team.name.trim() !== '')
+      teams: data.teams.filter((team: any) => team && team.name && team.name.trim() !== '').map((team: any) => ({
+        ...team,
+        members: team.members || []
+      }))
     }
   }
   

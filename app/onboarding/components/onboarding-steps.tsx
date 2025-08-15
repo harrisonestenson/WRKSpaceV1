@@ -246,6 +246,7 @@ export const TeamSetupStep = ({
 
   const handleCreateMember = () => {
     if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
+      console.log('Validation failed:', { selectedTeamIndex, name: newMemberData.name, email: newMemberData.email })
       return
     }
 
@@ -263,12 +264,23 @@ export const TeamSetupStep = ({
       expectedNonBillablePoints: roleExpectations?.expectedNonBillableHours || 120
     }
 
-    setTeamData((prev: any) => validateTeamData({
-      ...prev,
-      teams: prev.teams.map((t: any, i: number) => 
-        i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
-      )
-    }))
+    console.log('Adding new member:', newMember)
+    console.log('Current team data:', teamData)
+    console.log('Selected team index:', selectedTeamIndex)
+
+    setTeamData((prev: any) => {
+      const updatedData = validateTeamData({
+        ...prev,
+        teams: prev.teams.map((t: any, i: number) => 
+          i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
+        )
+      })
+      console.log('Updated team data:', updatedData)
+      return updatedData
+    })
+
+    // Show success message
+    alert(`Successfully added ${newMember.name} as ${newMember.title} to the team!`)
 
     // Reset form and close modal
     setNewMemberData({ name: '', email: '', role: '', title: '' })
