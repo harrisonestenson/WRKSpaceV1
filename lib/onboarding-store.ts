@@ -26,7 +26,7 @@ interface OnboardingData {
     companyGoals: {
       weeklyBillable: number
       monthlyBillable: number
-      annualBillable: number
+      yearlyBillable: number
     }
     defaultGoalTypes: string[]
   }

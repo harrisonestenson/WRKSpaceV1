@@ -1,7 +1,7 @@
 {
   "profile": {
-    "name": "Harrison E",
-    "title": "Partner",
+    "name": "mack",
+    "title": "partner",
     "role": "",
     "photo": "",
     "productivityPreferences": {
@@ -21,21 +21,11 @@
         "department": "",
         "members": [
           {
-            "name": "You",
+            "name": "mack",
             "email": "",
             "title": "Admin",
             "role": "admin",
             "isAdmin": true,
-            "expectedBillableHours": 1500,
-            "expectedNonBillablePoints": 120,
-            "personalTarget": "6 hours/day"
-          },
-          {
-            "name": "Maddy E",
-            "email": "maddye@gmail.com",
-            "title": "Team Member",
-            "role": "mid-level-associate",
-            "isAdmin": false,
             "expectedBillableHours": 1500,
             "expectedNonBillablePoints": 120,
             "personalTarget": "6 hours/day"
@@ -53,7 +43,7 @@
   "teamMemberExpectations": [
     {
       "name": "Partner",
-      "expectedBillableHours": 1900,
+      "expectedBillableHours": 1800,
       "expectedNonBillablePoints": 120,
       "personalTarget": "6 hours/day"
     },
@@ -115,10 +105,10 @@
   "streaksConfig": [],
   "legalCases": [
     {
-      "id": "1755290728511",
-      "name": "pop",
+      "id": "1755300599909",
+      "name": "case",
       "status": "active",
-      "createdAt": "2025-08-15T20:45:28.511Z"
+      "createdAt": "2025-08-15T23:29:59.909Z"
     }
   ]
 }

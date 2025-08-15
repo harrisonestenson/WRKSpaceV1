@@ -28,7 +28,8 @@ import {
   Users,
   Target,
   FileText,
-  Clock
+  Clock,
+  Eye
 } from "lucide-react"
 import Link from "next/link"
 
@@ -173,7 +174,7 @@ export default function OnboardingPage() {
 
 
   // Calculate total steps based on role
-  const totalSteps = userRole === 'admin' ? 7 : 3
+  const totalSteps = userRole === 'admin' ? 8 : 4
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -302,6 +303,27 @@ export default function OnboardingPage() {
       }
 
       console.log('Sending onboarding data:', onboardingData)
+
+      // Save company goals directly to company goals API
+      try {
+        const companyGoalsResponse = await fetch('/api/company-goals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(companyGoals),
+        })
+        
+        if (companyGoalsResponse.ok) {
+          const companyGoalsData = await companyGoalsResponse.json()
+          console.log('Company goals saved successfully:', companyGoalsData)
+        } else {
+          console.error('Failed to save company goals:', await companyGoalsResponse.text())
+        }
+      } catch (error) {
+        console.error('Error saving company goals:', error)
+        // Don't fail the onboarding for company goals errors
+      }
 
       // Send main onboarding data
       const response = await fetch('/api/onboarding', {
@@ -1705,7 +1727,136 @@ export default function OnboardingPage() {
             </div>
           );
 
+        case 8:
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Eye className="h-8 w-8 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Review & Confirm</h3>
+                  <p className="text-muted-foreground">Review all your information before completing setup</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                {/* Profile Summary */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-800 mb-3">👤 Profile Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Name:</span> {userName || 'Not set'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Title:</span> {userTitle || 'Not set'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Role:</span> {userRole === 'admin' ? 'Administrator' : 'Team Member'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Employment Duration:</span> {durationOfEmployment || 'Not set'}
+                    </div>
+                  </div>
+                </div>
 
+                {/* Company Goals Summary */}
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <h4 className="font-semibold text-green-800 mb-3">🎯 Company Goals</h4>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {companyGoals.weeklyBillable || 0}
+                      </div>
+                      <div className="text-green-700">Weekly Hours</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {companyGoals.monthlyBillable || 0}
+                      </div>
+                      <div className="text-green-700">Monthly Hours</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {companyGoals.yearlyBillable || 0}
+                      </div>
+                      <div className="text-green-700">Annual Hours</div>
+                    </div>
+                  </div>
+                  {(!companyGoals.weeklyBillable || !companyGoals.monthlyBillable || !companyGoals.yearlyBillable) && (
+                    <div className="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800 text-xs">
+                      ⚠️ Company goals are not fully set. Please go back and complete them.
+                    </div>
+                  )}
+                </div>
+
+                {/* Team Setup Summary */}
+                {onboardingState.teamData?.teams && onboardingState.teamData.teams.length > 0 && (
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <h4 className="font-semibold text-orange-800 mb-3">👥 Team Setup</h4>
+                    <div className="space-y-2">
+                      {onboardingState.teamData.teams.map((team, index) => (
+                        <div key={index} className="text-sm">
+                          <span className="font-medium">Team {index + 1}:</span> {team.name || 'Unnamed Team'}
+                          {team.members && team.members.length > 0 && (
+                            <div className="ml-4 text-xs text-orange-700">
+                              Members: {team.members.map((m: any) => m.name).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legal Cases Summary */}
+                {onboardingState.legalCases && onboardingState.legalCases.length > 0 && (
+                  <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <h4 className="font-semibold text-indigo-800 mb-3">📋 Legal Cases</h4>
+                    <div className="text-sm">
+                      {onboardingState.legalCases.map((legalCase: any, index: number) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span>• {legalCase.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {legalCase.status || 'active'}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Time Tracking Preferences */}
+                <div className="p-4 bg-teal-50 rounded-lg border border-teal-200">
+                  <h4 className="font-semibold text-teal-800 mb-3">⏰ Time Tracking Setup</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Default Case:</span> {timeTrackingPrefs.defaultCase || 'Not set'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Time Format:</span> {timeTrackingPrefs.timeFormat || 'decimal'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Rounding:</span> {timeTrackingPrefs.rounding || '15min'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Auto-start:</span> {timeTrackingPrefs.autoStart || 'manual'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Final Confirmation */}
+                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                  <h4 className="font-semibold text-purple-800 mb-3">✅ Ready to Complete</h4>
+                  <p className="text-purple-700 text-sm">
+                    Please review all information above. Once you're satisfied, click "Finish Setup and Launch Admin Dashboard" to complete your onboarding.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+
+        default:
           return (
             <div className="space-y-6">
               <div className="text-center space-y-4">
@@ -1850,20 +2001,7 @@ export default function OnboardingPage() {
             </div>
           );
         
-      default:
-          return (
-            <div className="space-y-6">
-              <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="h-8 w-8 text-gray-600" />
-                </div>
-                <div>
-                <h3 className="text-lg font-semibold">Step Not Found</h3>
-                <p className="text-muted-foreground">This step is not yet implemented</p>
-                </div>
-              </div>
-              </div>
-        );
+      
     }
   }
   

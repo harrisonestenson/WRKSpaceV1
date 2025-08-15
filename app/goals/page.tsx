@@ -61,20 +61,30 @@ export default function GoalsDashboard() {
   const [isImpersonating, setIsImpersonating] = useState(false)
   const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
   
-  // Get the selected team member from localStorage instead of creating a generic ID
-  const selectedMemberName = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberName') : null
-  const selectedMemberId = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberId') : null
+  // State for user ID
+  const [userId, setUserId] = useState<string>('')
   
-  // Use impersonated user ID if available, otherwise fall back to normal logic
-  // When impersonating, extract the actual user name from the impersonated user ID
-  let userId: string
-  if (impersonateId) {
-    // Extract user name from impersonated user ID (e.g., "member-Harry Estenson-Team 1" -> "Harry Estenson")
-    const match = impersonateId.match(/member-(.+?)-Team \d+/)
-    userId = match ? match[1] : impersonateId
-  } else {
-    userId = selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
-  }
+  // Get the selected team member from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const selectedMemberName = localStorage.getItem('selectedMemberName')
+      const selectedMemberId = localStorage.getItem('selectedMemberId')
+      const currentUserId = localStorage.getItem('currentUserId')
+      
+      // Use impersonated user ID if available, otherwise fall back to normal logic
+      let finalUserId: string
+      if (impersonateId) {
+        // Extract user name from impersonated user ID (e.g., "member-Harry Estenson-Team 1" -> "Harry Estenson")
+        const match = impersonateId.match(/member-(.+?)-Team \d+/)
+        finalUserId = match ? match[1] : impersonateId
+      } else {
+        finalUserId = selectedMemberName || selectedMemberId || currentUserId || `${userRole}-user-${Date.now()}`
+      }
+      
+      console.log('🎯 Goals page - Setting user ID:', { finalUserId, selectedMemberName, selectedMemberId, currentUserId })
+      setUserId(finalUserId)
+    }
+  }, [impersonateId, userRole])
   
   // State for real data
   const [realGoalsData, setRealGoalsData] = useState<any>(null)
@@ -95,6 +105,8 @@ export default function GoalsDashboard() {
 
   // Fetch real data from onboarding
   useEffect(() => {
+    if (!userId) return // Don't fetch if userId is not set yet
+    
     const fetchRealData = async () => {
       try {
         setIsLoading(true)
@@ -222,7 +234,7 @@ export default function GoalsDashboard() {
     }
 
     fetchRealData()
-  }, [])
+  }, [userId])
 
   // Use real data if available, otherwise fall back to mock data
   const personalGoals = realGoalsData?.personalGoals || mockPersonalGoals
@@ -279,7 +291,7 @@ export default function GoalsDashboard() {
             const companyBillableMap: Record<string, number> = {
               weekly: goalsData.companyGoals?.currentProgress?.weeklyBillable ?? 0,
               monthly: goalsData.companyGoals?.currentProgress?.monthlyBillable ?? 0,
-              annual: goalsData.companyGoals?.currentProgress?.annualBillable ?? 0,
+              annual: goalsData.companyGoals?.currentProgress?.yearlyBillable ?? 0,
             }
             const personalBillableMap: Record<string, number> = {
               daily: dailyUser?.summary?.billableHours ?? 0,
@@ -334,9 +346,9 @@ export default function GoalsDashboard() {
                   name: 'Annual Billable Hours',
                   type: 'Company Goal',
                   frequency: 'annual',
-                  target: goalsData.companyGoals.annualBillable || 0,
+                  target: goalsData.companyGoals.yearlyBillable || 0,
                   current: companyBillableMap.annual || 0,
-                  max: goalsData.companyGoals.annualBillable || 0,
+                  max: goalsData.companyGoals.yearlyBillable || 0,
                   status: 'active',
                   description: 'Annual billable hours target'
                 }

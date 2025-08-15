@@ -150,19 +150,24 @@ export async function GET(request: NextRequest) {
     
     const data = loadPersonalGoals()
     
-    // Normalize memberId to handle different formats (e.g., "zac-potter" -> "Zac Potter")
+    // Normalize memberId to handle different formats (e.g., "zac-potter" -> "Zac Potter", "harry e" -> "harry e")
     let normalizedMemberId = memberId
     let userGoals = data[memberId] || []
     
     // If no goals found, try to find by normalized name
     if (userGoals.length === 0) {
-      // Try to find by converting hyphens to spaces and capitalizing
+      // Try to find by converting hyphens to spaces and capitalizing, and also handle spaces
       const possibleNames = [
         memberId,
         memberId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         memberId.replace(/-/g, ' '),
         memberId.replace(/-/g, ' ').toLowerCase(),
-        memberId.replace(/-/g, ' ').toUpperCase()
+        memberId.replace(/-/g, ' ').toUpperCase(),
+        // Handle spaces in names (e.g., "harry e" variations)
+        memberId.toLowerCase(),
+        memberId.toLowerCase().trim(),
+        memberId.trim(),
+        memberId.replace(/\s+/g, ' ').trim() // Normalize multiple spaces to single space
       ]
       
       for (const name of possibleNames) {

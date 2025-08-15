@@ -250,7 +250,15 @@ export default function TeamMemberOnboardingPage() {
                   <Input
                     id="name"
                     value={profileData.name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => {
+                      const name = e.target.value
+                      setProfileData(prev => ({ ...prev, name }))
+                      // Immediately set as current user ID in localStorage
+                      if (typeof window !== 'undefined' && name.trim()) {
+                        localStorage.setItem('currentUserId', name.trim())
+                        console.log('🎯 Set currentUserId in localStorage:', name.trim())
+                      }
+                    }}
                     placeholder="Enter your full name"
                   />
                 </div>

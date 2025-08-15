@@ -199,7 +199,41 @@ export default function LawFirmDashboard() {
         console.warn('Error reading from onboarding store:', error)
       }
     }
-  }, [])
+  }, [currentUserId])
+
+  // Listen for localStorage changes
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'currentUserId' && e.newValue && e.newValue !== 'default-user') {
+        console.log('🔄 localStorage changed - updating currentUserId:', e.newValue)
+        setCurrentUserId(e.newValue)
+      }
+    }
+
+    // Listen for storage events from other tabs/windows
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also check localStorage periodically for changes
+    const interval = setInterval(() => {
+      const savedUserId = localStorage.getItem('currentUserId')
+      if (savedUserId && savedUserId !== 'default-user' && savedUserId !== currentUserId) {
+        console.log('🔄 Periodic check - updating currentUserId:', savedUserId)
+        setCurrentUserId(savedUserId)
+      }
+    }, 500) // Check every 500ms for faster response
+
+    // Force check localStorage immediately on mount
+    const savedUserId = localStorage.getItem('currentUserId')
+    if (savedUserId && savedUserId !== 'default-user' && savedUserId !== currentUserId) {
+      console.log('🔄 Immediate check - updating currentUserId:', savedUserId)
+      setCurrentUserId(savedUserId)
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [currentUserId])
 
   // Clear corrupted localStorage data
   const clearCorruptedData = () => {
@@ -272,7 +306,14 @@ export default function LawFirmDashboard() {
         return currentUserId
       }
       
-      // Second priority: localStorage
+      // Second priority: check localStorage directly
+      const savedUserIdDirect = localStorage.getItem('currentUserId')
+      if (savedUserIdDirect && savedUserIdDirect !== 'default-user') {
+        setCurrentUserId(savedUserIdDirect)
+        return savedUserIdDirect
+      }
+      
+      // Third priority: localStorage
       const savedUserId = localStorage.getItem('currentUserId')
       if (savedUserId && savedUserId !== 'default-user') {
         return savedUserId
@@ -1070,7 +1111,7 @@ export default function LawFirmDashboard() {
       setCompanyGoals({
         weeklyBillable: 0,
         monthlyBillable: 0,
-        annualBillable: 0
+        yearlyBillable: 0
       })
       setPersonalGoals([])
       setLegalCases([])
@@ -1096,7 +1137,7 @@ export default function LawFirmDashboard() {
   const [companyGoals, setCompanyGoals] = useState({
     weeklyBillable: 0,
     monthlyBillable: 0,
-    annualBillable: 0
+            yearlyBillable: 0
   })
   const [companyProgress, setCompanyProgress] = useState({
     weekly: { actual: 0, target: 0, percentage: 0 },
@@ -1241,9 +1282,9 @@ export default function LawFirmDashboard() {
               percentage: data.companyGoals.currentProgress?.monthlyBillable ? Math.round((data.companyGoals.currentProgress.monthlyBillable / data.companyGoals.monthlyBillable) * 100) : 0
             },
             annual: { 
-              actual: data.companyGoals.currentProgress?.annualBillable || 0, 
-              target: data.companyGoals.annualBillable, 
-              percentage: data.companyGoals.currentProgress?.annualBillable ? Math.round((data.companyGoals.currentProgress.annualBillable / data.companyGoals.annualBillable) * 100) : 0
+                      actual: data.companyGoals.currentProgress?.yearlyBillable || 0,
+        target: data.companyGoals.yearlyBillable,
+        percentage: data.companyGoals.currentProgress?.yearlyBillable ? Math.round((data.companyGoals.currentProgress.yearlyBillable / data.companyGoals.yearlyBillable) * 100) : 0
             }
           })
         }
@@ -2140,7 +2181,7 @@ export default function LawFirmDashboard() {
     )
   }
 
-  const RoleSwitcher = () => {
+  const RoleSwitcher = ({ currentUserId }: { currentUserId: string }) => {
     const allTeamMembers = teamMembers
     const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false)
     
@@ -2227,32 +2268,43 @@ export default function LawFirmDashboard() {
       )
     }
 
-    // Show generic role selector during onboarding
+    // Show user identity when not in team member selection mode
     return (
       <div className="flex items-center gap-2 mb-4">
         <Label htmlFor="role-switch" className="text-sm">
           View as:
         </Label>
         
-        {/* Main role selector - only show during onboarding */}
-        <Select 
-          value={userRole} 
-          onOpenChange={setIsRoleDropdownOpen}
-          onValueChange={(value: "admin" | "member") => setUserRole(value)}
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="member">Member</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        <Badge variant="outline" className="text-xs">
-          {userRole === "admin" ? <Eye className="w-3 h-3 mr-1" /> : <EyeOff className="w-3 h-3 mr-1" />}
-          Demo Mode
-        </Badge>
+        {/* Show current user identity */}
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-sm">
+            <User className="w-3 h-3 mr-1" />
+            {currentUserId && currentUserId !== 'default-user' ? currentUserId : 'You'}
+          </Badge>
+          
+          {/* Debug refresh button */}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => {
+              const savedUserId = localStorage.getItem('currentUserId')
+              console.log('🔄 Manual refresh - localStorage value:', savedUserId)
+              if (savedUserId && savedUserId !== 'default-user') {
+                setCurrentUserId(savedUserId)
+              }
+            }}
+            className="text-xs h-6 px-2"
+            title="Refresh user ID from localStorage"
+          >
+            🔄
+          </Button>
+
+          
+          {/* Role indicator */}
+          <Badge variant="secondary" className="text-xs">
+            {userRole === "admin" ? "Admin" : "Member"}
+          </Badge>
+        </div>
       </div>
     )
   }
@@ -2746,7 +2798,7 @@ export default function LawFirmDashboard() {
       {/* Role Switcher */}
       {!isImpersonating && (
         <div className="container mx-auto px-4 pt-3">
-          <RoleSwitcher />
+          <RoleSwitcher currentUserId={currentUserId} />
         </div>
       )}
 

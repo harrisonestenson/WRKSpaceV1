@@ -1,1 +1,40 @@
-[]
+[
+  {
+    "id": "entry-1755300627004",
+    "userId": "mack",
+    "teamId": null,
+    "caseId": "1755300599909",
+    "date": "2025-08-15T16:00:00.000Z",
+    "startTime": null,
+    "endTime": null,
+    "duration": 3600,
+    "billable": true,
+    "description": "1st",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "manual-form",
+    "workHours": null,
+    "createdAt": "2025-08-15T23:30:27.004Z",
+    "updatedAt": "2025-08-15T23:30:27.004Z"
+  },
+  {
+    "id": "entry-1755300873434",
+    "userId": "test-user",
+    "teamId": null,
+    "caseId": "test-case",
+    "date": "2025-08-15T16:00:00.000Z",
+    "startTime": null,
+    "endTime": null,
+    "duration": 3600,
+    "billable": true,
+    "description": "Test entry",
+    "status": "COMPLETED",
+    "nonBillableTaskId": null,
+    "points": null,
+    "source": "manual-form",
+    "workHours": null,
+    "createdAt": "2025-08-15T23:34:33.434Z",
+    "updatedAt": "2025-08-15T23:34:33.434Z"
+  }
+]

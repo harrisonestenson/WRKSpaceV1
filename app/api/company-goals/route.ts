@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { onboardingStore } from '@/lib/onboarding-store'
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
-import { applyCanonicalToCompanyGoals, resolveGoalIntentFromText } from '@/lib/goal-intent-resolver'
 
 // File-based storage for company goals (in production, this would be a database)
 const DATA_FILE_PATH = join(process.cwd(), 'data', 'company-goals.json')
@@ -96,35 +94,7 @@ async function calculateCompanyGoalsProgress() {
 
 export async function GET() {
   try {
-    // First try to get from onboarding-data API
-    try {
-      const onboardingDataResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/onboarding-data`)
-      if (onboardingDataResponse.ok) {
-        const onboardingDataResult = await onboardingDataResponse.json()
-        if (onboardingDataResult.success && onboardingDataResult.data?.teamData?.companyGoals) {
-          const companyGoals = onboardingDataResult.data.teamData.companyGoals
-          
-          // Calculate current progress from time entries
-          const currentProgress = await calculateCompanyGoalsProgress()
-          
-          const goalsWithProgress = {
-            ...companyGoals,
-            currentProgress
-          }
-          
-          console.log('Company Goals API - Retrieved from onboarding-data API with progress:', goalsWithProgress)
-          return NextResponse.json({
-            success: true,
-            companyGoals: goalsWithProgress,
-            notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
-          })
-        }
-      }
-    } catch (error) {
-      console.log('Company Goals API - Error fetching from onboarding-data API:', error)
-    }
-
-    // Fallback to file storage
+    // Load company goals from file storage
     const fileData = loadCompanyGoals()
     if (fileData) {
       // Calculate current progress from time entries
@@ -143,32 +113,20 @@ export async function GET() {
       })
     }
 
-    // Fallback to onboarding store
-    const onboardingData = onboardingStore.getData()
-    const onboardingCompanyGoals = onboardingData.teamData?.companyGoals
-    
-    console.log('Company Goals API - Onboarding store data:', onboardingData.teamData)
-    console.log('Company Goals API - Retrieved company goals:', onboardingCompanyGoals)
-    
-    // Use onboarding data if available, otherwise use default values
-    const goalsToReturn = onboardingCompanyGoals || {
+    // Return default values if no file exists
+    const currentProgress = await calculateCompanyGoalsProgress()
+    const defaultGoals = {
       weeklyBillable: 0,
       monthlyBillable: 0,
-      yearlyBillable: 0
-    }
-    
-    // Calculate current progress from time entries
-    const currentProgress = await calculateCompanyGoalsProgress()
-    
-    const goalsWithProgress = {
-      ...goalsToReturn,
+      yearlyBillable: 0,
       currentProgress
     }
     
+    console.log('Company Goals API - No file found, returning defaults:', defaultGoals)
     return NextResponse.json({
       success: true,
-      companyGoals: goalsWithProgress,
-      notice: 'Live tracking currently supports billable and non-billable hours goals. Other goal types will display but won\'t update automatically yet.'
+      companyGoals: defaultGoals,
+      notice: 'No company goals set yet. Company goals are set during the onboarding process.'
     })
   } catch (error) {
     console.error('Error fetching company goals:', error)
@@ -184,57 +142,35 @@ export async function POST(request: NextRequest) {
     const data = await request.json()
     console.log('Company Goals API - Received data:', data)
     
-    const warnings: string[] = []
-    
-    // If freeTextGoals array is provided, resolve them into canonical company goals
-    try {
-      const freeText: string[] = Array.isArray(data?.freeTextGoals) ? data.freeTextGoals : []
-      if (freeText.length > 0) {
-        const intents = freeText
-          .map((t) => resolveGoalIntentFromText(t, { scope: 'company' }))
-          .filter(Boolean) as ReturnType<typeof resolveGoalIntentFromText>[]
-        const merged = applyCanonicalToCompanyGoals(intents as any, {
-          weeklyBillable: parseInt(data?.weeklyBillable) || 0,
-          monthlyBillable: parseInt(data?.monthlyBillable) || 0,
-          yearlyBillable: parseInt(data?.yearlyBillable) || 0
-        })
-        data.weeklyBillable = merged.weeklyBillable
-        data.monthlyBillable = merged.monthlyBillable
-        data.yearlyBillable = merged.yearlyBillable
-
-        // Note unsupported metrics
-        intents.forEach((i: any) => {
-          if (i.metricKey !== 'billable_hours' && i.metricKey !== 'non_billable_hours') {
-            warnings.push(`Goal intent for "${i.metricKey}" isn\'t connected to live data yet.`)
-          }
-        })
-      }
-    } catch (e) {
-      console.warn('Company Goals API - freeTextGoals parse skipped:', e)
+    // Validate required fields
+    if (!data.weeklyBillable && !data.monthlyBillable && !data.yearlyBillable) {
+      return NextResponse.json(
+        { error: 'At least one company goal must be set' },
+        { status: 400 }
+      )
     }
-
-    // Save the company goals to file
-    saveCompanyGoals(data)
     
-    // Also update the onboarding store
-    const currentTeamData = onboardingStore.getTeamData()
-    onboardingStore.setData({
-      teamData: {
-        teams: currentTeamData?.teams || [],
-        companyGoals: data,
-        defaultGoalTypes: currentTeamData?.defaultGoalTypes || []
-      }
-    })
+    // Prepare company goals data
+    const companyGoals = {
+      weeklyBillable: parseInt(data.weeklyBillable) || 0,
+      monthlyBillable: parseInt(data.monthlyBillable) || 0,
+      yearlyBillable: parseInt(data.yearlyBillable) || 0
+    }
+    
+    // Save to file
+    saveCompanyGoals(companyGoals)
+    
+    console.log('Company Goals API - Company goals saved successfully:', companyGoals)
     
     return NextResponse.json({
       success: true,
-      message: 'Company goals stored successfully',
-      warnings: warnings.length > 0 ? warnings : undefined
+      message: 'Company goals saved successfully',
+      companyGoals
     })
   } catch (error) {
-    console.error('Error storing company goals:', error)
+    console.error('Error saving company goals:', error)
     return NextResponse.json(
-      { error: 'Failed to store company goals' },
+      { error: 'Failed to save company goals' },
       { status: 500 }
     )
   }
@@ -242,29 +178,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   try {
-    console.log('Company Goals API - Clearing data')
-    
-    // Clear the company goals data by deleting the file
-    const fs = require('fs')
+    // Clear company goals data
     if (existsSync(DATA_FILE_PATH)) {
+      const fs = require('fs')
       fs.unlinkSync(DATA_FILE_PATH)
       console.log('Company Goals API - Data file deleted successfully')
-    }
-    
-    // Also clear from onboarding store
-    const currentData = onboardingStore.getData()
-    if (currentData.teamData) {
-      onboardingStore.setData({
-        teamData: {
-          teams: currentData.teamData.teams || [],
-          companyGoals: {
-            weeklyBillable: 0,
-            monthlyBillable: 0,
-            yearlyBillable: 0
-          },
-          defaultGoalTypes: currentData.teamData.defaultGoalTypes || []
-        }
-      })
     }
     
     return NextResponse.json({

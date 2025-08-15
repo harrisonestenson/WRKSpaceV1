@@ -147,17 +147,17 @@ function updateCompanyBillableGoals(entryDate?: string) {
     const monthlyBillable = calculateCompanyBillableHours('monthly', referenceDate, allEntries)
     const annualBillable = calculateCompanyBillableHours('annual', referenceDate, allEntries)
     
-    // Update company goals with current progress
+    // Keep original targets, only update progress tracking
     const updatedCompanyGoals = {
       ...companyGoals,
-      weeklyBillable: Math.round(weeklyBillable * 10) / 10,
-      monthlyBillable: Math.round(monthlyBillable * 10) / 10,
-      annualBillable: Math.round(annualBillable * 10) / 10
+      // Preserve original targets - don't overwrite them!
+      // The progress will be calculated dynamically by the company goals API
+      // based on actual time entries, not stored in the file
     }
     
-    // Save updated company goals
+    // Save updated company goals (with original targets preserved)
     writeFileSync(companyGoalsPath, JSON.stringify(updatedCompanyGoals, null, 2))
-    console.log('Time Entries API - Company billable goals updated:', updatedCompanyGoals)
+    console.log('Time Entries API - Company billable goals updated (targets preserved):', updatedCompanyGoals)
     
   } catch (error) {
     console.error('Time Entries API - Error updating company goals:', error)
