@@ -259,58 +259,67 @@ export const TeamSetupStep = ({
   }
 
   const handleCreateMember = () => {
-    console.log('handleCreateMember called with:', { selectedTeamIndex, newMemberData })
-    
-    if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
-      console.log('Validation failed:', { selectedTeamIndex, name: newMemberData.name, email: newMemberData.email })
-      return
-    }
-
-    // Get role-based expectations from positionExpectations (step 3)
-    const selectedRole = newMemberData.role || defaultRole
-    const roleExpectations = positionExpectations?.find(p => p.id === selectedRole)
-    
-    const newMember = {
-      id: `member-${Date.now()}`,
-      name: newMemberData.name.trim(),
-      email: newMemberData.email.trim(),
-      role: selectedRole,
-      title: newMemberData.title.trim() || roleExpectations?.name || 'Team Member',
-      expectedBillableHours: roleExpectations?.expectedBillableHours || 1500,
-      expectedNonBillablePoints: roleExpectations?.expectedNonBillableHours || 120
-    }
-
-    console.log('Adding new member:', newMember)
-    console.log('Current team data:', teamData)
-    console.log('Selected team index:', selectedTeamIndex)
-
-    setTeamData((prev: any) => {
-      const updatedData = validateTeamData({
-        ...prev,
-        teams: prev.teams.map((t: any, i: number) => 
-          i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
-        )
-      })
-      console.log('Updated team data:', updatedData)
+    try {
+      console.log('handleCreateMember called with:', { selectedTeamIndex, newMemberData })
       
-      // Save to localStorage for persistence
-      try {
-        localStorage.setItem('teamData', JSON.stringify(updatedData))
-        console.log('Team data saved to localStorage')
-      } catch (error) {
-        console.error('Error saving team data to localStorage:', error)
+      if (!selectedTeamIndex || !newMemberData.name.trim() || !newMemberData.email.trim()) {
+        console.log('Validation failed:', { selectedTeamIndex, name: newMemberData.name, email: newMemberData.email })
+        return
       }
       
-      return updatedData
-    })
+      console.log('Validation passed, proceeding with member creation...')
 
-    // Show success message
-    alert(`Successfully added ${newMember.name} as ${newMember.title} to the team!`)
+      // Get role-based expectations from positionExpectations (step 3)
+      const selectedRole = newMemberData.role || defaultRole
+      const roleExpectations = positionExpectations?.find(p => p.id === selectedRole)
+      
+      const newMember = {
+        id: `member-${Date.now()}`,
+        name: newMemberData.name.trim(),
+        email: newMemberData.email.trim(),
+        role: selectedRole,
+        title: newMemberData.title.trim() || roleExpectations?.name || 'Team Member',
+        expectedBillableHours: roleExpectations?.expectedBillableHours || 1500,
+        expectedNonBillablePoints: roleExpectations?.expectedNonBillableHours || 120
+      }
 
-    // Reset form and close modal
-    setNewMemberData({ name: '', email: '', role: '', title: '' })
-    setShowAddMemberModal(false)
-    setSelectedTeamIndex(null)
+      console.log('Adding new member:', newMember)
+      console.log('Current team data:', teamData)
+      console.log('Selected team index:', selectedTeamIndex)
+
+      setTeamData((prev: any) => {
+        const updatedData = validateTeamData({
+          ...prev,
+          teams: prev.teams.map((t: any, i: number) => 
+            i === selectedTeamIndex ? { ...t, members: [...t.members, newMember] } : t
+          )
+        })
+        console.log('Updated team data:', updatedData)
+        
+        // Save to localStorage for persistence
+        try {
+          localStorage.setItem('teamData', JSON.stringify(updatedData))
+          console.log('Team data saved to localStorage')
+        } catch (error) {
+          console.error('Error saving team data to localStorage:', error)
+        }
+        
+        return updatedData
+      })
+
+      // Show success message
+      alert(`Successfully added ${newMember.name} as ${newMember.title} to the team!`)
+
+      // Reset form and close modal
+      setNewMemberData({ name: '', email: '', role: '', title: '' })
+      setShowAddMemberModal(false)
+      setSelectedTeamIndex(null)
+      
+      console.log('Member creation completed successfully')
+    } catch (error) {
+      console.error('Error in handleCreateMember:', error)
+      alert(`Error creating member: ${error.message}`)
+    }
   }
 
   // Use positionExpectations from step 3 instead of onboardingStore
@@ -695,11 +704,7 @@ export const TeamSetupStep = ({
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    console.log('Add Member button clicked!')
-                    alert('Button clicked - testing if function works')
-                    handleCreateMember()
-                  }}
+                  onClick={handleCreateMember}
                   disabled={!newMemberData.name.trim() || !newMemberData.email.trim()}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
