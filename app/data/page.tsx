@@ -3,7 +3,6 @@
 import React from "react"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -135,31 +134,6 @@ const mockTeamGoals: any[] = []
 export default function DataDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
-  const { data: session, status } = useSession()
-  
-  // Handle loading and error states for session
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (status === "unauthenticated") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
-          <p className="text-muted-foreground mb-4">Please sign in to access the dashboard.</p>
-          <a href="/auth/signin" className="text-blue-600 hover:underline">Sign In</a>
-        </div>
-      </div>
-    )
-  }
   
   // No authentication required - users can access and delete time entries without logging in
   
@@ -218,31 +192,8 @@ export default function DataDashboard() {
   const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
   const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null)
 
-  // Initialize selectedUser based on role
-  useEffect(() => {
-    // Only proceed if session is available
-    if (status !== "authenticated") return
-    
-    console.log('🔄 useEffect for selectedUser triggered:', { 
-      sessionUserId: session?.user?.id, 
-      sessionStatus: status,
-      currentSelectedUser: selectedUser 
-    })
-    
-    // Both admins and members see their own data by default
-    if (session?.user?.id) {
-      console.log('✅ Setting selectedUser to session user ID:', session.user.id)
-      setSelectedUser(session.user.id)
-    } else {
-      console.log('⚠️ No session user ID available, keeping selectedUser as:', selectedUser)
-    }
-  }, [session?.user?.id, status])
-
   // Handle impersonation from URL parameters
   useEffect(() => {
-    // Only proceed if session is available
-    if (status !== "authenticated") return
-    
     const impersonateId = searchParams?.get("impersonate")
     const impersonateRole = searchParams?.get("role")
     
@@ -267,7 +218,22 @@ export default function DataDashboard() {
       setImpersonatedUser(null)
       setImpersonatedUserId(null)
     }
-  }, [searchParams, userRole, status])
+  }, [searchParams, userRole])
+
+  // Initialize selectedUser based on role
+  useEffect(() => {
+    console.log('🔄 useEffect for selectedUser triggered:', { 
+      currentSelectedUser: selectedUser,
+      userRole: userRole
+    })
+    
+    // Set default user based on role (no session required)
+    if (userRole === 'admin') {
+      setSelectedUser('admin-user')
+    } else {
+      setSelectedUser('member-user')
+    }
+  }, [userRole])
 
   // Function to fetch impersonated user data
   const fetchImpersonatedUserData = async (userId: string) => {
@@ -423,8 +389,8 @@ export default function DataDashboard() {
           const billableEntries = data.timeEntries.filter((entry: any) => entry.billable)
           
           // Generate consolidated log text
-          // Get user name from the first entry or session
-          const userName = billableEntries.length > 0 ? billableEntries[0].userId : (session?.user?.name || session?.user?.id || 'User')
+          // Get user name from the first entry or selectedUser
+          const userName = billableEntries.length > 0 ? billableEntries[0].userId : (selectedUser || 'User')
           let consolidatedText = `${userName}'s BILLABLE HOURS LOG - ${allLogsDateRange.toUpperCase()}\n`
           consolidatedText += `Generated on: ${new Date().toLocaleDateString('en-US', { 
             year: 'numeric', 
@@ -795,7 +761,7 @@ export default function DataDashboard() {
       console.log('🔄 fetchDashboardData called with:', { selectedUser, adminDateRange })
       
       // Both admins and members see their own data
-      const userId = session?.user?.id
+      const userId = selectedUser
       
       if (!userId) {
         console.log('❌ Skipping fetch - no user ID available')
@@ -826,7 +792,7 @@ export default function DataDashboard() {
     }
     
     fetchDashboardData()
-  }, [adminDateRange, session?.user?.id])
+  }, [adminDateRange, selectedUser])
   
   // Live session state
   const [liveSession, setLiveSession] = useState<LiveSession | null>(null)
@@ -1277,15 +1243,15 @@ export default function DataDashboard() {
   // Live session management
   const startLiveSession = async (clockInTime: Date) => {
     try {
-      console.log('🔍 startLiveSession called with:', { selectedUser, session: session?.user?.id, status })
+      console.log('🔍 startLiveSession called with:', { selectedUser, status: 'no-auth' })
       
-      // Get the correct user ID - prioritize session user ID over selectedUser
+      // Get the correct user ID - use selectedUser
       let userName = selectedUser
       
-      // If selectedUser is 'all' but we have a session, use the session user
-      if (userName === 'all' && session?.user?.id) {
-        userName = session.user.id
-        console.log('✅ Using session user ID instead of selectedUser:', userName)
+      // If selectedUser is 'all', use a default user
+      if (userName === 'all') {
+        userName = 'default-user'
+        console.log('✅ Using default user for clock-in:', userName)
       }
       
       console.log('🔍 Final userName before check:', userName)

@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +9,6 @@ import { User, ArrowLeft } from 'lucide-react'
 
 export default function TestImpersonation() {
   const searchParams = useSearchParams()
-  const { data: session, status } = useSession()
   
   const [isImpersonating, setIsImpersonating] = useState(false)
   const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
@@ -18,8 +16,6 @@ export default function TestImpersonation() {
 
   // Handle impersonation from URL parameters
   useEffect(() => {
-    if (status !== "authenticated") return
-    
     const impersonateId = searchParams?.get("impersonate")
     const impersonateRole = searchParams?.get("role")
     
@@ -33,30 +29,7 @@ export default function TestImpersonation() {
       setImpersonatedUser(null)
       setImpersonatedUserId(null)
     }
-  }, [searchParams, status])
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (status === "unauthenticated") {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
-          <p className="text-muted-foreground mb-4">Please sign in to test impersonation.</p>
-          <a href="/auth/signin" className="text-blue-600 hover:underline">Sign In</a>
-        </div>
-      </div>
-    )
-  }
+  }, [searchParams])
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,12 +111,12 @@ export default function TestImpersonation() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium mb-2">Current Session</h4>
+                  <h4 className="font-medium mb-2">Current Status</h4>
                   <p className="text-sm text-muted-foreground">
-                    User ID: {session?.user?.id || 'Not available'}
+                    No authentication required
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Email: {session?.user?.email || 'Not available'}
+                    Ready to test impersonation
                   </p>
                 </div>
                 
