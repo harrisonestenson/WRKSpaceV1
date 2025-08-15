@@ -233,6 +233,20 @@ export const TeamSetupStep = ({
     title: ''
   })
 
+  // Load team data from localStorage on component mount
+  useEffect(() => {
+    try {
+      const savedTeamData = localStorage.getItem('teamData')
+      if (savedTeamData) {
+        const parsedData = JSON.parse(savedTeamData)
+        console.log('Loading team data from localStorage:', parsedData)
+        setTeamData(parsedData)
+      }
+    } catch (error) {
+      console.error('Error loading team data from localStorage:', error)
+    }
+  }, [setTeamData])
+
   const handleAddMember = (teamIndex: number) => {
     setSelectedTeamIndex(teamIndex)
     setNewMemberData({
@@ -276,6 +290,15 @@ export const TeamSetupStep = ({
         )
       })
       console.log('Updated team data:', updatedData)
+      
+      // Save to localStorage for persistence
+      try {
+        localStorage.setItem('teamData', JSON.stringify(updatedData))
+        console.log('Team data saved to localStorage')
+      } catch (error) {
+        console.error('Error saving team data to localStorage:', error)
+      }
+      
       return updatedData
     })
 
@@ -367,10 +390,22 @@ export const TeamSetupStep = ({
                     isAdmin: true
                   }]
                 };
-                setTeamData((prev: any) => validateTeamData({
-                  ...prev,
-                  teams: [...prev.teams, newTeam]
-                }));
+                setTeamData((prev: any) => {
+                  const updatedData = validateTeamData({
+                    ...prev,
+                    teams: [...prev.teams, newTeam]
+                  })
+                  
+                  // Save to localStorage for persistence
+                  try {
+                    localStorage.setItem('teamData', JSON.stringify(updatedData))
+                    console.log('Team data saved to localStorage after team creation')
+                  } catch (error) {
+                    console.error('Error saving team data to localStorage:', error)
+                  }
+                  
+                  return updatedData
+                });
               }}
               className="flex items-center gap-2"
             >
@@ -461,9 +496,10 @@ export const TeamSetupStep = ({
                             )}
                             {!member.isAdmin && (
                               <Button
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to remove ${member.name} from the team?`)) {
-                                    setTeamData((prev: any) => validateTeamData({
+                                                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove ${member.name} from the team?`)) {
+                                  setTeamData((prev: any) => {
+                                    const updatedData = validateTeamData({
                                       ...prev,
                                       teams: prev.teams.map((t: any, i: number) => 
                                         i === index ? {
@@ -471,9 +507,20 @@ export const TeamSetupStep = ({
                                           members: t.members.filter((_: any, mi: number) => mi !== memberIndex)
                                         } : t
                                       )
-                                    }))
-                                  }
-                                }}
+                                    })
+                                    
+                                    // Save to localStorage for persistence
+                                    try {
+                                      localStorage.setItem('teamData', JSON.stringify(updatedData))
+                                      console.log('Team data saved to localStorage after member removal')
+                                    } catch (error) {
+                                      console.error('Error saving team data to localStorage:', error)
+                                    }
+                                    
+                                    return updatedData
+                                  })
+                                }
+                              }}
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
