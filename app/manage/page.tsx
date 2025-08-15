@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -25,6 +26,9 @@ const mockStreaks: any[] = []
 const mockRoles: any[] = []
 
 export default function ManageDashboard() {
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState("team-members")
+  
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false)
   const [isViewMembersOpen, setIsViewMembersOpen] = useState(false)
   const [isManageGoalsOpen, setIsManageGoalsOpen] = useState(false)
@@ -50,6 +54,14 @@ export default function ManageDashboard() {
   })
   const [streaks, setStreaks] = useState(mockStreaks)
   const [teamMembers, setTeamMembers] = useState<any[]>([])
+  
+  // Handle tab query parameter
+  useEffect(() => {
+    const tab = searchParams?.get('tab')
+    if (tab) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
   
   // Fetch team members on component mount
   useEffect(() => {
@@ -107,7 +119,7 @@ export default function ManageDashboard() {
           <p className="text-muted-foreground">Comprehensive platform management for users, teams, goals, streaks, and system settings</p>
         </div>
         
-        <Tabs defaultValue="team-members" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="team-members" className="flex items-center gap-2">
               <Users className="h-4 w-4" />

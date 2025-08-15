@@ -2465,8 +2465,8 @@ export default function LawFirmDashboard() {
                 variant="outline" 
                 size="sm"
                 onClick={() => {
-                  // Clear impersonation and return to admin view
-                  window.location.href = '/?role=admin'
+                  // Clear impersonation and return to team members section
+                  window.location.href = '/manage?tab=team-members'
                 }}
                 className="text-blue-700 border-blue-300 hover:bg-blue-100"
               >
