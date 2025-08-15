@@ -1,23 +1,34 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Crown,
-  CheckCircle,
-  AlertCircle,
-  Upload,
-  Plus,
-  Trash2,
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Check, 
+  Crown, 
+  CheckCircle, 
+  AlertCircle, 
+  Upload, 
+  Plus, 
+  Trash2, 
   X,
+  Bell,
+  Users,
+  Target,
+  FileText,
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 
@@ -54,8 +65,61 @@ export default function OnboardingPage() {
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null)
   
+  // Time tracking preferences state
+  const [timeTrackingPrefs, setTimeTrackingPrefs] = useState({
+    defaultCase: '',
+    timeFormat: 'decimal',
+    rounding: '15min',
+    autoStart: 'manual',
+    quickActions: ['Start Timer', 'Stop Timer']
+  })
+  
   // Use custom hook for complex state management
   const onboardingState = useOnboardingState(userRole, userName)
+  
+  // Helper function for safe select values
+  const safeSelectValue = (value: string | undefined, fallback: string) => {
+    return value || fallback
+  }
+  
+  // Helper function to validate team data
+  const validateTeamData = (data: any) => {
+    // Basic validation - ensure teams have names and at least one member
+    return {
+      ...data,
+      teams: data.teams.filter((team: any) => team && team.name && team.name.trim() !== '')
+    }
+  }
+  
+  // Destructure the state variables we need
+  const {
+    profilePhoto,
+    userTitle,
+    selectedRole,
+    durationOfEmployment,
+    yearsOfExperience,
+    durationOfPosition,
+    productivityPreferences,
+    notificationSettings,
+    teamData,
+    companyGoals,
+    streaksConfig,
+    positionExpectations,
+    legalCases,
+    personalGoals,
+    setProfilePhoto,
+    setUserTitle,
+    setSelectedRole,
+    setTeamData,
+    setPersonalGoals,
+    setPositionExpectations,
+    setDurationOfEmployment,
+    setYearsOfExperience,
+    setDurationOfPosition,
+    setNotificationSettings,
+    setLegalCases,
+    setCompanyGoals
+  } = onboardingState
   
   console.log('Onboarding component - isOnboardingComplete:', isOnboardingComplete)
   console.log('Onboarding component - userRole:', userRole)
@@ -105,7 +169,7 @@ export default function OnboardingPage() {
 
 
   // Calculate total steps based on role
-  const totalSteps = 7
+  const totalSteps = userRole === 'admin' ? 7 : 3
   const progressPercentage = (currentStep / totalSteps) * 100
   
   const nextStep = () => {
@@ -569,8 +633,352 @@ export default function OnboardingPage() {
   }
   
   const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 1:
+    // Team member onboarding flow (3 steps)
+    if (userRole === 'member') {
+      switch (currentStep) {
+        case 1:
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-24 h-24 relative">
+                  <Avatar className="w-24 h-24">
+                    <AvatarImage src={profilePhoto} />
+                    <AvatarFallback className="text-2xl">
+                      {userName ? userName.charAt(0).toUpperCase() : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Profile Setup</h3>
+                  <p className="text-muted-foreground">Let&apos;s get to know you better</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input
+                      id="title"
+                      value={userTitle}
+                      onChange={(e) => setUserTitle(e.target.value)}
+                      placeholder="e.g., Associate, Partner"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="role">Your Role</Label>
+                  <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {positionSuggestions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{position.name}</span>
+                            <span className="text-muted-foreground">({position.description})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Role-based Goals Preview */}
+                {selectedRole && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-blue-800 mb-3">🎯 Your Billable Hours Goals Preview</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-blue-700 font-medium">Role:</span>
+                        <span className="text-blue-800 font-semibold">
+                          {positionSuggestions.find(p => p.id === selectedRole)?.name}
+                        </span>
+                      </div>
+                      
+                      {(() => {
+                        const position = positionExpectations.find(p => p.id === selectedRole)
+                        if (position) {
+                          const daily = Math.round(position.expectedBillableHours / 260)
+                          const weekly = Math.round(position.expectedBillableHours / 52)
+                          const monthly = Math.round(position.expectedBillableHours / 12)
+                          
+                          return (
+                            <>
+                              <div className="grid grid-cols-3 gap-4 mt-4">
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-blue-600">{daily}</div>
+                                  <div className="text-sm text-blue-700">Daily Hours</div>
+                                  <div className="text-xs text-blue-600">({position.expectedBillableHours} ÷ 260 days)</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-blue-600">{weekly}</div>
+                                  <div className="text-sm text-blue-700">Weekly Hours</div>
+                                  <div className="text-xs text-blue-600">({position.expectedBillableHours} ÷ 52 weeks)</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-2xl font-bold text-blue-600">{monthly}</div>
+                                  <div className="text-sm text-blue-700">Monthly Hours</div>
+                                  <div className="text-xs text-blue-600">({position.expectedBillableHours} ÷ 12 months)</div>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-4 p-3 bg-blue-100 rounded border border-blue-300">
+                                <p className="text-sm text-blue-800">
+                                  <strong>Industry Standard:</strong> {position.name}s typically bill {position.expectedBillableHours} hours per year. 
+                                  This includes {position.expectedNonBillableHours} hours for administrative tasks, training, and development.
+                                </p>
+                              </div>
+                            </>
+                          )
+                        }
+                        return (
+                          <div className="text-center text-blue-600">
+                            <p>Select a role to see your personalized goals</p>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <Label htmlFor="department">Department (Optional)</Label>
+                  <Input
+                    id="department"
+                    placeholder="e.g., Litigation, Corporate"
+                  />
+                </div>
+              </div>
+            </div>
+          )
+          
+        case 2:
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Bell className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Notification Settings</h3>
+                  <p className="text-muted-foreground">Stay informed about your progress</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">Daily Goal Reminders</Label>
+                      <p className="text-sm text-muted-foreground">Get reminded about your daily targets</p>
+                    </div>
+                    <Switch
+                      checked={notificationSettings.dailyGoalReminders}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings(prev => ({ ...prev, dailyGoalReminders: checked }))
+                      }
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-medium">Milestone Progress Alerts</Label>
+                      <p className="text-sm text-muted-foreground">Celebrate when you reach important milestones</p>
+                    </div>
+                    <Switch
+                      checked={notificationSettings.milestoneProgressAlerts}
+                      onCheckedChange={(checked) =>
+                        setNotificationSettings(prev => ({ ...prev, milestoneProgressAlerts: checked }))
+                      }
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-base font-medium">Delivery Method</Label>
+                  <Select 
+                    value={notificationSettings.deliveryMethod} 
+                    onValueChange={(value) =>
+                      setNotificationSettings(prev => ({ ...prev, deliveryMethod: value }))
+                    }
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="email">Email Only</SelectItem>
+                      <SelectItem value="in-app">In-App Only</SelectItem>
+                      <SelectItem value="both">Both Email & In-App</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Goals Preview Reminder */}
+                {selectedRole && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-800">
+                      <strong>💡 Remember:</strong> Your billable hours goals are automatically set based on your selected role 
+                      ({positionSuggestions.find(p => p.id === selectedRole)?.name}). 
+                      You can review the exact numbers in the next step.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+          
+        case 3:
+          return (
+            <div className="space-y-6">
+              <div className="text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <Target className="h-8 w-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Review & Complete</h3>
+                  <p className="text-muted-foreground">Review your information and complete setup</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6">
+                <Card className="p-6">
+                  <h4 className="font-semibold mb-4">Profile Summary</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{userName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Title:</span>
+                      <span className="font-medium">{userTitle}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Role:</span>
+                      <span className="font-medium">
+                        {positionSuggestions.find(p => p.id === selectedRole)?.name || selectedRole}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+                
+                {/* Final Goals Summary */}
+                {selectedRole && (() => {
+                  const position = positionExpectations.find(p => p.id === selectedRole)
+                  if (position) {
+                    const daily = Math.round(position.expectedBillableHours / 260)
+                    const weekly = Math.round(position.expectedBillableHours / 52)
+                    const monthly = Math.round(position.expectedBillableHours / 12)
+                    
+                    return (
+                      <Card className="p-6">
+                        <h4 className="font-semibold mb-4">🎯 Your Billable Hours Goals</h4>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center">
+                              <div className="text-3xl font-bold text-green-600">{daily}</div>
+                              <div className="text-sm text-muted-foreground">Daily Hours</div>
+                              <div className="text-xs text-muted-foreground">
+                                {position.expectedBillableHours} ÷ 260 days
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-3xl font-bold text-green-600">{weekly}</div>
+                              <div className="text-sm text-muted-foreground">Weekly Hours</div>
+                              <div className="text-xs text-muted-foreground">
+                                {position.expectedBillableHours} ÷ 52 weeks
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-3xl font-bold text-green-600">{monthly}</div>
+                              <div className="text-sm text-muted-foreground">Monthly Hours</div>
+                              <div className="text-xs text-muted-foreground">
+                                {position.expectedBillableHours} ÷ 12 months
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                            <p className="text-sm text-green-800">
+                              <strong>Industry Standard:</strong> Based on your role as a {position.name}, 
+                              you'll be expected to bill {position.expectedBillableHours} hours annually. 
+                              This includes {position.expectedNonBillableHours} hours for administrative work, 
+                              training, and professional development.
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  }
+                  return null
+                })()}
+                
+                <Card className="p-6">
+                  <h4 className="font-semibold mb-4">Notification Preferences</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Daily Goal Reminders:</span>
+                      <Badge variant={notificationSettings.dailyGoalReminders ? "default" : "secondary"}>
+                        {notificationSettings.dailyGoalReminders ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Milestone Alerts:</span>
+                      <Badge variant={notificationSettings.milestoneProgressAlerts ? "default" : "secondary"}>
+                        {notificationSettings.milestoneProgressAlerts ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Delivery Method:</span>
+                      <span className="font-medium capitalize">{notificationSettings.deliveryMethod}</span>
+                    </div>
+                  </div>
+                </Card>
+                
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    <strong>✅ Goals Set:</strong> Your billable hours goals have been automatically calculated based on industry standards 
+                    for your role. These goals will be created in your dashboard and you can start tracking your progress immediately.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
+          
+        default:
+          return null
+      }
+    }
+    
+         // Admin onboarding flow (7 steps)
+     switch (currentStep) {
+       case 1:
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">

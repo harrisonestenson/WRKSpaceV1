@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Clock, Target, BarChart3, Database, TrendingUp, Play, Pause, Square, LogIn, LogOut, X, Edit, User, Settings, Users, UserPlus, Shield, FileText, Plus, Archive, Bell, Download, Eye, EyeOff, Flame, Building2, UserCheck, Mail, Calendar, Trash2, Search, Filter, MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, XCircle, AlertCircle, DollarSign, Zap, Crown, Key, Globe, Palette, BellRing, Upload, Download as DownloadIcon, Eye as EyeIcon, EyeOff as EyeOffIcon, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import TeamMembersSection from "@/components/team-members-section"
+import TeamInvitationsSection from "@/components/team-invitations-section"
 
 // Team members state - will be populated from API
 const mockTeams: any[] = []
@@ -107,7 +108,7 @@ export default function ManageDashboard() {
         </div>
         
         <Tabs defaultValue="team-members" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="team-members" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Team Members
@@ -115,6 +116,10 @@ export default function ManageDashboard() {
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Teams
+            </TabsTrigger>
+            <TabsTrigger value="invitations" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Invitations
             </TabsTrigger>
             <TabsTrigger value="goals" className="flex items-center gap-2">
               <Target className="h-4 w-4" />
@@ -405,6 +410,11 @@ export default function ManageDashboard() {
                 </div>
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          {/* Invitations Tab */}
+          <TabsContent value="invitations" className="space-y-6 mt-6">
+            <TeamInvitationsSection />
           </TabsContent>
 
           {/* Goals Tab */}
