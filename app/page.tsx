@@ -252,6 +252,8 @@ export default function LawFirmDashboard() {
   const [nonBillableDescription, setNonBillableDescription] = useState("")
   
   // Initialize timer states from localStorage on component mount
+  const [isTimerRestored, setIsTimerRestored] = useState(false)
+  
   useEffect(() => {
     // Restore billable timer
     const savedBillableTimer = localStorage.getItem('billableTimer')
@@ -267,9 +269,42 @@ export default function LawFirmDashboard() {
         const isLessThan24Hours = elapsedMs < 24 * 60 * 60 * 1000
         
         if (isToday && isLessThan24Hours && timerData.isRunning) {
-          setTimerSeconds(Math.floor(elapsedMs / 1000))
+          // Calculate elapsed time since timer was started
+          const elapsedSeconds = Math.floor(elapsedMs / 1000)
+          console.log('🔄 Restoring timer state:', {
+            elapsedSeconds,
+            activeCaseId: timerData.activeCaseId,
+            selectedCases: timerData.selectedCases,
+            caseTimers: timerData.caseTimers
+          })
+          
+          setTimerSeconds(elapsedSeconds)
           setIsTimerRunning(true)
           setSelectedCases(timerData.selectedCases || [])
+          setActiveCaseId(timerData.activeCaseId || null)
+          setCaseTimers(timerData.caseTimers || {})
+          setCaseSwitchLog(timerData.caseSwitchLog || [])
+          
+          // Preserve existing case timers - don't overwrite them with total elapsed time
+          if (timerData.activeCaseId && timerData.caseTimers) {
+            const updatedCaseTimers = { ...timerData.caseTimers }
+            // Only initialize case timer if it doesn't exist, don't overwrite existing values
+            if (!updatedCaseTimers[timerData.activeCaseId]) {
+              updatedCaseTimers[timerData.activeCaseId] = 0
+            }
+            setCaseTimers(updatedCaseTimers)
+          }
+          
+          // Update localStorage with corrected start time to ensure smooth continuation
+          const correctedTimerData = {
+            startTime: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
+            isRunning: true,
+            selectedCases: timerData.selectedCases || [],
+            activeCaseId: timerData.activeCaseId,
+            caseTimers: timerData.caseTimers || {},
+            caseSwitchLog: timerData.caseSwitchLog || []
+          }
+          localStorage.setItem('billableTimer', JSON.stringify(correctedTimerData))
 
         } else {
           // Clear stale timer
@@ -280,6 +315,9 @@ export default function LawFirmDashboard() {
         localStorage.removeItem('billableTimer')
       }
     }
+    
+    // Mark timer restoration as complete
+    setIsTimerRestored(true)
     
     // Restore non-billable timer
     const savedNonBillableTimer = localStorage.getItem('nonBillableTimer')
@@ -953,20 +991,67 @@ export default function LawFirmDashboard() {
   // Timer effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
-    if (isTimerRunning && activeCaseId) {
+    console.log('⏰ Timer effect triggered:', { isTimerRunning, activeCaseId, isTimerRestored })
+    
+    if (isTimerRunning && activeCaseId && isTimerRestored) {
+      console.log('▶️ Starting timer interval for case:', activeCaseId)
       interval = setInterval(() => {
         setTimerSeconds((seconds) => seconds + 1)
         // Update active case timer
-        setCaseTimers(prev => ({
-          ...prev,
-          [activeCaseId]: (prev[activeCaseId] || 0) + 1
-        }))
+        setCaseTimers(prev => {
+          const updated = {
+            ...prev,
+            [activeCaseId]: (prev[activeCaseId] || 0) + 1
+          }
+          console.log('⏱️ Timer tick - case timers updated:', updated)
+          return updated
+        })
       }, 1000)
+    } else {
+      console.log('⏸️ Timer not running or not ready:', { isTimerRunning, activeCaseId, isTimerRestored })
     }
+    
     return () => {
-      if (interval) clearInterval(interval)
+      if (interval) {
+        console.log('⏹️ Clearing timer interval')
+        clearInterval(interval)
+      }
     }
-  }, [isTimerRunning, activeCaseId])
+  }, [isTimerRunning, activeCaseId, isTimerRestored])
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    if (isTimerRunning && activeCaseId && isTimerRestored) {
+      const timerData = {
+        startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+        isRunning: true,
+        selectedCases,
+        activeCaseId,
+        caseTimers,
+        caseSwitchLog
+      }
+      localStorage.setItem('billableTimer', JSON.stringify(timerData))
+      console.log('💾 Saved timer state to localStorage:', timerData)
+    }
+  }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
+
+  // Cleanup effect to save timer state when component unmounts
+  useEffect(() => {
+    return () => {
+      // Save current timer state when component unmounts
+      if (isTimerRunning && activeCaseId && isTimerRestored) {
+        const timerData = {
+          startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+          isRunning: true,
+          selectedCases,
+          activeCaseId,
+          caseTimers,
+          caseSwitchLog
+        }
+        localStorage.setItem('billableTimer', JSON.stringify(timerData))
+      }
+    }
+  }, [isTimerRunning, activeCaseId, timerSeconds, selectedCases, caseTimers, caseSwitchLog, isTimerRestored])
 
   // Personal goals state
   const [personalGoals, setPersonalGoals] = useState<any[]>([])
@@ -1247,13 +1332,24 @@ export default function LawFirmDashboard() {
       return
     }
     
+    console.log('▶️ Starting timer - existing case timers:', caseTimers)
     setIsTimerRunning(true)
     
     // Start tracking the first selected case
     const firstCaseId = selectedCases[0]
     setActiveCaseId(firstCaseId)
-    setCaseTimers(prev => ({ ...prev, [firstCaseId]: 0 }))
-    setCaseSwitchLog([{ caseId: firstCaseId, startTime: Date.now() }])
+    
+    // Preserve existing case timers and only initialize new ones if they don't exist
+    const updatedCaseTimers = { ...caseTimers }
+    if (!updatedCaseTimers[firstCaseId]) {
+      updatedCaseTimers[firstCaseId] = 0
+    }
+    setCaseTimers(updatedCaseTimers)
+    
+    // Preserve existing case switch log and add new entry
+    const updatedCaseSwitchLog = caseSwitchLog.filter(log => log.caseId !== firstCaseId || log.endTime)
+    updatedCaseSwitchLog.push({ caseId: firstCaseId, startTime: Date.now() })
+    setCaseSwitchLog(updatedCaseSwitchLog)
     
     // Save timer state to localStorage
     const timerData = {
@@ -1261,10 +1357,12 @@ export default function LawFirmDashboard() {
       isRunning: true,
       selectedCases,
       activeCaseId: firstCaseId,
-      caseTimers: { [firstCaseId]: 0 },
-      caseSwitchLog: [{ caseId: firstCaseId, startTime: Date.now() }]
+      caseTimers: updatedCaseTimers,
+      caseSwitchLog: updatedCaseSwitchLog
     }
     localStorage.setItem('billableTimer', JSON.stringify(timerData))
+    
+    console.log('💾 Timer started - updated case timers:', updatedCaseTimers)
     
     // Dispatch live timer event to data dashboard
     window.dispatchEvent(new CustomEvent('startLiveTimer', { 
@@ -1278,6 +1376,7 @@ export default function LawFirmDashboard() {
   }
 
   const pauseTimer = () => {
+    console.log('⏸️ Pausing timer - preserving case timers:', caseTimers)
     setIsTimerRunning(false)
     
     // Update timer state in localStorage
