@@ -278,31 +278,33 @@ export default function LawFirmDashboard() {
             selectedCases: timerData.selectedCases,
             caseTimers: timerData.caseTimers
           })
-          
-          setTimerSeconds(elapsedSeconds)
+          // Use saved timerSeconds and lastUpdatedAt to avoid 1s drift
+          const savedTimerSeconds = typeof timerData.timerSeconds === 'number' ? timerData.timerSeconds : elapsedSeconds
+          const lastUpdatedAt = timerData.lastUpdatedAt ? new Date(timerData.lastUpdatedAt) : new Date(timerData.startTime)
+          const deltaSinceSave = timerData.isRunning ? Math.floor((now.getTime() - lastUpdatedAt.getTime()) / 1000) : 0
+          const restoredTimerSeconds = savedTimerSeconds + deltaSinceSave
+
+          setTimerSeconds(restoredTimerSeconds)
           setIsTimerRunning(timerData.isRunning || false)
           setSelectedCases(timerData.selectedCases || [])
           setActiveCaseId(timerData.activeCaseId || null)
-          setCaseTimers(timerData.caseTimers || {})
-          setCaseSwitchLog(timerData.caseSwitchLog || [])
-          
-          // Preserve existing case timers - don't overwrite them with total elapsed time
-          if (timerData.activeCaseId && timerData.caseTimers) {
-            const updatedCaseTimers = { ...timerData.caseTimers }
-            // Only initialize case timer if it doesn't exist, don't overwrite existing values
-            if (!updatedCaseTimers[timerData.activeCaseId]) {
-              updatedCaseTimers[timerData.activeCaseId] = 0
-            }
-            setCaseTimers(updatedCaseTimers)
+          // Adjust active case timer by the delta since last save if running
+          const restoredCaseTimers = { ...(timerData.caseTimers || {}) }
+          if ((timerData.isRunning && timerData.activeCaseId)) {
+            restoredCaseTimers[timerData.activeCaseId] = (restoredCaseTimers[timerData.activeCaseId] || 0) + deltaSinceSave
           }
+          setCaseTimers(restoredCaseTimers)
+          setCaseSwitchLog(timerData.caseSwitchLog || [])
           
           // Update localStorage with corrected start time to ensure smooth continuation
           const correctedTimerData = {
-            startTime: new Date(Date.now() - elapsedSeconds * 1000).toISOString(),
+            startTime: new Date(Date.now() - restoredTimerSeconds * 1000).toISOString(),
+            lastUpdatedAt: new Date().toISOString(),
+            timerSeconds: restoredTimerSeconds,
             isRunning: timerData.isRunning || false, // Preserve the actual running state
             selectedCases: timerData.selectedCases || [],
             activeCaseId: timerData.activeCaseId,
-            caseTimers: timerData.caseTimers || {},
+            caseTimers: restoredCaseTimers,
             caseSwitchLog: timerData.caseSwitchLog || []
           }
           localStorage.setItem('billableTimer', JSON.stringify(correctedTimerData))
@@ -1023,8 +1025,11 @@ export default function LawFirmDashboard() {
   // Save timer state to localStorage whenever it changes
   useEffect(() => {
     if (activeCaseId && isTimerRestored) {
+      const nowIso = new Date().toISOString()
       const timerData = {
         startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+        lastUpdatedAt: nowIso,
+        timerSeconds,
         isRunning: isTimerRunning, // Respect the actual running state
         selectedCases,
         activeCaseId,
@@ -1041,8 +1046,11 @@ export default function LawFirmDashboard() {
     return () => {
       // Save current timer state when component unmounts
       if (activeCaseId && isTimerRestored) {
+        const nowIso = new Date().toISOString()
         const timerData = {
           startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+          lastUpdatedAt: nowIso,
+          timerSeconds,
           isRunning: isTimerRunning, // Respect the actual running state
           selectedCases,
           activeCaseId,
@@ -1354,8 +1362,11 @@ export default function LawFirmDashboard() {
     setCaseSwitchLog(updatedCaseSwitchLog)
     
     // Save timer state to localStorage
+    const nowIso = new Date().toISOString()
     const timerData = {
-      startTime: new Date().toISOString(),
+      startTime: nowIso,
+      lastUpdatedAt: nowIso,
+      timerSeconds: 0,
       isRunning: true,
       selectedCases,
       activeCaseId: firstCaseId,
@@ -1382,8 +1393,11 @@ export default function LawFirmDashboard() {
     setIsTimerRunning(false)
     
     // Update timer state in localStorage
+    const nowIso = new Date().toISOString()
     const timerData = {
       startTime: new Date(Date.now() - timerSeconds * 1000).toISOString(),
+      lastUpdatedAt: nowIso,
+      timerSeconds,
       isRunning: false,
       selectedCases,
       activeCaseId,
