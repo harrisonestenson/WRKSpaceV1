@@ -373,10 +373,22 @@ export const TeamSetupStep = ({
             <h4 className="font-medium">Your Teams ({teamData.teams.length})</h4>
             <Button
               onClick={() => {
+                // Debug the values being used
+                console.log('Team creation debug:', {
+                  selectedRole,
+                  positionExpectations,
+                  userName,
+                  availableRoles: availableRoles.length
+                })
+                
                 // Get the user's actual position expectations based on their selected role
                 const userPosition = positionExpectations?.find(p => p.id === selectedRole)
                 const userBillableHours = userPosition?.expectedBillableHours || 1500
                 const userNonBillableHours = userPosition?.expectedNonBillableHours || 120
+                
+                console.log('User position found:', userPosition)
+                console.log('Billable hours:', userBillableHours)
+                console.log('Non-billable hours:', userNonBillableHours)
                 
                 const newTeam = {
                   name: `Team ${teamData.teams.length + 1}`,
@@ -419,6 +431,9 @@ export const TeamSetupStep = ({
             <h5 className="font-medium text-yellow-800 mb-2">Debug Info</h5>
             <div className="text-sm text-yellow-700">
               <div>Total teams: {teamData.teams.length}</div>
+              <div>Selected Role: {selectedRole || 'Not set'}</div>
+              <div>Position Expectations Count: {positionExpectations?.length || 0}</div>
+              <div>Available Roles: {availableRoles.length}</div>
               <div>Teams data: {JSON.stringify(teamData.teams, null, 2)}</div>
             </div>
           </div>
