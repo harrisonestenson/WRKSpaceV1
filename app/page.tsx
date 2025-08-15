@@ -2282,10 +2282,8 @@ export default function LawFirmDashboard() {
                   </Button>
                 </Link>
 
-
-
                 {!isOnboardingCompleted ? (
-                  <Link href={`/onboarding?role=${userRole}`}>
+                  <Link href={`/onboarding?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
                     <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
                       <User className="h-4 w-4" />
                       Onboarding
@@ -2303,7 +2301,7 @@ export default function LawFirmDashboard() {
                     <DropdownMenuContent>
                       <DropdownMenuLabel>Onboarding Options</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => router.push(`/onboarding?role=${userRole}`)}>
+                      <DropdownMenuItem onClick={() => router.push(`/onboarding?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`)}>
                         <User className="h-4 w-4 mr-2" />
                         View Onboarding
                       </DropdownMenuItem>
@@ -2315,7 +2313,7 @@ export default function LawFirmDashboard() {
                   </DropdownMenu>
                 )}
 
-                {userRole === "admin" && (
+                {userRole === "admin" && !isImpersonating && (
                   <Link href="/manage">
                     <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
                       <Settings className="h-4 w-4" />
@@ -2472,9 +2470,11 @@ export default function LawFirmDashboard() {
       )}
 
       {/* Role Switcher */}
-      <div className="container mx-auto px-4 pt-3">
-        <RoleSwitcher />
-      </div>
+      {!isImpersonating && (
+        <div className="container mx-auto px-4 pt-3">
+          <RoleSwitcher />
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 pb-4">

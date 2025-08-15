@@ -651,7 +651,7 @@ export default function GoalsDashboard() {
                   </SelectContent>
                 </Select>
                 {/* Update the Personal Goals "New Goal" button */}
-                <Link href={`/goals/new?type=personal&role=${userRole}`}>
+                <Link href={`/goals/new?type=personal&role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUser?.id}` : ''}`}>
                   <Button size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     New Goal
@@ -676,7 +676,7 @@ export default function GoalsDashboard() {
                       ? "Create your first personal goal to start tracking your progress"
                       : `Create a ${personalSortBy} personal goal to start tracking your progress`}
                   </p>
-                  <Link href={`/goals/new?type=personal&role=${userRole}`}>
+                  <Link href={`/goals/new?type=personal&role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUser?.id}` : ''}`}>
                     <Button>
                       <Plus className="h-4 w-4 mr-2" />
                       Create Personal Goal

@@ -1530,10 +1530,12 @@ export default function DataDashboard() {
                 </Button>
               </>
             )}
-            <Button variant="outline" onClick={() => setActiveSection(null)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+            <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -1941,10 +1943,12 @@ export default function DataDashboard() {
               See how your time is divided across your cases
             </p>
           </div>
-          <Button variant="outline" onClick={() => setActiveSection(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
         </div>
 
         {/* Filter Bar */}
@@ -2166,10 +2170,12 @@ export default function DataDashboard() {
           <AlertTriangle className="h-6 w-6" />
           Unaccounted Time
         </h2>
-        <Button variant="outline" onClick={() => setActiveSection(null)}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
+          <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
       </div>
       
             <Card>
@@ -2308,10 +2314,12 @@ export default function DataDashboard() {
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={() => setActiveSection(null)}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+            <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -2501,10 +2509,12 @@ export default function DataDashboard() {
               {isAdmin ? "Comprehensive team performance analytics" : "Your personal performance insights"}
             </p>
           </div>
-          <Button variant="outline" onClick={() => setActiveSection(null)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
+          <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+          </Link>
         </div>
 
         {/* Admin Controls */}
@@ -2972,7 +2982,7 @@ export default function DataDashboard() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href={`/?role=${userRole}`}>
+              <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Back to Dashboard
@@ -3033,7 +3043,7 @@ export default function DataDashboard() {
                 size="sm"
                 onClick={() => {
                   // Clear impersonation and return to admin view
-                  window.location.href = '/data?role=admin'
+                  window.location.href = '/?role=admin'
                 }}
                 className="text-blue-700 border-blue-300 hover:bg-blue-100"
               >
