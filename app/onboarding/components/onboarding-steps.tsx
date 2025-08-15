@@ -580,6 +580,16 @@ export const TeamSetupStep = ({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 border border-gray-200">
             <div className="space-y-6">
+              {/* Debug info in modal */}
+              <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
+                <div className="text-sm font-medium text-yellow-800">Debug: Modal State</div>
+                <div className="text-xs text-yellow-700 mt-1">
+                  Selected Team: {selectedTeamIndex} | 
+                  Team Name: {teamData.teams[selectedTeamIndex!]?.name || 'Unknown'} |
+                  Current Members: {teamData.teams[selectedTeamIndex!]?.members?.length || 0}
+                </div>
+              </div>
+              
               <div className="text-center">
                 <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
                   <Users className="h-6 w-6 text-blue-600" />
@@ -661,6 +671,17 @@ export const TeamSetupStep = ({
                 </div>
               </div>
 
+              {/* Debug: Form data */}
+              <div className="p-3 bg-gray-50 rounded border border-gray-200">
+                <div className="text-sm font-medium text-gray-800">Debug: Form Data</div>
+                <div className="text-xs text-gray-700 mt-1">
+                  Name: "{newMemberData.name}" | 
+                  Email: "{newMemberData.email}" | 
+                  Role: "{newMemberData.role}" | 
+                  Title: "{newMemberData.title}"
+                </div>
+              </div>
+              
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <Button
                   variant="outline"
