@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Building2,
+  User,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -54,18 +55,35 @@ const frequencies = [
 export default function GoalsDashboard() {
   const searchParams = useSearchParams()
   const userRole = (searchParams?.get("role") as "admin" | "member") || "member"
+  const impersonateId = searchParams?.get("impersonate")
+  
+  // Impersonation state
+  const [isImpersonating, setIsImpersonating] = useState(false)
+  const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
   
   // Get the selected team member from localStorage instead of creating a generic ID
   const selectedMemberName = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberName') : null
   const selectedMemberId = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberId') : null
   
-  // Use the actual team member's name/ID if available, otherwise fall back to generic ID
-  const userId = selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
+  // Use impersonated user ID if available, otherwise fall back to normal logic
+  const userId = impersonateId || selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
   
   // State for real data
   const [realGoalsData, setRealGoalsData] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Handle impersonation
+  useEffect(() => {
+    if (impersonateId) {
+      console.log('🎭 Goals page - Impersonation detected:', { impersonateId, userRole })
+      setIsImpersonating(true)
+      setImpersonatedUser({ id: impersonateId, role: userRole })
+    } else {
+      setIsImpersonating(false)
+      setImpersonatedUser(null)
+    }
+  }, [impersonateId, userRole])
 
   // Fetch real data from onboarding
   useEffect(() => {
@@ -554,7 +572,7 @@ export default function GoalsDashboard() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href={`/?role=${userRole}`}>
+              <Link href={`/?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUser?.id}` : ''}`}>
                 <Button variant="ghost" size="sm" className="flex items-center gap-2">
                   <ArrowLeft className="h-4 w-4" />
                   Back to Dashboard
@@ -571,6 +589,38 @@ export default function GoalsDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    Viewing as: {impersonatedUser?.name || `User ${impersonatedUser?.id}`}
+                  </span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    {impersonatedUser?.role === 'admin' ? 'Admin' : 'Member'}
+                  </Badge>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // Clear impersonation and return to admin view
+                  window.location.href = '/?role=admin'
+                }}
+                className="text-blue-700 border-blue-300 hover:bg-blue-100"
+              >
+                Return to My Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content - 2 Column Layout */}
       <main className="container mx-auto px-4 py-6">

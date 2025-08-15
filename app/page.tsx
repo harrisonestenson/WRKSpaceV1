@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -117,6 +117,7 @@ declare global {
 
 export default function LawFirmDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
@@ -125,6 +126,11 @@ export default function LawFirmDashboard() {
   
   // User ID state - get from onboarding store or localStorage
   const [currentUserId, setCurrentUserId] = useState<string>('default-user')
+  
+  // Impersonation state
+  const [isImpersonating, setIsImpersonating] = useState(false)
+  const [impersonatedUser, setImpersonatedUser] = useState<any>(null)
+  const [impersonatedUserId, setImpersonatedUserId] = useState<string | null>(null)
   
   // Legal cases state
   const [legalCases, setLegalCases] = useState<any[]>([])
@@ -135,16 +141,33 @@ export default function LawFirmDashboard() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const role = urlParams.get('role')
+    const impersonateId = urlParams.get('impersonate')
     const savedCompletion = localStorage.getItem('onboardingComplete')
     
-    if (!role && savedCompletion !== 'true') {
-      // Redirect to role selection if no role is selected and onboarding is not completed
-      router.push('/role-select')
-      return
-    }
-    
-    if (role) {
+    // Handle impersonation
+    if (impersonateId && role) {
+      console.log('🎭 Impersonation detected:', { impersonateId, role })
+      setIsImpersonating(true)
+      setImpersonatedUserId(impersonateId)
+      setImpersonatedUser({ id: impersonateId, role: role })
+      
+      // Set the impersonated user's role
       setUserRole(role as "admin" | "member")
+    } else {
+      setIsImpersonating(false)
+      setImpersonatedUser(null)
+      setImpersonatedUserId(null)
+      
+      // Normal role selection
+      if (!role && savedCompletion !== 'true') {
+        // Redirect to role selection if no role is selected and onboarding is not completed
+        router.push('/role-select')
+        return
+      }
+      
+      if (role) {
+        setUserRole(role as "admin" | "member")
+      }
     }
   }, [router])
 
@@ -2245,14 +2268,14 @@ export default function LawFirmDashboard() {
             <div className="flex items-center gap-6">
               <h1 className="text-xl font-bold">WORKSPACE</h1>
               <div className="flex items-center gap-3">
-                <Link href={`/goals?role=${userRole}`}>
+                <Link href={`/goals?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
                   <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
                     <Target className="h-4 w-4" />
                     Goals
                   </Button>
                 </Link>
 
-                <Link href={`/data?role=${userRole}`}>
+                <Link href={`/data?role=${userRole}${isImpersonating ? `&impersonate=${impersonatedUserId}` : ''}`}>
                   <Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent">
                     <Database className="h-4 w-4" />
                     Data
@@ -2415,6 +2438,38 @@ export default function LawFirmDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Impersonation Banner */}
+      {isImpersonating && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    Viewing as: {impersonatedUser?.name || `User ${impersonatedUserId}`}
+                  </span>
+                  <Badge variant="outline" className="text-blue-700 border-blue-300">
+                    {impersonatedUser?.role === 'admin' ? 'Admin' : 'Member'}
+                  </Badge>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  // Clear impersonation and return to admin view
+                  window.location.href = '/?role=admin'
+                }}
+                className="text-blue-700 border-blue-300 hover:bg-blue-100"
+              >
+                Return to My Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Role Switcher */}
       <div className="container mx-auto px-4 pt-3">
