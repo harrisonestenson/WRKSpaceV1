@@ -211,9 +211,7 @@ export default function OnboardingPage() {
       errors.push('Title is required')
     }
     
-    if (!onboardingState.selectedRole || onboardingState.selectedRole === 'admin') {
-      errors.push('Please select your actual position/role (not admin)')
-    }
+
     
     // Personal goals validation
     if (onboardingState.personalGoals.dailyBillable <= 0 || onboardingState.personalGoals.weeklyBillable <= 0 || onboardingState.personalGoals.monthlyBillable <= 0) {
