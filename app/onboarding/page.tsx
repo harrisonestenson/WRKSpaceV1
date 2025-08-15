@@ -459,6 +459,60 @@ export default function OnboardingPage() {
               console.log('Legal cases saved:', legalCasesData)
             }
           }
+
+          // Save team data to database for manage dashboard access
+          if (teamData.teams && teamData.teams.length > 0) {
+            console.log('Saving team data to database:', teamData)
+            
+            const teamDataResponse = await fetch('/api/onboarding', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                profile: {
+                  name: userName,
+                  title: userTitle,
+                  role: selectedRole,
+                  photo: profilePhoto,
+                  productivityPreferences,
+                  notificationSettings
+                },
+                teamData: {
+                  teams: teamData.teams.map((team: any) => ({
+                    name: team.name,
+                    department: team.department || '',
+                    members: team.members.map((member: any) => ({
+                      name: member.name,
+                      email: member.email || '',
+                      title: member.title || '',
+                      role: member.role || 'member',
+                      isAdmin: member.isAdmin || false,
+                      expectedBillableHours: member.expectedBillableHours || 1500,
+                      expectedNonBillablePoints: member.expectedNonBillablePoints || 120,
+                      personalTarget: member.personalTarget || "6 hours/day"
+                    }))
+                  })),
+                  companyGoals: teamData.companyGoals || {
+                    weeklyBillable: 0,
+                    monthlyBillable: 0,
+                    yearlyBillable: 0
+                  },
+                  defaultGoalTypes: teamData.defaultGoalTypes || []
+                },
+                streaksConfig,
+                teamMemberExpectations: positionExpectations,
+                legalCases
+              }),
+            })
+            
+            if (teamDataResponse.ok) {
+              const teamDataResult = await teamDataResponse.json()
+              console.log('Team data saved to database:', teamDataResult)
+            } else {
+              console.error('Failed to save team data:', await teamDataResponse.text())
+            }
+          }
         } catch (error) {
           console.error('Error saving additional admin data:', error)
           // Don't fail the onboarding for these errors
