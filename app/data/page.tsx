@@ -209,7 +209,12 @@ export default function DataDashboard() {
       console.log('🎭 Impersonation detected:', { impersonateId, impersonateRole })
       setIsImpersonating(true)
       setImpersonatedUserId(impersonateId)
-      setSelectedUser(impersonateId)
+      
+      // Extract user name from impersonated user ID for data fetching
+      // e.g., "member-Harry Estenson-Team 1" -> "Harry Estenson"
+      const match = impersonateId.match(/member-(.+?)-Team \d+/)
+      const actualUserName = match ? match[1] : impersonateId
+      setSelectedUser(actualUserName)
       
       // Fetch the impersonated user's data
       fetchImpersonatedUserData(impersonateId)

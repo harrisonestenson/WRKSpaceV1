@@ -66,7 +66,15 @@ export default function GoalsDashboard() {
   const selectedMemberId = typeof window !== 'undefined' ? localStorage.getItem('selectedMemberId') : null
   
   // Use impersonated user ID if available, otherwise fall back to normal logic
-  const userId = impersonateId || selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
+  // When impersonating, extract the actual user name from the impersonated user ID
+  let userId: string
+  if (impersonateId) {
+    // Extract user name from impersonated user ID (e.g., "member-Harry Estenson-Team 1" -> "Harry Estenson")
+    const match = impersonateId.match(/member-(.+?)-Team \d+/)
+    userId = match ? match[1] : impersonateId
+  } else {
+    userId = selectedMemberName || selectedMemberId || `${userRole}-user-${Date.now()}`
+  }
   
   // State for real data
   const [realGoalsData, setRealGoalsData] = useState<any>(null)

@@ -744,10 +744,18 @@ export default function LawFirmDashboard() {
       setIsLoadingDashboard(true)
       setDashboardError(null)
       
-      const selectedMemberId = localStorage.getItem('selectedMemberId')
-      const url = selectedMemberId 
-        ? `/api/dashboard?userId=${encodeURIComponent(selectedMemberId)}&role=${userRole}&timeFrame=monthly`
-        : `/api/dashboard?userId=${encodeURIComponent(currentUserId)}&role=${userRole}&timeFrame=monthly`
+      // Determine the user ID to fetch data for
+      let userIdToFetch: string
+      if (isImpersonating && impersonatedUserId) {
+        // Extract user name from impersonated user ID (e.g., "member-Harry Estenson-Team 1" -> "Harry Estenson")
+        const match = impersonatedUserId.match(/member-(.+?)-Team \d+/)
+        userIdToFetch = match ? match[1] : impersonatedUserId
+      } else {
+        const selectedMemberId = localStorage.getItem('selectedMemberId')
+        userIdToFetch = selectedMemberId || currentUserId
+      }
+      
+      const url = `/api/dashboard?userId=${encodeURIComponent(userIdToFetch)}&role=${userRole}&timeFrame=monthly`
       
       const response = await fetch(url)
       const data = await response.json()
