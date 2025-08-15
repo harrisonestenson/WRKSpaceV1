@@ -502,7 +502,7 @@ export const TeamSetupStep = ({
                             <div>
                               <div className="font-medium text-sm">{member.name}</div>
                               <div className="text-xs text-muted-foreground">
-                                {member.title} • {member.expectedBillableHours}h/year
+                                {member.title}
                               </div>
                             </div>
                           </div>
